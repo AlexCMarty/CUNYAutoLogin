@@ -1,0 +1,33 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  width: 300px;
+  min-width: 200px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.login-info-container {
+    display: flex;
+    flex-flow: column nowrap;
+}
+
+.entry-box {
+    display: flex;
+    flex-flow: column nowrap;
+    align-items: center;
+
+    padding: 0.25em;
+}
+
+.entry-box > label {
+    margin: 0.5em;
+}
+
+.entry-box > input, button {
+    width: 90%;
+}
