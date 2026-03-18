@@ -6,26 +6,29 @@
   </head>
 
   <body>
-    <div class="login-info-container">
-        <div class="entry-box">
-            <label for="email">Email address</label>
-            <input type="email" id="name" name="name" value="@login.cuny.edu"/>
+    <form id="info-form">
+        <div class="login-info-container">
+            <div class="entry-box">
+                <label for="email">Email address</label>
+                <input type="email" id="email" name="email" value="@login.cuny.edu"/>
+            </div>
+            <div class="entry-box">
+                <label for="password-initial">Password</label>
+                <input type="password" id="password-initial" name="password-initial"/>
+            </div>
+            <div class="entry-box">
+                <label for="password-confirmation">Confirm password</label>
+                <input type="password" id="password-confirmation" name="password-confirmation"/>
+            </div>
+            <div class="entry-box">
+                <label for="totp-code">TOTP Code</label>
+                <input type="text" id="totp-code" name="totp-code"/>
+            </div>
+            <div class="entry-box">
+                <button type="submit" id="submit-button">Submit</button>
+            </div>    
         </div>
-        <div class="entry-box">
-            <label for="password-initial">Password</label>
-            <input type="password" id="password-initial" name="password-initial"/>
-        </div>
-        <div class="entry-box">
-            <label for="password-confirmation">Confirm password</label>
-            <input type="password" id="password" name="password-confirmation"/>
-        </div>
-        <div class="entry-box">
-            <label for="totp">TOTP Code</label>
-            <input type="text" id="totp" name="totp"/>
-        </div>
-        <div class="entry-box">
-            <button type="submit">Submit</button>
-        </div>    
-    </div>
+    </form>
+    <script src="./index.js"></script>
   </body>
 </html>
