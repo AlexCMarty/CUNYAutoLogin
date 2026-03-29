@@ -29,21 +29,27 @@
 
           <label class="field">
             <span>Password</span>
-            <input
-              id="password"
-              type="password"
-              autocomplete="current-password"
-            />
+            <div class="input-wrap">
+              <input
+                id="password"
+                type="password"
+                autocomplete="current-password"
+              />
+              <button type="button" class="toggle-visibility" aria-label="Show password" tabindex="-1"></button>
+            </div>
           </label>
 
           <label class="field">
             <span>TOTP secret (Base32)</span>
-            <input
-              id="totpSecret"
-              type="password"
-              autocomplete="off"
-              spellcheck="false"
-            />
+            <div class="input-wrap">
+              <input
+                id="totpSecret"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="button" class="toggle-visibility" aria-label="Show TOTP secret" tabindex="-1"></button>
+            </div>
           </label>
         </div>
 
@@ -51,12 +57,15 @@
         <div id="master-password-field">
           <label class="field">
             <span id="master-label">Extension master password</span>
-            <input
-              id="masterPassword"
-              type="password"
-              autocomplete="off"
-              minlength="8"
-            />
+            <div class="input-wrap">
+              <input
+                id="masterPassword"
+                type="password"
+                autocomplete="off"
+                minlength="8"
+              />
+              <button type="button" class="toggle-visibility" aria-label="Show master password" tabindex="-1"></button>
+            </div>
           </label>
         </div>
 
@@ -67,21 +76,27 @@
           </p>
           <label class="field">
             <span>New master password</span>
-            <input
-              id="newMasterPassword"
-              type="password"
-              autocomplete="new-password"
-              minlength="8"
-            />
+            <div class="input-wrap">
+              <input
+                id="newMasterPassword"
+                type="password"
+                autocomplete="new-password"
+                minlength="8"
+              />
+              <button type="button" class="toggle-visibility" aria-label="Show new master password" tabindex="-1"></button>
+            </div>
           </label>
           <label class="field">
             <span>Confirm new master password</span>
-            <input
-              id="confirmNewMasterPassword"
-              type="password"
-              autocomplete="new-password"
-              minlength="8"
-            />
+            <div class="input-wrap">
+              <input
+                id="confirmNewMasterPassword"
+                type="password"
+                autocomplete="new-password"
+                minlength="8"
+              />
+              <button type="button" class="toggle-visibility" aria-label="Show confirm password" tabindex="-1"></button>
+            </div>
           </label>
         </div>
 
