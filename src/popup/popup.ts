@@ -13,6 +13,40 @@ const REQUIRED_EMAIL_SUFFIX = "@login.cuny.edu";
 const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const EYE_CLOSED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
+const DRAFT_KEY = "cuny_form_draft";
+
+interface FormDraft {
+  email: string;
+  password: string;
+  totpSecret: string;
+}
+
+function saveDraft(els: ReturnType<typeof getEls>): void {
+  const draft: FormDraft = {
+    email: els.email.value,
+    password: els.password.value,
+    totpSecret: els.totpSecret.value,
+  };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+}
+
+function restoreDraft(els: ReturnType<typeof getEls>): void {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  try {
+    const draft = JSON.parse(raw) as FormDraft;
+    if (draft.email) els.email.value = draft.email;
+    if (draft.password) els.password.value = draft.password;
+    if (draft.totpSecret) els.totpSecret.value = draft.totpSecret;
+  } catch {
+    localStorage.removeItem(DRAFT_KEY);
+  }
+}
+
+function clearDraft(): void {
+  localStorage.removeItem(DRAFT_KEY);
+}
+
 function setupPasswordToggles(): void {
   document.querySelectorAll<HTMLButtonElement>(".toggle-visibility").forEach((btn) => {
     const input = btn.previousElementSibling;
@@ -173,6 +207,7 @@ async function handleSetup(els: ReturnType<typeof getEls>): Promise<void> {
     const newVault = await encryptVault({ email, password, totpSecret }, masterPassword);
     await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
     storedVault = newVault;
+    clearDraft();
     els.masterPassword.value = "";
     setStatus("Saved. Secrets are encrypted locally.", true);
   } catch {
@@ -264,6 +299,7 @@ async function handleUnlocked(els: ReturnType<typeof getEls>): Promise<void> {
     );
     await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
     storedVault = newVault;
+    clearDraft();
     // Update session state with any changes
     sessionPayload = { email, password, totpSecret };
     sessionMasterPassword = masterPasswordToUse;
@@ -285,6 +321,14 @@ async function init(): Promise<void> {
   currentMode = storedVault ? "locked" : "setup";
   renderMode(els);
   setupPasswordToggles();
+
+  if (currentMode === "setup") {
+    restoreDraft(els);
+  }
+
+  [els.email, els.password, els.totpSecret].forEach((input) => {
+    input.addEventListener("input", () => saveDraft(els));
+  });
 
   els.form.addEventListener("submit", async (e) => {
     e.preventDefault();
