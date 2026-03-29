@@ -14,6 +14,36 @@ const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
 const EYE_CLOSED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
 const DRAFT_KEY = "cuny_form_draft";
+const SESSION_MASTER_KEY = "cunySessionMaster";
+
+/** Write master password to session storage if available (Chrome 102+, Firefox 115+). */
+async function saveSessionMaster(masterPassword: string): Promise<void> {
+  try {
+    await browser.storage.session?.set({ [SESSION_MASTER_KEY]: masterPassword });
+  } catch {
+    // session storage not available — silently degrade
+  }
+}
+
+/** Read master password from session storage. Returns null if unavailable or not set. */
+async function loadSessionMaster(): Promise<string | null> {
+  try {
+    const result = await browser.storage.session?.get(SESSION_MASTER_KEY);
+    const val = result?.[SESSION_MASTER_KEY];
+    return typeof val === "string" ? val : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Clear master password from session storage. */
+async function clearSessionMaster(): Promise<void> {
+  try {
+    await browser.storage.session?.remove(SESSION_MASTER_KEY);
+  } catch {
+    // silently degrade
+  }
+}
 
 interface FormDraft {
   email: string;
@@ -101,6 +131,7 @@ function getEls() {
     "confirmNewMasterPassword"
   );
   const submitBtn = document.getElementById("submit-btn");
+  const lockBtn = document.getElementById("lock-btn");
   const modeHint = document.getElementById("mode-hint");
   const credentialFields = document.getElementById("credential-fields");
   const masterPasswordField = document.getElementById("master-password-field");
@@ -116,6 +147,7 @@ function getEls() {
     !(newMasterPassword instanceof HTMLInputElement) ||
     !(confirmNewMasterPassword instanceof HTMLInputElement) ||
     !(submitBtn instanceof HTMLButtonElement) ||
+    !(lockBtn instanceof HTMLButtonElement) ||
     !(modeHint instanceof HTMLElement) ||
     !(credentialFields instanceof HTMLElement) ||
     !(masterPasswordField instanceof HTMLElement) ||
@@ -134,6 +166,7 @@ function getEls() {
     newMasterPassword,
     confirmNewMasterPassword,
     submitBtn,
+    lockBtn,
     modeHint,
     credentialFields,
     masterPasswordField,
@@ -148,6 +181,7 @@ function renderMode(els: ReturnType<typeof getEls>): void {
     credentialFields.classList.remove("hidden");
     masterPasswordField.classList.remove("hidden");
     changeMasterSection.classList.add("hidden");
+    els.lockBtn.classList.add("hidden");
     els.masterLabel.textContent = "Extension master password";
     els.modeHint.textContent =
       "First-time setup: enter your CUNY login email, password, TOTP secret (Base32), and a strong master password. The master password is never stored.";
@@ -156,6 +190,7 @@ function renderMode(els: ReturnType<typeof getEls>): void {
     credentialFields.classList.add("hidden");
     masterPasswordField.classList.remove("hidden");
     changeMasterSection.classList.add("hidden");
+    els.lockBtn.classList.add("hidden");
     els.masterLabel.textContent = "Master password to unlock";
     els.modeHint.textContent =
       "Credentials are saved. Enter your master password to unlock and view them.";
@@ -165,6 +200,7 @@ function renderMode(els: ReturnType<typeof getEls>): void {
     credentialFields.classList.remove("hidden");
     masterPasswordField.classList.add("hidden");
     changeMasterSection.classList.remove("hidden");
+    els.lockBtn.classList.remove("hidden");
     els.masterLabel.textContent = "Extension master password";
     els.modeHint.textContent =
       "Your credentials are unlocked. Edit any field and save. To change your master password, fill the optional fields below.";
@@ -207,8 +243,13 @@ async function handleSetup(els: ReturnType<typeof getEls>): Promise<void> {
     const newVault = await encryptVault({ email, password, totpSecret }, masterPassword);
     await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
     storedVault = newVault;
+    sessionPayload = { email, password, totpSecret };
+    sessionMasterPassword = masterPassword;
+    await saveSessionMaster(masterPassword);
     clearDraft();
     els.masterPassword.value = "";
+    currentMode = "unlocked";
+    renderMode(els);
     setStatus("Saved. Secrets are encrypted locally.", true);
   } catch {
     setStatus("Save failed. Try again.");
@@ -232,6 +273,7 @@ async function handleLocked(els: ReturnType<typeof getEls>): Promise<void> {
     // Store in session memory, clear from DOM immediately
     sessionPayload = payload;
     sessionMasterPassword = masterPassword;
+    await saveSessionMaster(masterPassword);
     els.masterPassword.value = "";
     currentMode = "unlocked";
     setStatus("");
@@ -303,6 +345,7 @@ async function handleUnlocked(els: ReturnType<typeof getEls>): Promise<void> {
     // Update session state with any changes
     sessionPayload = { email, password, totpSecret };
     sessionMasterPassword = masterPasswordToUse;
+    await saveSessionMaster(masterPasswordToUse);
     // Clear optional new master password fields
     els.newMasterPassword.value = "";
     els.confirmNewMasterPassword.value = "";
@@ -314,11 +357,40 @@ async function handleUnlocked(els: ReturnType<typeof getEls>): Promise<void> {
   }
 }
 
+async function handleLock(els: ReturnType<typeof getEls>): Promise<void> {
+  sessionMasterPassword = null;
+  sessionPayload = null;
+  await clearSessionMaster();
+  currentMode = "locked";
+  setStatus("");
+  renderMode(els);
+}
+
 async function init(): Promise<void> {
   const els = getEls();
   storedVault = await loadStoredVault();
 
-  currentMode = storedVault ? "locked" : "setup";
+  if (!storedVault) {
+    currentMode = "setup";
+  } else {
+    // Attempt to restore session — auto-unlock if a master password was saved this session
+    const savedMaster = await loadSessionMaster();
+    if (savedMaster) {
+      try {
+        const payload = await decryptVault(storedVault, savedMaster);
+        sessionPayload = payload;
+        sessionMasterPassword = savedMaster;
+        currentMode = "unlocked";
+      } catch {
+        // Saved session master is stale or vault was re-keyed — fall back to locked
+        await clearSessionMaster();
+        currentMode = "locked";
+      }
+    } else {
+      currentMode = "locked";
+    }
+  }
+
   renderMode(els);
   setupPasswordToggles();
 
@@ -342,6 +414,8 @@ async function init(): Promise<void> {
       await handleUnlocked(els);
     }
   });
+
+  els.lockBtn.addEventListener("click", () => void handleLock(els));
 
   const testBtn = document.getElementById("test-message-btn");
   if (testBtn instanceof HTMLButtonElement) {
