@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CUNY SSO Helper</title>
+    <link rel="stylesheet" href="/src/popup/popup.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <h1 class="title">CUNY SSO Helper</h1>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <form id="vault-form" autocomplete="off" novalidate>
+        <p id="mode-hint" class="hint"></p>
+
+        <label class="field">
+          <span>CUNY email</span>
+          <input
+            id="email"
+            type="email"
+            inputmode="email"
+            autocomplete="username"
+            required
+            placeholder="you@login.cuny.edu"
+          />
+        </label>
+
+        <label class="field">
+          <span>Password</span>
+          <input
+            id="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+
+        <label class="field">
+          <span>TOTP secret (Base32)</span>
+          <input
+            id="totpSecret"
+            type="password"
+            autocomplete="off"
+            required
+            spellcheck="false"
+          />
+        </label>
+
+        <label class="field">
+          <span>Extension master password</span>
+          <input
+            id="masterPassword"
+            type="password"
+            autocomplete="off"
+            required
+            minlength="8"
+          />
+        </label>
+
+        <button type="submit" id="submit-btn" class="primary">Save</button>
+      </form>
+
+      <section class="dev-test" aria-label="Development test">
+        <button type="button" id="test-message-btn" class="secondary">
+          Send test FILL_CREDENTIALS to active tab
+        </button>
+      </section>
+    </main>
+    <script type="module" src="/src/popup/popup.ts"></script>
+  </body>
+</html>
