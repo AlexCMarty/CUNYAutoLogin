@@ -2,6 +2,12 @@
 
 AI agent guidance for this repository.
 
+## What you should do for peak productivity
+These are real time savers:
+1. Access the internet to search for information when uncertain
+2. Run terminal commands
+3. Ask the user for clarification
+
 ## What this project is
 
 A Manifest V3 browser extension (Firefox + Chromium) that:
