@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "CUNY SSO Helper",
+  "version": "0.1.0",
+  "description": "CUNY SSO login helper — encrypted local storage (development scaffold).",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["https://ssologin.cuny.edu/*"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"],
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://ssologin.cuny.edu/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "cuny-sso-helper@local",
+      "strict_min_version": "109.0"
+    }
+  },
+  "minimum_chrome_version": "92"
+}
