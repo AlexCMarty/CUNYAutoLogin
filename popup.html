@@ -14,49 +14,76 @@
       <form id="vault-form" autocomplete="off" novalidate>
         <p id="mode-hint" class="hint"></p>
 
-        <label class="field">
-          <span>CUNY email</span>
-          <input
-            id="email"
-            type="email"
-            inputmode="email"
-            autocomplete="username"
-            required
-            placeholder="you@login.cuny.edu"
-          />
-        </label>
+        <!-- shown in setup + unlocked, hidden in locked -->
+        <div id="credential-fields">
+          <label class="field">
+            <span>CUNY email</span>
+            <input
+              id="email"
+              type="email"
+              inputmode="email"
+              autocomplete="username"
+              placeholder="you@login.cuny.edu"
+            />
+          </label>
 
-        <label class="field">
-          <span>Password</span>
-          <input
-            id="password"
-            type="password"
-            autocomplete="current-password"
-            required
-          />
-        </label>
+          <label class="field">
+            <span>Password</span>
+            <input
+              id="password"
+              type="password"
+              autocomplete="current-password"
+            />
+          </label>
 
-        <label class="field">
-          <span>TOTP secret (Base32)</span>
-          <input
-            id="totpSecret"
-            type="password"
-            autocomplete="off"
-            required
-            spellcheck="false"
-          />
-        </label>
+          <label class="field">
+            <span>TOTP secret (Base32)</span>
+            <input
+              id="totpSecret"
+              type="password"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+        </div>
 
-        <label class="field">
-          <span>Extension master password</span>
-          <input
-            id="masterPassword"
-            type="password"
-            autocomplete="off"
-            required
-            minlength="8"
-          />
-        </label>
+        <!-- shown in setup + locked, hidden in unlocked -->
+        <div id="master-password-field">
+          <label class="field">
+            <span id="master-label">Extension master password</span>
+            <input
+              id="masterPassword"
+              type="password"
+              autocomplete="off"
+              minlength="8"
+            />
+          </label>
+        </div>
+
+        <!-- shown only in unlocked, hidden in setup + locked -->
+        <div id="change-master-section" class="hidden">
+          <p class="hint change-master-hint">
+            To change your master password, fill both fields below (optional).
+          </p>
+          <label class="field">
+            <span>New master password</span>
+            <input
+              id="newMasterPassword"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+            />
+          </label>
+          <label class="field">
+            <span>Confirm new master password</span>
+            <input
+              id="confirmNewMasterPassword"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+            />
+          </label>
+        </div>
 
         <button type="submit" id="submit-btn" class="primary">Save</button>
       </form>
