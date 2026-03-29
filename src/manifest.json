@@ -23,8 +23,8 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "cuny-sso-helper@local",
-      "strict_min_version": "109.0"
+      "strict_min_version": "115.0"
     }
   },
-  "minimum_chrome_version": "92"
+  "minimum_chrome_version": "102"
 }
