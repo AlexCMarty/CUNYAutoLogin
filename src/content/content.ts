@@ -52,7 +52,24 @@ function waitForInputById(id: string, timeoutMs = 10000): Promise<HTMLInputEleme
   );
 }
 
-async function fillCredentials(): Promise<Result<true, string>> {
+/**
+ * Sets an input's value in a way that notifies Oracle JET's Knockout.js bindings.
+ * A plain `.value =` assignment bypasses the framework's change detection, so we
+ * use the native HTMLInputElement prototype setter and then dispatch the events
+ * that KO listens for.
+ */
+function setInputValue(el: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  if (setter) {
+    setter.call(el, value);
+  } else {
+    el.value = value;
+  }
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+async function fillCredentials(email: string, password: string): Promise<Result<true, string>> {
   const [usernameElm, passwordElm, submitBtn] = await Promise.all([
     waitForInputById('CUNYLoginUsernameDisplay'),
     waitForInputById('CUNYLoginPassword'),
@@ -66,12 +83,22 @@ async function fillCredentials(): Promise<Result<true, string>> {
   if (!passwordElm) return err('credential page: password input not found');
   if (!submitBtn) return err('credential page: submit button not found');
 
-  log("credential inputs found:", usernameElm, passwordElm, submitBtn);
-  // TODO: read from vault and fill usernameElm.value / passwordElm.value, then submitBtn.click()
+  setInputValue(usernameElm, email);
+  setInputValue(passwordElm, password);
+  submitBtn.click();
   return ok(true);
 }
 
-async function fillTotp(): Promise<Result<true, string>> {
+async function getOtp(secret: string): Promise<string> {
+  const { otp } = await TOTP.generate(secret, {
+    algorithm: "SHA-1",
+    digits: 6,
+    period: 30,
+  });
+  return otp;
+}
+
+async function fillTotp(totpSecret: string): Promise<Result<true, string>> {
   const [totpElm, verifyBtn] = await Promise.all([
     waitForInputById('otpValue|input'),
     waitForElement(() =>
@@ -82,31 +109,45 @@ async function fillTotp(): Promise<Result<true, string>> {
   if (!totpElm) return err('TOTP page: OTP input not found');
   if (!verifyBtn) return err('TOTP page: Verify button not found');
 
-  log("TOTP input and verify button found:", totpElm, verifyBtn);
-  // TODO: generate OTP via getOtp() and fill totpElm.value, then verifyBtn.click()
+  const otp = await getOtp(totpSecret);
+  setInputValue(totpElm, otp);
+  verifyBtn.click();
   return ok(true);
 }
 
-async function getOtp(): Promise<string> {
-  // TODO: read TOTP secret from vault instead of hardcoding
-  const { otp } = await TOTP.generate('', {
-    algorithm: "SHA-1",
-    digits: 6,
-    period: 30,
-  });
-  return otp;
+interface FillMessage {
+  type: "FILL_CREDENTIALS";
+  payload: {
+    email: string;
+    password: string;
+    totpSecret: string;
+  };
 }
 
-async function main(): Promise<void> {
+function isFillMessage(msg: unknown): msg is FillMessage {
+  if (typeof msg !== "object" || msg === null) return false;
+  const m = msg as Record<string, unknown>;
+  if (m.type !== "FILL_CREDENTIALS") return false;
+  const p = m.payload;
+  if (typeof p !== "object" || p === null) return false;
+  const payload = p as Record<string, unknown>;
+  return (
+    typeof payload.email === "string" &&
+    typeof payload.password === "string" &&
+    typeof payload.totpSecret === "string"
+  );
+}
+
+async function main(payload: FillMessage["payload"]): Promise<void> {
   const url = window.location.href;
-  log("content script active", url);
+  log("main() triggered", url);
 
   let result: Result<true, string>;
 
   if (url.includes('/oam/server/obrareq.cgi')) {
-    result = await fillCredentials();
+    result = await fillCredentials(payload.email, payload.password);
   } else if (url.includes('/oaa-totp-factor/')) {
-    result = await fillTotp();
+    result = await fillTotp(payload.totpSecret);
   } else {
     log("unrecognised page, doing nothing");
     return;
@@ -118,19 +159,7 @@ async function main(): Promise<void> {
 }
 
 browser.runtime.onMessage.addListener((message: unknown) => {
-  if (
-    typeof message === "object" &&
-    message !== null &&
-    "type" in message &&
-    (message as { type: unknown }).type === "FILL_CREDENTIALS"
-  ) {
-    log("runtime.onMessage FILL_CREDENTIALS — triggering main()");
-    main();
-  }
+  if (!isFillMessage(message)) return;
+  log("runtime.onMessage FILL_CREDENTIALS — triggering main()");
+  void main(message.payload);
 });
-
-main();
-
-// getOtp is a stub pending vault wiring — suppress the unused-declaration warning
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-void getOtp;

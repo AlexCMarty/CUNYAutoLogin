@@ -420,6 +420,10 @@ async function init(): Promise<void> {
   const testBtn = document.getElementById("test-message-btn");
   if (testBtn instanceof HTMLButtonElement) {
     testBtn.addEventListener("click", async () => {
+      if (!sessionPayload) {
+        setStatus("Vault is locked. Unlock it first.");
+        return;
+      }
       try {
         const tabs = await browser.tabs.query({
           active: true,
@@ -432,9 +436,9 @@ async function init(): Promise<void> {
         }
         await browser.tabs.sendMessage(tabId, {
           type: "FILL_CREDENTIALS",
-          payload: { demo: true },
+          payload: sessionPayload,
         });
-        setStatus("Sent FILL_CREDENTIALS to active tab.", true);
+        setStatus("Filling…", true);
       } catch {
         setStatus(
           "Could not send message (open ssologin.cuny.edu in the active tab?)."
