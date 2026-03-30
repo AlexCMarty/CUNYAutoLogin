@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width"><title>https://
+ssologin.cuny.edu/oaa-totp-factor/rui/index.html?cid=8eb5bfbe-e1f6-4a6b-
+aad6-196d63990df7&amp;nonce=1494d12f-1efa-44b8-aae6-7d7d4059faac</title><link rel="stylesheet" type="text/css" href="resource://content-accessible/viewsource.css"></head><body id="viewsource" style="tab-size: 4"><span id="line1"><span></span><span class="doctype">&lt;!DOCTYPE html&gt;</span><span>
+</span></span><span id="line2"><span></span><span class="comment">&lt;!--
+</span></span><span id="line3"><span class="comment"> Copyright (c) 2014, 2020, Oracle and/or its affiliates.
+</span></span><span id="line4"><span class="comment"> Licensed under The Universal Permissive License (UPL), Version 1.0
+</span></span><span id="line5"><span class="comment"> as shown at https://oss.oracle.com/licenses/upl/
+</span></span><span id="line6"><span class="comment"> --&gt;</span><span>
+</span></span><span id="line7"><span>
+</span></span><span id="line8"><span></span><span class="comment">&lt;!-- ************************ IMPORTANT INFORMATION ************************************
+</span></span><span id="line9"><span class="comment">  This web navigation drawer template is provided as an example of how to configure
+</span></span><span id="line10"><span class="comment">  a JET web application with a navigation drawer as a single page application
+</span></span><span id="line11"><span class="comment">  using ojRouter and oj-module.  It contains the Oracle JET framework and a default
+</span></span><span id="line12"><span class="comment">  requireJS configuration file to show how JET can be setup in a common application.
+</span></span><span id="line13"><span class="comment">  This project template can be used in conjunction with demo code from the JET
+</span></span><span id="line14"><span class="comment">  website to test JET component behavior and interactions.
+</span></span><span id="line15"><span class="comment">
+</span></span><span id="line16"><span class="comment">  Any CSS styling with the prefix "demo-" is for demonstration only and is not
+</span></span><span id="line17"><span class="comment">  provided as part of the JET framework.
+</span></span><span id="line18"><span class="comment">
+</span></span><span id="line19"><span class="comment">  Please see the demos under Cookbook/Patterns/App Shell: Web and the CSS documentation
+</span></span><span id="line20"><span class="comment">  under Support/API Docs/Non-Component Styling on the JET website for more information on how to use
+</span></span><span id="line21"><span class="comment">  the best practice patterns shown in this template.
+</span></span><span id="line22"><span class="comment">
+</span></span><span id="line23"><span class="comment">  Aria Landmark role attributes are added to the different sections of the application
+</span></span><span id="line24"><span class="comment">  for accessibility compliance. If you change the type of content for a specific
+</span></span><span id="line25"><span class="comment">  section from what is defined, you should also change the role value for that
+</span></span><span id="line26"><span class="comment">  section to represent the appropriate content type.
+</span></span><span id="line27"><span class="comment">  ***************************** IMPORTANT INFORMATION ************************************ --&gt;</span><span>
+</span></span><span id="line28"><span></span><span>&lt;<span class="start-tag">html</span> <span class="attribute-name">lang</span>="<a class="attribute-value">en-us</a>"&gt;</span><span>
+</span></span><span id="line29"><span></span><span>&lt;<span class="start-tag">head</span>&gt;</span><span>
+</span></span><span id="line30"><span>  </span><span>&lt;<span class="start-tag">title</span>&gt;</span><span></span><span>&lt;/<span class="end-tag">title</span>&gt;</span><span>
+</span></span><span id="line31"><span>
+</span></span><span id="line32"><span>  </span><span>&lt;<span class="start-tag">meta</span> <span class="attribute-name">charset</span>="<a class="attribute-value">UTF-8</a>"&gt;</span><span>
+</span></span><span id="line33"><span>  </span><span>&lt;<span class="start-tag">meta</span> <span class="attribute-name">name</span>="<a class="attribute-value">viewport</a>" <span class="attribute-name">content</span>="<a class="attribute-value">viewport-fit=cover, width=device-width, initial-scale=1</a>"&gt;</span><span>
+</span></span><span id="line34"><span>  </span><span>&lt;<span class="start-tag">link</span> <span class="attribute-name">rel</span>="<a class="attribute-value">icon</a>" <span class="attribute-name">href</span>="<a class="attribute-value" href="view-source:https://ssologin.cuny.edu/oaa-totp-factor/rui/js/libs/imcs/css/images/favicon.ico">js/libs/imcs/css/images/favicon.ico</a>" <span class="attribute-name">type</span>="<a class="attribute-value">image/x-icon</a>" <span>/</span>&gt;</span><span>
+</span></span><span id="line35"><span>
+</span></span><span id="line36"><span>  </span><span class="comment">&lt;!-- This is the main css file for the default theme --&gt;</span><span>
+</span></span><span id="line37"><span></span><span class="comment">&lt;!-- injector:theme --&gt;</span><span>
+</span></span><span id="line38"><span></span><span>&lt;<span class="start-tag">link</span> <span class="attribute-name">rel</span>="<a class="attribute-value">stylesheet</a>" <span class="attribute-name">href</span>="<a class="attribute-value" href="view-source:https://ssologin.cuny.edu/oaa-totp-factor/rui/css/redwood/15.1.6/web/redwood.min.css">css/redwood/15.1.6/web/redwood.min.css</a>" <span class="attribute-name">id</span>="<a class="attribute-value">basestyles</a>" <span>/</span>&gt;</span><span>
+</span></span><span id="line39"><span></span><span>&lt;<span class="start-tag">link</span> <span class="attribute-name">rel</span>="<a class="attribute-value">stylesheet</a>" <span class="attribute-name">href</span>="<a class="attribute-value" href="view-source:https://ssologin.cuny.edu/oaa-totp-factor/rui/css/theme-redwood/15.1.6/web/theme.css">css/theme-redwood/15.1.6/web/theme.css</a>" <span class="attribute-name">id</span>="<a class="attribute-value">themestyle</a>" <span>/</span>&gt;</span><span>
+</span></span><span id="line40"><span></span><span class="comment">&lt;!-- endinjector --&gt;</span><span>
+</span></span><span id="line41"><span>
+</span></span><span id="line42"><span>  </span><span class="comment">&lt;!-- This contains icon fonts used by the starter template --&gt;</span><span>
+</span></span><span id="line43"><span>  </span><span>&lt;<span class="start-tag">link</span> <span class="attribute-name">rel</span>="<a class="attribute-value">stylesheet</a>" <span class="attribute-name">href</span>="<a class="attribute-value" href="view-source:https://ssologin.cuny.edu/oaa-totp-factor/rui/js/libs/imcs/css/demo-alta-site-min.css">js/libs/imcs/css/demo-alta-site-min.css</a>" <span class="attribute-name">type</span>="<a class="attribute-value">text/css</a>"<span>/</span>&gt;</span><span>
+</span></span><span id="line44"><span>  </span><span>&lt;<span class="start-tag">link</span> <span class="attribute-name">rel</span>="<a class="attribute-value">stylesheet</a>" <span class="attribute-name">id</span>="<a class="attribute-value">uxiconFont</a>" <span class="attribute-name">href</span>="<a class="attribute-value" href="view-source:https://static.oracle.com/cdn/fnd/gallery/2010.0.0/images/iconfont/ojuxIconFont.min.css">https://static.oracle.com/cdn/fnd/gallery/2010.0.0/images/iconfont/ojuxIconFont.min.css</a>"&gt;</span><span>
+</span></span><span id="line45"><span>
+</span></span><span id="line46"><span>  </span><span class="comment">&lt;!-- This is where you would add any app specific styling --&gt;</span><span>
+</span></span><span id="line47"><span>  </span><span>&lt;<span class="start-tag">link</span> <span class="attribute-name">rel</span>="<a class="attribute-value">stylesheet</a>" <span class="attribute-name">href</span>="<a class="attribute-value" href="view-source:https://ssologin.cuny.edu/oaa-totp-factor/rui/js/libs/imcs/css/app.css">js/libs/imcs/css/app.css</a>" <span class="attribute-name">type</span>="<a class="attribute-value">text/css</a>"<span>/</span>&gt;</span><span>
+</span></span><span id="line48"><span>
+</span></span><span id="line49"><span></span><span>&lt;/<span class="end-tag">head</span>&gt;</span><span>
+</span></span><span id="line50"><span></span><span>&lt;<span class="start-tag">body</span> <span class="attribute-name">class</span>="<a class="attribute-value">oj-web-applayout-body</a>"&gt;</span><span>
+</span></span><span id="line51"><span></span><span class="comment">&lt;!-- Template for rendering navigation items shared between nav bar and nav list --&gt;</span><span>
+</span></span><span id="line52"><span></span><span>&lt;<span class="start-tag">script</span> <span class="attribute-name">type</span>="<a class="attribute-value">text/html</a>" <span class="attribute-name">id</span>="<a class="attribute-value">navTemplate</a>"&gt;</span><span>
+</span></span><span id="line53"><span>  </span><span>&lt;l</span><span>i&gt;</span><span>&lt;a</span><span> href="#"&gt;
+</span></span><span id="line54"><span>    </span><span>&lt;s</span><span>pan :class="[[$data.detail.iconClass]]"&gt;</span><span>&lt;/<span>s</span>p</span><span>an&gt;
+</span></span><span id="line55"><span>    </span><span>&lt;o</span><span>j-bind-text value="[[$data.detail.label]]"&gt;</span><span>&lt;/<span></span>o</span><span>j-bind-text&gt;
+</span></span><span id="line56"><span>  </span><span>&lt;/<span></span>a</span><span>&gt;</span><span>&lt;/<span></span>l</span><span>i&gt;
+</span></span><span id="line57"><span></span><span>&lt;/<span class="end-tag">script</span>&gt;</span><span>
+</span></span><span id="line58"><span>
+</span></span><span id="line59"><span></span><span>&lt;<span class="start-tag">div</span> <span class="attribute-name">id</span>="<a class="attribute-value">globalBody</a>" <span class="attribute-name">class</span>="<a class="attribute-value">oj-offcanvas-outer-wrapper oj-offcanvas-page</a>"&gt;</span><span>
+</span></span><span id="line60"><span>
+</span></span><span id="line61"><span>  </span><span>&lt;<span class="start-tag">div</span> <span class="attribute-name">id</span>="<a class="attribute-value">announce</a>" <span class="attribute-name">tabindex</span>="<a class="attribute-value">-1</a>" <span class="attribute-name">class</span>="<a class="attribute-value">sendOffScreen</a>" <span class="attribute-name">:aria-live</span>="<a class="attribute-value">[[manner]]</a>" <span class="attribute-name">aria-atomic</span>="<a class="attribute-value">true</a>"&gt;</span><span>
+</span></span><span id="line62"><span>    </span><span>&lt;<span class="start-tag">p</span> <span class="attribute-name">id</span>="<a class="attribute-value">ariaLiveMessage</a>"&gt;</span><span></span><span>&lt;<span class="start-tag">oj-bind-text</span> <span class="attribute-name">value</span>="<a class="attribute-value">[[message]]</a>"&gt;</span><span></span><span>&lt;/<span class="end-tag">oj-bind-text</span>&gt;</span><span></span><span>&lt;/<span class="end-tag">p</span>&gt;</span><span>
+</span></span><span id="line63"><span>  </span><span>&lt;/<span class="end-tag">div</span>&gt;</span><span>
+</span></span><span id="line64"><span>
+</span></span><span id="line65"><span>  </span><span class="comment">&lt;!--
+</span></span><span id="line66"><span class="comment">     ** Oracle JET V9.2.0 web application navigation drawer pattern.
+</span></span><span id="line67"><span class="comment">     ** Please see the demos under Cookbook/Patterns/App Shell: Web
+</span></span><span id="line68"><span class="comment">     ** and the CSS documentation under Support/API Docs/Non-Component Styling
+</span></span><span id="line69"><span class="comment">     ** on the JET website for more information on how to use this pattern.
+</span></span><span id="line70"><span class="comment">     ** The off-canvas section is used when the browser is resized to a smaller media
+</span></span><span id="line71"><span class="comment">     ** query size for a phone format and hidden until a user clicks on
+</span></span><span id="line72"><span class="comment">     ** the header hamburger icon.
+</span></span><span id="line73"><span class="comment">  --&gt;</span><span>
+</span></span><span id="line74"><span>  </span><span class="comment">&lt;!-- Commented  by Ranjsn  &lt;div id="navDrawer" role="navigation" class="oj-contrast-marker oj-web-applayout-offcanvas oj-offcanvas-start"&gt;
+</span></span><span id="line75"><span class="comment">     &lt;oj-navigation-list id="navDrawerList" data="[[navDataProvider]]"
+</span></span><span id="line76"><span class="comment">                           edge="start"
+</span></span><span id="line77"><span class="comment">                           item.renderer="[[KnockoutTemplateUtils.getRenderer('navTemplate', true)]]"
+</span></span><span id="line78"><span class="comment">                           on-click="[[toggleDrawer]]"
+</span></span><span id="line79"><span class="comment">                           selection="{{selection.path}}"&gt;
+</span></span><span id="line80"><span class="comment">
+</span></span><span id="line81"><span class="comment">       &lt;/oj-navigation-list&gt;
+</span></span><span id="line82"><span class="comment">     &lt;/div&gt;
+</span></span><span id="line83"><span class="comment">     --&gt;</span><span>
+</span></span><span id="line84"><span>  </span><span>&lt;<span class="start-tag">div</span> <span class="attribute-name">id</span>="<a class="attribute-value">pageContent</a>" <span class="attribute-name">class</span>="<a class="attribute-value">oj-web-applayout-page</a>"&gt;</span><span>
+</span></span><span id="line85"><span>    </span><span class="comment">&lt;!--
+</span></span><span id="line86"><span class="comment">       ** Oracle JET V9.2.0 web application header pattern.
+</span></span><span id="line87"><span class="comment">       ** Please see the demos under Cookbook/Patterns/App Shell: Web
+</span></span><span id="line88"><span class="comment">       ** and the CSS documentation under Support/API Docs/Non-Component Styling
+</span></span><span id="line89"><span class="comment">       ** on the JET website for more information on how to use this pattern.
+</span></span><span id="line90"><span class="comment">    --&gt;</span><span>
+</span></span><span id="line91"><span>    </span><span>&lt;<span class="start-tag">oj-module</span> <span class="attribute-name">role</span>="<a class="attribute-value">main</a>" <span class="attribute-name">class</span>="<a class="attribute-value">oj-web-applayout-max-width oj-web-applayout-content</a>" <span class="attribute-name">style</span>="<a class="attribute-value">height: 100%; display: inherit;</a>" <span class="attribute-name">config</span>="<a class="attribute-value">[[moduleAdapter.koObservableConfig]]</a>"&gt;</span><span>
+</span></span><span id="line92"><span>    </span><span>&lt;/<span class="end-tag">oj-module</span>&gt;</span><span>
+</span></span><span id="line93"><span>    </span><span>&lt;<span class="start-tag">footer</span> <span class="attribute-name">class</span>="<a class="attribute-value">oj-web-applayout-footer</a>" <span class="attribute-name">role</span>="<a class="attribute-value">contentinfo</a>"&gt;</span><span>
+</span></span><span id="line94"><span>      </span><span>&lt;<span class="start-tag">div</span> <span class="attribute-name">class</span>="<a class="attribute-value">oj-web-applayout-footer-item oj-web-applayout-max-width</a>"&gt;</span><span>
+</span></span><span id="line95"><span>        </span><span>&lt;<span class="start-tag">ul</span>&gt;</span><span>
+</span></span><span id="line96"><span>          </span><span>&lt;<span class="start-tag">oj-bind-for-each</span> <span class="attribute-name">data</span>="<a class="attribute-value">[[footerLinks]]</a>"&gt;</span><span>
+</span></span><span id="line97"><span>            </span><span>&lt;<span class="start-tag">template</span>&gt;</span><span>
+</span></span><span id="line98"><span>              </span><span>&lt;<span class="start-tag">li</span> <span class="attribute-name">class</span>="<a class="attribute-value">footerColor</a>"&gt;</span><span>
+</span></span><span id="line99"><span>                </span><span>&lt;<span class="start-tag">a</span> <span class="attribute-name">:id</span>="<a class="attribute-value">[[$current.data.linkId]]</a>" <span class="attribute-name">:href</span>="<a class="attribute-value">[[$current.data.linkTarget]]</a>"&gt;</span><span>
+</span></span><span id="line100"><span>                  </span><span>&lt;<span class="start-tag">oj-bind-text</span> <span class="attribute-name">value</span>="<a class="attribute-value">[[$current.data.name]]</a>"&gt;</span><span></span><span>&lt;/<span class="end-tag">oj-bind-text</span>&gt;</span><span>
+</span></span><span id="line101"><span>                </span><span>&lt;/<span class="end-tag">a</span>&gt;</span><span>
+</span></span><span id="line102"><span>              </span><span>&lt;/<span class="end-tag">li</span>&gt;</span><span>
+</span></span><span id="line103"><span>            </span><span>&lt;/<span class="end-tag">template</span>&gt;</span><span>
+</span></span><span id="line104"><span>          </span><span>&lt;/<span class="end-tag">oj-bind-for-each</span>&gt;</span><span>
+</span></span><span id="line105"><span>        </span><span>&lt;/<span class="end-tag">ul</span>&gt;</span><span>
+</span></span><span id="line106"><span>      </span><span>&lt;/<span class="end-tag">div</span>&gt;</span><span>
+</span></span><span id="line107"><span>      </span><span>&lt;<span class="start-tag">div</span> <span class="attribute-name">class</span>="<a class="attribute-value">oj-web-applayout-footer-item oj-web-applayout-max-width copyrightColor oj-typography-body-sm</a>"&gt;</span><span>
+</span></span><span id="line108"><span>        </span><span>&lt;<span class="start-tag">oj-bind-text</span> <span class="attribute-name">value</span>="<a class="attribute-value">[[copyrightNotice]]</a>"&gt;</span><span></span><span>&lt;/<span class="end-tag">oj-bind-text</span>&gt;</span><span>
+</span></span><span id="line109"><span>      </span><span>&lt;/<span class="end-tag">div</span>&gt;</span><span>
+</span></span><span id="line110"><span>    </span><span>&lt;/<span class="end-tag">footer</span>&gt;</span><span>
+</span></span><span id="line111"><span>  </span><span>&lt;/<span class="end-tag">div</span>&gt;</span><span>
+</span></span><span id="line112"><span></span><span>&lt;/<span class="end-tag">div</span>&gt;</span><span>
+</span></span><span id="line113"><span>
+</span></span><span id="line114"><span>  </span><span class="comment">&lt;!-- This injects script tags for the main javascript files --&gt;</span><span>
+</span></span><span id="line115"><span></span><span class="comment">&lt;!-- injector:scripts --&gt;</span><span>
+</span></span><span id="line116"><span></span><span>&lt;<span class="start-tag">script</span> <span class="attribute-name">type</span>='<a class="attribute-value">text/javascript</a>' <span class="attribute-name">src</span>='<a class="attribute-value" href="view-source:https://ssologin.cuny.edu/oaa-totp-factor/rui/js/libs/require/require.js">js/libs/require/require.js</a>'&gt;</span><span></span><span>&lt;/<span class="end-tag">script</span>&gt;</span><span>
+</span></span><span id="line117"><span></span><span>&lt;<span class="start-tag">script</span> <span class="attribute-name">type</span>='<a class="attribute-value">text/javascript</a>' <span class="attribute-name">src</span>='<a class="attribute-value" href="view-source:https://ssologin.cuny.edu/oaa-totp-factor/rui/js/bundle.js">js/bundle.js</a>'&gt;</span><span></span><span>&lt;/<span class="end-tag">script</span>&gt;</span><span>
+</span></span><span id="line118"><span></span><span class="comment">&lt;!-- endinjector --&gt;</span><span>
+</span></span><span id="line119"><span>
+</span></span><span id="line120"><span></span><span>&lt;/<span class="end-tag">body</span>&gt;</span><span>
+</span></span><span id="line121"><span>
+</span></span><span id="line122"><span></span><span>&lt;/<span class="end-tag">html</span>&gt;</span><span>
+</span></span><span id="line123"><span></span></span></body></html>

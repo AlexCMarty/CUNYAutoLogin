@@ -8,6 +8,7 @@ export default defineConfig({
   build: {
     emptyOutDir: false,
     outDir: "dist",
+    minify: false, // for debugging
     lib: {
       entry: resolve(__dirname, "src/content/content.ts"),
       name: "cunyContent",

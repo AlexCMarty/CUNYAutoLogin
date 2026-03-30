@@ -13,7 +13,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "types": ["chrome", "webextension-polyfill"]
+    "types": ["chrome", "webextension-polyfill"],
+    "sourceMap": true // for debugging
   },
   "include": ["src/**/*.ts", "vite.config.ts", "vite.content.config.ts"]
 }
