@@ -9,64 +9,81 @@ function log(...args: unknown[]): void {
 }
 
 /**
- * Waits for an element with the given ID to appear in the DOM.
- * Uses MutationObserver so it fires the moment the element is inserted —
- * no polling. Needed because both CUNY SSO pages render their form inputs
- * asynchronously via Oracle JET / RequireJS, long after document_idle fires.
+ * Waits for a DOM element to appear by repeatedly calling `find()` on every
+ * DOM mutation. Uses MutationObserver so it fires the moment the element is
+ * inserted — no polling. Needed because both CUNY SSO pages render their form
+ * inputs asynchronously via Oracle JET / RequireJS, long after document_idle
+ * fires.
  *
- * Uses getElementById so special characters in IDs (e.g. the | in
- * "otpValue|input") are treated as plain strings, not CSS namespace syntax.
- *
- * Resolves null after timeoutMs if the element never appears.
+ * Resolves null after timeoutMs if find() never returns a non-null value.
  */
-function waitForElementById(id: string, timeoutMs = 10000): Promise<HTMLInputElement | null> {
+function waitForElement<T extends HTMLElement>(
+  find: () => T | null,
+  timeoutMs = 10000
+): Promise<T | null> {
   return new Promise((resolve) => {
-    const existing = document.getElementById(id);
-    if (existing instanceof HTMLInputElement) {
-      resolve(existing);
-      return;
-    }
+    const existing = find();
+    if (existing) { resolve(existing); return; }
 
     const timer = setTimeout(() => {
       observer.disconnect();
-      log(`timed out waiting for element with id="${id}"`);
       resolve(null);
     }, timeoutMs);
 
     const observer = new MutationObserver(() => {
-      const el = document.getElementById(id);
-      if (el instanceof HTMLInputElement) {
-        clearTimeout(timer);
-        observer.disconnect();
-        resolve(el);
-      }
+      const el = find();
+      if (el) { clearTimeout(timer); observer.disconnect(); resolve(el); }
     });
 
     observer.observe(document.documentElement, { childList: true, subtree: true });
   });
 }
 
+/**
+ * Convenience wrapper around waitForElement for inputs looked up by ID.
+ * Uses getElementById rather than querySelector so special characters in IDs
+ * (e.g. the | in "otpValue|input") are treated as plain strings, not CSS
+ * namespace syntax.
+ */
+function waitForInputById(id: string, timeoutMs = 10000): Promise<HTMLInputElement | null> {
+  return waitForElement(
+    () => { const el = document.getElementById(id); return el instanceof HTMLInputElement ? el : null; },
+    timeoutMs
+  );
+}
+
 async function fillCredentials(): Promise<Result<true, string>> {
-  const [usernameElm, passwordElm] = await Promise.all([
-    waitForElementById('CUNYLoginUsernameDisplay'),
-    waitForElementById('CUNYLoginPassword'),
+  const [usernameElm, passwordElm, submitBtn] = await Promise.all([
+    waitForInputById('CUNYLoginUsernameDisplay'),
+    waitForInputById('CUNYLoginPassword'),
+    waitForElement(() => {
+      const el = document.getElementById('submit');
+      return el instanceof HTMLButtonElement ? el : null;
+    }),
   ]);
 
   if (!usernameElm) return err('credential page: username input not found');
   if (!passwordElm) return err('credential page: password input not found');
+  if (!submitBtn) return err('credential page: submit button not found');
 
-  log("credential inputs found:", usernameElm, passwordElm);
-  // TODO: read from vault and fill usernameElm.value / passwordElm.value, then submit
+  log("credential inputs found:", usernameElm, passwordElm, submitBtn);
+  // TODO: read from vault and fill usernameElm.value / passwordElm.value, then submitBtn.click()
   return ok(true);
 }
 
 async function fillTotp(): Promise<Result<true, string>> {
-  const totpElm = await waitForElementById('otpValue|input');
+  const [totpElm, verifyBtn] = await Promise.all([
+    waitForInputById('otpValue|input'),
+    waitForElement(() =>
+      Array.from(document.querySelectorAll('button')).find(b => b.innerHTML.includes('Verify')) ?? null
+    ),
+  ]);
 
   if (!totpElm) return err('TOTP page: OTP input not found');
+  if (!verifyBtn) return err('TOTP page: Verify button not found');
 
-  log("TOTP input found:", totpElm);
-  // TODO: generate OTP via getOtp() and fill totpElm.value, then submit
+  log("TOTP input and verify button found:", totpElm, verifyBtn);
+  // TODO: generate OTP via getOtp() and fill totpElm.value, then verifyBtn.click()
   return ok(true);
 }
 
@@ -113,4 +130,7 @@ browser.runtime.onMessage.addListener((message: unknown) => {
 });
 
 main();
-getOtp(); // to shut up linter
+
+// getOtp is a stub pending vault wiring — suppress the unused-declaration warning
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+void getOtp;
