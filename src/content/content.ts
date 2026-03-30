@@ -158,6 +158,25 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
   }
 }
 
+async function autoFill(): Promise<void> {
+  try {
+    const response = await browser.runtime.sendMessage({ type: "AUTO_FILL_REQUEST" }) as
+      | { success: true; payload: FillMessage["payload"] }
+      | { success: false; reason: string };
+
+    if (!response.success) {
+      log("autoFill:", response.reason);
+      return;
+    }
+    log("autoFill: credentials received, triggering main()");
+    await main(response.payload);
+  } catch (e) {
+    log("autoFill: error —", e);
+  }
+}
+
+void autoFill();
+
 browser.runtime.onMessage.addListener((message: unknown) => {
   if (!isFillMessage(message)) return;
   log("runtime.onMessage FILL_CREDENTIALS — triggering main()");
