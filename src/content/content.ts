@@ -1,4 +1,4 @@
-// import browser from "webextension-polyfill";
+import browser from "webextension-polyfill";
 import { TOTP } from 'totp-generator';
 import { ok, err, Result } from "neverthrow";
 
@@ -8,30 +8,18 @@ function log(...args: unknown[]): void {
   console.log(LOG_PREFIX, ...args);
 }
 
-log("content script active", window.location.href);
-
-async function getOtp(): Promise<string> {
-  // i have to paste in the secret, i'm not so I don't accidentally commit it LOL
-  const {otp} = await TOTP.generate('', {
-    algorithm: "SHA-1",
-    digits: 6,
-    period: 30
-  });
-  log(otp);
-  return otp;
-}
-getOtp();
-
 /**
  * Waits for an element with the given ID to appear in the DOM.
- * Uses MutationObserver so it fires instantly when the element is inserted,
- * with no polling delay. Needed because the CUNY SSO pages use Oracle JET
- * (a RequireJS SPA) that renders form inputs asynchronously well after
- * document_idle and window "load" have both already fired.
+ * Uses MutationObserver so it fires the moment the element is inserted —
+ * no polling. Needed because both CUNY SSO pages render their form inputs
+ * asynchronously via Oracle JET / RequireJS, long after document_idle fires.
  *
- * Falls back to null after `timeoutMs` if the element never appears.
+ * Uses getElementById so special characters in IDs (e.g. the | in
+ * "otpValue|input") are treated as plain strings, not CSS namespace syntax.
+ *
+ * Resolves null after timeoutMs if the element never appears.
  */
-function waitForElementById(id: string, timeoutMs = 15000): Promise<HTMLInputElement | null> {
+function waitForElementById(id: string, timeoutMs = 10000): Promise<HTMLInputElement | null> {
   return new Promise((resolve) => {
     const existing = document.getElementById(id);
     if (existing instanceof HTMLInputElement) {
@@ -41,7 +29,7 @@ function waitForElementById(id: string, timeoutMs = 15000): Promise<HTMLInputEle
 
     const timer = setTimeout(() => {
       observer.disconnect();
-      log(`waitForElementById: timed out waiting for #${id}`);
+      log(`timed out waiting for element with id="${id}"`);
       resolve(null);
     }, timeoutMs);
 
@@ -58,37 +46,71 @@ function waitForElementById(id: string, timeoutMs = 15000): Promise<HTMLInputEle
   });
 }
 
-async function main(): Promise<Result<boolean, string>> {
-  /*
-  I need username and password and totp elements.
-  if username and password exist but totp doesn't run that flow.
-  otherwise run totp fill flow.
-  then it returns here and clicks submit.
-  */
-  log("main called, waiting for form elements...");
-
-  // getElementById handles special characters in IDs (like the | in otpValue|input)
-  // querySelector('#otpValue|input') is INVALID CSS — | is a namespace separator operator
-  const [usernameElm, passwordElm, totpElm] = await Promise.all([
+async function fillCredentials(): Promise<Result<true, string>> {
+  const [usernameElm, passwordElm] = await Promise.all([
     waitForElementById('CUNYLoginUsernameDisplay'),
     waitForElementById('CUNYLoginPassword'),
-    waitForElementById('otpValue|input'),
   ]);
 
-  log("usernameElm:", usernameElm);
-  log("passwordElm:", passwordElm);
-  log("totpElm:", totpElm);
+  if (!usernameElm) return err('credential page: username input not found');
+  if (!passwordElm) return err('credential page: password input not found');
 
-  if (usernameElm && passwordElm && !totpElm) {
-    log("I see a username and password but no TOTP");
-    return ok(true);
-  } else if (totpElm && !usernameElm && !passwordElm) {
-    log("I see a TOTP but no username nor password");
-    return ok(true);
+  log("credential inputs found:", usernameElm, passwordElm);
+  // TODO: read from vault and fill usernameElm.value / passwordElm.value, then submit
+  return ok(true);
+}
+
+async function fillTotp(): Promise<Result<true, string>> {
+  const totpElm = await waitForElementById('otpValue|input');
+
+  if (!totpElm) return err('TOTP page: OTP input not found');
+
+  log("TOTP input found:", totpElm);
+  // TODO: generate OTP via getOtp() and fill totpElm.value, then submit
+  return ok(true);
+}
+
+async function getOtp(): Promise<string> {
+  // TODO: read TOTP secret from vault instead of hardcoding
+  const { otp } = await TOTP.generate('', {
+    algorithm: "SHA-1",
+    digits: 6,
+    period: 30,
+  });
+  return otp;
+}
+
+async function main(): Promise<void> {
+  const url = window.location.href;
+  log("content script active", url);
+
+  let result: Result<true, string>;
+
+  if (url.includes('/oam/server/obrareq.cgi')) {
+    result = await fillCredentials();
+  } else if (url.includes('/oaa-totp-factor/')) {
+    result = await fillTotp();
   } else {
-    log("I see... nothing. oh man");
-    return err("I see nothing");
+    log("unrecognised page, doing nothing");
+    return;
+  }
+
+  if (result.isErr()) {
+    log("error:", result.error);
   }
 }
 
+browser.runtime.onMessage.addListener((message: unknown) => {
+  if (
+    typeof message === "object" &&
+    message !== null &&
+    "type" in message &&
+    (message as { type: unknown }).type === "FILL_CREDENTIALS"
+  ) {
+    log("runtime.onMessage FILL_CREDENTIALS — triggering main()");
+    main();
+  }
+});
+
 main();
+getOtp(); // to shut up linter
