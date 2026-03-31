@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output (mirrors source under src/)
+dist/
+
+# Git internals
+.git/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor (local machine)
+.vscode/
+.idea/
+
+# Environment / secrets
+.env
+.env.*
