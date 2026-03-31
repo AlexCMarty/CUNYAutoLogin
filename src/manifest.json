@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "CUNY SSO Helper",
+  "name": "CUNYAutoLogin",
   "version": "0.1.0",
-  "description": "CUNY SSO login helper — encrypted local storage (development scaffold).",
+  "description": "CUNYAutoLogin — encrypted credential vault and ssologin.cuny.edu auto-fill.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["https://ssologin.cuny.edu/*"],
   "action": {
@@ -22,7 +22,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "cuny-sso-helper@local",
+      "id": "cunyautologin@local",
       "strict_min_version": "115.0"
     }
   },

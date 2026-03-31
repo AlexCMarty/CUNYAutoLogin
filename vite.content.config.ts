@@ -11,7 +11,7 @@ export default defineConfig({
     minify: false, // for debugging
     lib: {
       entry: resolve(__dirname, "src/content/content.ts"),
-      name: "cunyContent",
+      name: "cunyAutoLoginContent",
       formats: ["iife"],
       fileName: () => "content.js",
     },

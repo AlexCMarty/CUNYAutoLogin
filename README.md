@@ -1,6 +1,6 @@
-# CUNY SSO Helper (browser extension)
+# CUNYAutoLogin (browser extension)
 
-Manifest V3 extension for Chromium and Firefox: encrypted credential storage in the popup (PBKDF2 + AES-GCM) and a content script scaffold for `https://ssologin.cuny.edu`.
+Manifest V3 extension for Chromium and Firefox: encrypted credential storage in the popup (PBKDF2 + AES-GCM), session unlock via `browser.storage.session`, and a content script for `https://ssologin.cuny.edu` that auto-fills login and TOTP when the vault is unlocked.
 
 ## Build
 
@@ -27,29 +27,29 @@ Load the `dist/` folder as an unpacked / temporary extension.
 ## Popup: first run and update
 
 1. Click the extension icon.
-2. Enter CUNY email (must end with `@login.cuny.edu`), password, Base32 TOTP secret, and a **local master password** (never stored; used only to derive the encryption key).
-3. Click **Save** or **Update encrypted vault**. On update, the master password must decrypt the existing vault before re-encrypting.
+2. Enter CUNY email (must end with `@login.cuny.edu`), password, Base32 TOTP secret, and a **local master password** (never stored in `storage.local`; used only to derive the encryption key).
+3. Use **Save encrypted vault**, **Unlock**, or **Save changes** depending on mode. To change the master password, fill both optional fields in unlocked mode.
 
 ## Content script: confirm injection
 
 1. Open a tab to any page under `https://ssologin.cuny.edu/` (exact path may vary).
 2. Open **Developer Tools → Console** for that tab.
-3. Look for lines prefixed with `[CUNY SSO Helper]`, including `content script active` and DOM probe output.
+3. Look for lines prefixed with `[CUNYAutoLogin]` (auto-fill and message handling logs).
 
 ## Test `FILL_CREDENTIALS` messaging
 
-1. With the SSO tab active, open the extension popup.
+1. With a ssologin tab active, open the extension popup (vault unlocked).
 2. Click **Send test FILL_CREDENTIALS to active tab**.
-3. In the page console, confirm a log like: `runtime.onMessage FILL_CREDENTIALS:` with the payload (including `demo: true`).
+3. In the page console, confirm a log like `runtime.onMessage FILL_CREDENTIALS — triggering main()`.
 
-If the active tab is not an extension page where the content script runs, the send may fail—use a `ssologin.cuny.edu` tab.
+If the active tab is not a page where the content script runs, the send may fail—use a `ssologin.cuny.edu` tab.
 
 ## Project layout
 
-- `popup.html` / `src/popup/` — popup UI and vault save/update.
+- `popup.html` / `src/popup/` — popup UI, vault encrypt/save, session unlock, master rotation.
 - `src/crypto/vault.ts` — PBKDF2 + AES-GCM helpers and storage shape.
-- `src/content/content.ts` — SSO page probes, stubs, `runtime.onMessage` logger.
-- `src/background/service-worker.ts` — minimal service worker.
+- `src/content/content.ts` — Oracle JET–aware fill for login + TOTP; `AUTO_FILL_REQUEST` and `FILL_CREDENTIALS`.
+- `src/background/service-worker.ts` — decrypt vault for auto-fill when session master is present.
 - `vite.config.ts` — popup + background; `vite.content.config.ts` — single-file `content.js` (IIFE).
 
 The content script is built in a second step so `dist/content.js` is one file with no shared ES module chunks (required for reliable MV3 injection).

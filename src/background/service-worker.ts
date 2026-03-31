@@ -9,7 +9,7 @@ import {
 const SESSION_MASTER_KEY = "cunySessionMaster";
 
 browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType) => {
-  console.log("[CUNY SSO Helper] installed/updated:", details.reason);
+  console.log("[CUNYAutoLogin] installed/updated:", details.reason);
 });
 
 browser.runtime.onMessage.addListener((message: unknown) => {

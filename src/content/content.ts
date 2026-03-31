@@ -2,7 +2,7 @@ import browser from "webextension-polyfill";
 import { TOTP } from 'totp-generator';
 import { ok, err, Result } from "neverthrow";
 
-const LOG_PREFIX = "[CUNY SSO Helper]";
+const LOG_PREFIX = "[CUNYAutoLogin]";
 
 function log(...args: unknown[]): void {
   console.log(LOG_PREFIX, ...args);

@@ -19,7 +19,7 @@ The master password used to derive the encryption key is **never written to `sto
 
 Saved email must end with **`@login.cuny.edu`** (enforced in `popup.ts`).
 
-The store-facing name in `src/manifest.json` is still **CUNY SSO Helper**; the repo folder is CUNYAutoLogin.
+The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
 
 ## Code style
 
@@ -84,7 +84,7 @@ In **unlocked** mode, users can optionally set a new master password (both “ne
 
 ## Auto-fill flow
 
-1. **On each CUNY SSO tab load** (`content.ts`): `autoFill()` sends `{ type: "AUTO_FILL_REQUEST" }` to the service worker.
+1. **On each ssologin.cuny.edu tab load** (`content.ts`): `autoFill()` sends `{ type: "AUTO_FILL_REQUEST" }` to the service worker.
 2. **Service worker** (`service-worker.ts`): Reads session master + encrypted vault from storage, decrypts, returns `{ success: true, payload }` or a failure reason (`no_session_master`, `no_vault`, `decrypt_error`). If the user never unlocked this session, auto-fill does nothing.
 3. **Content script** (`main()`): Chooses behaviour by URL:
    - Paths containing `/oam/server/obrareq.cgi` → `fillCredentials`: waits for `#CUNYLoginUsernameDisplay`, `#CUNYLoginPassword`, `#submit` (button), sets values in a Knockout-aware way, clicks submit.

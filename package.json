@@ -1,5 +1,5 @@
 {
-  "name": "cuny-sso-extension",
+  "name": "cunyautologin",
   "version": "0.1.0",
   "private": true,
   "type": "module",
