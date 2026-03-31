@@ -143,8 +143,10 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
   log("main() triggered", url);
 
   let result: Result<true, string>;
-
-  if (url.includes('/oam/server/obrareq.cgi')) {
+  // obrareq.cgi is when i'm redirected from most CUNY sites, like Degreeworks.
+  // samlv20 is when I'm redirected specifically from Brightspace... even though the pages look identical...
+  // otherwise, the autofill works identically
+  if (url.includes('/oam/server/obrareq.cgi') || url.includes('/oamfed/idp/samlv20')) {
     result = await fillCredentials(payload.email, payload.password);
   } else if (url.includes('/oaa-totp-factor/')) {
     result = await fillTotp(payload.totpSecret);
