@@ -1,6 +1,14 @@
 import browser from "webextension-polyfill";
-import { TOTP } from 'totp-generator';
+import { TOTP } from "totp-generator";
 import { ok, err, Result } from "neverthrow";
+import {
+  CREDENTIAL_INPUT_IDS,
+  matchesCredentialPage,
+  matchesTotpPage,
+  TOTP_GENERATION_OPTIONS,
+  TOTP_OTP_INPUT_ID,
+  TOTP_VERIFY_BUTTON_LABEL,
+} from "../cuny/ssoSite";
 
 const LOG_PREFIX = "[CUNYAutoLogin]";
 
@@ -71,10 +79,10 @@ function setInputValue(el: HTMLInputElement, value: string): void {
 
 async function fillCredentials(email: string, password: string): Promise<Result<true, string>> {
   const [usernameElm, passwordElm, submitBtn] = await Promise.all([
-    waitForInputById('CUNYLoginUsernameDisplay'),
-    waitForInputById('CUNYLoginPassword'),
+    waitForInputById(CREDENTIAL_INPUT_IDS.username),
+    waitForInputById(CREDENTIAL_INPUT_IDS.password),
     waitForElement(() => {
-      const el = document.getElementById('submit');
+      const el = document.getElementById(CREDENTIAL_INPUT_IDS.submitButton);
       return el instanceof HTMLButtonElement ? el : null;
     }),
   ]);
@@ -90,19 +98,17 @@ async function fillCredentials(email: string, password: string): Promise<Result<
 }
 
 async function getOtp(secret: string): Promise<string> {
-  const { otp } = await TOTP.generate(secret, {
-    algorithm: "SHA-1",
-    digits: 6,
-    period: 30,
-  });
+  const { otp } = await TOTP.generate(secret, TOTP_GENERATION_OPTIONS);
   return otp;
 }
 
 async function fillTotp(totpSecret: string): Promise<Result<true, string>> {
   const [totpElm, verifyBtn] = await Promise.all([
-    waitForInputById('otpValue|input'),
+    waitForInputById(TOTP_OTP_INPUT_ID),
     waitForElement(() =>
-      Array.from(document.querySelectorAll('button')).find(b => b.innerHTML.includes('Verify')) ?? null
+      Array.from(document.querySelectorAll("button")).find((b) =>
+        b.innerHTML.includes(TOTP_VERIFY_BUTTON_LABEL)
+      ) ?? null
     ),
   ]);
 
@@ -143,12 +149,9 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
   log("main() triggered", url);
 
   let result: Result<true, string>;
-  // obrareq.cgi is when i'm redirected from most CUNY sites, like Degreeworks.
-  // samlv20 is when I'm redirected specifically from Brightspace... even though the pages look identical...
-  // otherwise, the autofill works identically
-  if (url.includes('/oam/server/obrareq.cgi') || url.includes('/oamfed/idp/samlv20')) {
+  if (matchesCredentialPage(url)) {
     result = await fillCredentials(payload.email, payload.password);
-  } else if (url.includes('/oaa-totp-factor/')) {
+  } else if (matchesTotpPage(url)) {
     result = await fillTotp(payload.totpSecret);
   } else {
     log("unrecognised page, doing nothing");

@@ -86,9 +86,7 @@ In **unlocked** mode, users can optionally set a new master password (both “ne
 
 1. **On each ssologin.cuny.edu tab load** (`content.ts`): `autoFill()` sends `{ type: "AUTO_FILL_REQUEST" }` to the service worker.
 2. **Service worker** (`service-worker.ts`): Reads session master + encrypted vault from storage, decrypts, returns `{ success: true, payload }` or a failure reason (`no_session_master`, `no_vault`, `decrypt_error`). If the user never unlocked this session, auto-fill does nothing.
-3. **Content script** (`main()`): Chooses behaviour by URL:
-   - Paths containing `/oam/server/obrareq.cgi` → `fillCredentials`: waits for `#CUNYLoginUsernameDisplay`, `#CUNYLoginPassword`, `#submit` (button), sets values in a Knockout-aware way, clicks submit.
-   - Paths containing `/oaa-totp-factor/` → `fillTotp`: waits for `#otpValue|input` (literal ID with `|`) and a button whose HTML includes “Verify”, generates TOTP via `totp-generator` (SHA-1, 6 digits, 30 s), fills and clicks Verify.
+3. **Content script** (`main()`): Chooses behaviour by URL and DOM ids defined in `src/cuny/ssoSite.ts` (path fragments, input ids, TOTP options). `fillCredentials` / `fillTotp` wait for Oracle JET–rendered controls, set values in a Knockout-aware way, then click submit / Verify.
 
 Oracle JET renders inputs after `document_idle`, so the content script uses a `MutationObserver` + timeouts instead of assuming immediate DOM.
 
