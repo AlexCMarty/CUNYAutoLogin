@@ -30,7 +30,7 @@ The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
 - Avoid `throw`. Use the neverthrow library to return `Result` / `ResultAsync` where practical
 - Always maintain the same level of security as a password manager
 
-**Reality check:** `content.ts` uses neverthrow for fill outcomes. `vault.ts` still throws on decrypt failure (`DECRYPT_FAILED`) and invalid payload; `popup.ts` catches those and uses a single guard `throw` if required DOM nodes are missing. Prefer Result-style APIs for new code paths.
+`vault.ts` exposes `encryptVault` / `decryptVault` as `ResultAsync` with `VaultError`. `popup.ts` uses `Result` for DOM binding (`getEls`) and `ResultAsync` for tab messaging where failures are expected. `content.ts` uses `Result` for fill steps.
 
 ## Project layout
 
@@ -118,7 +118,7 @@ Oracle JET renders inputs after `document_idle`, so the content script uses a `M
 ## Dependencies (runtime)
 
 - `webextension-polyfill` — unified `browser` API
-- `neverthrow` — `Result` / `err` / `ok` in the content script
+- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `popup.ts`, and `content.ts`
 - `totp-generator` — TOTP codes in the content script (bundled into IIFE)
 
 ## What is NOT yet implemented

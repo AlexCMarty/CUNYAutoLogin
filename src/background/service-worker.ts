@@ -24,17 +24,20 @@ browser.runtime.onMessage.addListener((message: unknown) => {
       const sessionResult = await browser.storage.session?.get(SESSION_MASTER_KEY);
       const masterPassword = sessionResult?.[SESSION_MASTER_KEY];
       if (typeof masterPassword !== "string") {
-        return { success: false, reason: "no_session_master" };
+        return { success: false, reason: "no_session_master" as const };
       }
       const localResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
       const raw = localResult[VAULT_STORAGE_KEY];
       if (!isStoredVault(raw)) {
-        return { success: false, reason: "no_vault" };
+        return { success: false, reason: "no_vault" as const };
       }
-      const payload = await decryptVault(raw, masterPassword);
-      return { success: true, payload };
+      const decResult = await decryptVault(raw, masterPassword);
+      return decResult.match(
+        (payload) => ({ success: true as const, payload }),
+        () => ({ success: false as const, reason: "decrypt_error" as const })
+      );
     } catch {
-      return { success: false, reason: "decrypt_error" };
+      return { success: false as const, reason: "decrypt_error" as const };
     }
   })();
 });

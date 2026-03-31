@@ -1,11 +1,15 @@
 /** Encrypted credential blob stored in browser.storage.local */
 
+import { Result, ResultAsync, err, ok } from "neverthrow";
+
 export const VAULT_STORAGE_KEY = "cunyVault" as const;
 
 export const PBKDF2_ITERATIONS = 310_000;
 const SALT_LENGTH = 32;
 const IV_LENGTH = 12;
 const AES_KEY_BITS = 256;
+
+export type VaultError = "decrypt_failed" | "invalid_payload" | "crypto_failed";
 
 export interface VaultPayload {
   email: string;
@@ -64,47 +68,14 @@ async function deriveAesKey(
   );
 }
 
-export async function encryptVault(
-  payload: VaultPayload,
-  masterPassword: string
-): Promise<StoredVault> {
-  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-  const key = await deriveAesKey(masterPassword, salt);
-  const plaintext = new TextEncoder().encode(JSON.stringify(payload));
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: iv as BufferSource },
-    key,
-    plaintext
-  );
-  return {
-    version: 1,
-    saltB64: bytesToBase64(salt),
-    ivB64: bytesToBase64(iv),
-    ciphertextB64: bytesToBase64(new Uint8Array(ciphertext)),
-  };
-}
-
-export async function decryptVault(
-  stored: StoredVault,
-  masterPassword: string
-): Promise<VaultPayload> {
-  const salt = base64ToBytes(stored.saltB64);
-  const iv = base64ToBytes(stored.ivB64);
-  const ciphertext = base64ToBytes(stored.ciphertextB64);
-  const key = await deriveAesKey(masterPassword, salt);
-  let plaintext: ArrayBuffer;
-  try {
-    plaintext = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: iv as BufferSource },
-      key,
-      ciphertext as BufferSource
-    );
-  } catch {
-    throw new Error("DECRYPT_FAILED");
-  }
+function parseDecryptedPayload(plaintext: ArrayBuffer): Result<VaultPayload, VaultError> {
   const json = new TextDecoder().decode(plaintext);
-  const parsed: unknown = JSON.parse(json);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return err("invalid_payload");
+  }
   if (
     typeof parsed !== "object" ||
     parsed === null ||
@@ -112,7 +83,7 @@ export async function decryptVault(
     !("password" in parsed) ||
     !("totpSecret" in parsed)
   ) {
-    throw new Error("INVALID_PAYLOAD");
+    return err("invalid_payload");
   }
   const o = parsed as Record<string, unknown>;
   const email = o.email;
@@ -123,12 +94,57 @@ export async function decryptVault(
     typeof password !== "string" ||
     typeof totpSecret !== "string"
   ) {
-    throw new Error("INVALID_PAYLOAD");
+    return err("invalid_payload");
   }
-  return { email, password, totpSecret };
+  return ok({ email, password, totpSecret });
 }
 
-export function isStoredVault(value: unknown): value is StoredVault {
+export const encryptVault = (
+  payload: VaultPayload,
+  masterPassword: string
+): ResultAsync<StoredVault, VaultError> => {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+  const plaintext = new TextEncoder().encode(JSON.stringify(payload));
+  return ResultAsync.fromPromise(deriveAesKey(masterPassword, salt), () => "crypto_failed" as const).andThen(
+    (key) =>
+      ResultAsync.fromPromise(
+        crypto.subtle.encrypt(
+          { name: "AES-GCM", iv: iv as BufferSource },
+          key,
+          plaintext
+        ),
+        () => "crypto_failed" as const
+      )
+  ).map((ciphertext) => ({
+    version: 1 as const,
+    saltB64: bytesToBase64(salt),
+    ivB64: bytesToBase64(iv),
+    ciphertextB64: bytesToBase64(new Uint8Array(ciphertext)),
+  }));
+};
+
+export const decryptVault = (
+  stored: StoredVault,
+  masterPassword: string
+): ResultAsync<VaultPayload, VaultError> => {
+  const salt = base64ToBytes(stored.saltB64);
+  const iv = base64ToBytes(stored.ivB64);
+  const ciphertext = base64ToBytes(stored.ciphertextB64);
+  return ResultAsync.fromPromise(deriveAesKey(masterPassword, salt), () => "crypto_failed" as const).andThen(
+    (key) =>
+      ResultAsync.fromPromise(
+        crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: iv as BufferSource },
+          key,
+          ciphertext as BufferSource
+        ),
+        () => "decrypt_failed" as const
+      )
+  ).andThen((plain) => parseDecryptedPayload(plain));
+};
+
+export const isStoredVault = (value: unknown): value is StoredVault => {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
@@ -137,4 +153,4 @@ export function isStoredVault(value: unknown): value is StoredVault {
     typeof v.ivB64 === "string" &&
     typeof v.ciphertextB64 === "string"
   );
-}
+};

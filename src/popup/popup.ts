@@ -1,4 +1,5 @@
 import browser from "webextension-polyfill";
+import { Result, ResultAsync, err, ok } from "neverthrow";
 import {
   VAULT_STORAGE_KEY,
   encryptVault,
@@ -6,6 +7,7 @@ import {
   isStoredVault,
   type StoredVault,
   type VaultPayload,
+  type VaultError,
 } from "../crypto/vault";
 
 const REQUIRED_EMAIL_SUFFIX = "@login.cuny.edu";
@@ -51,7 +53,24 @@ interface FormDraft {
   totpSecret: string;
 }
 
-function saveDraft(els: ReturnType<typeof getEls>): void {
+interface PopupDom {
+  form: HTMLFormElement;
+  email: HTMLInputElement;
+  password: HTMLInputElement;
+  totpSecret: HTMLInputElement;
+  masterPassword: HTMLInputElement;
+  masterLabel: HTMLElement;
+  newMasterPassword: HTMLInputElement;
+  confirmNewMasterPassword: HTMLInputElement;
+  submitBtn: HTMLButtonElement;
+  lockBtn: HTMLButtonElement;
+  modeHint: HTMLElement;
+  credentialFields: HTMLElement;
+  masterPasswordField: HTMLElement;
+  changeMasterSection: HTMLElement;
+}
+
+function saveDraft(els: PopupDom): void {
   const draft: FormDraft = {
     email: els.email.value,
     password: els.password.value,
@@ -60,17 +79,28 @@ function saveDraft(els: ReturnType<typeof getEls>): void {
   localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
 }
 
-function restoreDraft(els: ReturnType<typeof getEls>): void {
+function restoreDraft(els: PopupDom): void {
   const raw = localStorage.getItem(DRAFT_KEY);
   if (!raw) return;
+  let parsed: Result<unknown, "bad_json">;
   try {
-    const draft = JSON.parse(raw) as FormDraft;
-    if (draft.email) els.email.value = draft.email;
-    if (draft.password) els.password.value = draft.password;
-    if (draft.totpSecret) els.totpSecret.value = draft.totpSecret;
+    parsed = ok(JSON.parse(raw) as unknown);
   } catch {
-    localStorage.removeItem(DRAFT_KEY);
+    parsed = err("bad_json");
   }
+  if (parsed.isErr()) {
+    localStorage.removeItem(DRAFT_KEY);
+    return;
+  }
+  const draft = parsed.value;
+  if (typeof draft !== "object" || draft === null) {
+    localStorage.removeItem(DRAFT_KEY);
+    return;
+  }
+  const d = draft as Record<string, unknown>;
+  if (typeof d.email === "string" && d.email) els.email.value = d.email;
+  if (typeof d.password === "string" && d.password) els.password.value = d.password;
+  if (typeof d.totpSecret === "string" && d.totpSecret) els.totpSecret.value = d.totpSecret;
 }
 
 function clearDraft(): void {
@@ -119,7 +149,7 @@ async function loadStoredVault(): Promise<StoredVault | null> {
   return raw;
 }
 
-function getEls() {
+function getEls(): Result<PopupDom, "missing_dom"> {
   const form = document.getElementById("vault-form");
   const email = document.getElementById("email");
   const password = document.getElementById("password");
@@ -153,10 +183,10 @@ function getEls() {
     !(masterPasswordField instanceof HTMLElement) ||
     !(changeMasterSection instanceof HTMLElement)
   ) {
-    throw new Error("Missing required DOM elements");
+    return err("missing_dom");
   }
 
-  return {
+  return ok({
     form,
     email,
     password,
@@ -171,10 +201,16 @@ function getEls() {
     credentialFields,
     masterPasswordField,
     changeMasterSection,
-  };
+  });
 }
 
-function renderMode(els: ReturnType<typeof getEls>): void {
+function decryptStatusMessage(e: VaultError): string {
+  return e === "decrypt_failed"
+    ? "Wrong master password or corrupted vault."
+    : "Could not decrypt vault.";
+}
+
+function renderMode(els: PopupDom): void {
   const { credentialFields, masterPasswordField, changeMasterSection } = els;
 
   if (currentMode === "setup") {
@@ -215,7 +251,7 @@ function renderMode(els: ReturnType<typeof getEls>): void {
   }
 }
 
-async function handleSetup(els: ReturnType<typeof getEls>): Promise<void> {
+async function handleSetup(els: PopupDom): Promise<void> {
   const email = els.email.value.trim();
   const password = els.password.value;
   const totpSecret = els.totpSecret.value.trim().replace(/\s+/g, "");
@@ -239,26 +275,27 @@ async function handleSetup(els: ReturnType<typeof getEls>): Promise<void> {
   }
 
   els.submitBtn.disabled = true;
-  try {
-    const newVault = await encryptVault({ email, password, totpSecret }, masterPassword);
-    await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
-    storedVault = newVault;
-    sessionPayload = { email, password, totpSecret };
-    sessionMasterPassword = masterPassword;
-    await saveSessionMaster(masterPassword);
-    clearDraft();
-    els.masterPassword.value = "";
-    currentMode = "unlocked";
-    renderMode(els);
-    setStatus("Saved. Secrets are encrypted locally.", true);
-  } catch {
+  const encResult = await encryptVault({ email, password, totpSecret }, masterPassword);
+  if (encResult.isErr()) {
     setStatus("Save failed. Try again.");
-  } finally {
     els.submitBtn.disabled = false;
+    return;
   }
+  const newVault = encResult.value;
+  await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
+  storedVault = newVault;
+  sessionPayload = { email, password, totpSecret };
+  sessionMasterPassword = masterPassword;
+  await saveSessionMaster(masterPassword);
+  clearDraft();
+  els.masterPassword.value = "";
+  currentMode = "unlocked";
+  renderMode(els);
+  setStatus("Saved. Secrets are encrypted locally.", true);
+  els.submitBtn.disabled = false;
 }
 
-async function handleLocked(els: ReturnType<typeof getEls>): Promise<void> {
+async function handleLocked(els: PopupDom): Promise<void> {
   if (!storedVault) return;
 
   const masterPassword = els.masterPassword.value;
@@ -268,28 +305,24 @@ async function handleLocked(els: ReturnType<typeof getEls>): Promise<void> {
   }
 
   els.submitBtn.disabled = true;
-  try {
-    const payload = await decryptVault(storedVault, masterPassword);
-    // Store in session memory, clear from DOM immediately
-    sessionPayload = payload;
-    sessionMasterPassword = masterPassword;
-    await saveSessionMaster(masterPassword);
-    els.masterPassword.value = "";
-    currentMode = "unlocked";
-    setStatus("");
-    renderMode(els);
-  } catch (err) {
-    const msg =
-      err instanceof Error && err.message === "DECRYPT_FAILED"
-        ? "Wrong master password or corrupted vault."
-        : "Could not decrypt vault.";
-    setStatus(msg);
-  } finally {
+  const decResult = await decryptVault(storedVault, masterPassword);
+  if (decResult.isErr()) {
+    setStatus(decryptStatusMessage(decResult.error));
     els.submitBtn.disabled = false;
+    return;
   }
+  const payload = decResult.value;
+  sessionPayload = payload;
+  sessionMasterPassword = masterPassword;
+  await saveSessionMaster(masterPassword);
+  els.masterPassword.value = "";
+  currentMode = "unlocked";
+  setStatus("");
+  renderMode(els);
+  els.submitBtn.disabled = false;
 }
 
-async function handleUnlocked(els: ReturnType<typeof getEls>): Promise<void> {
+async function handleUnlocked(els: PopupDom): Promise<void> {
   const email = els.email.value.trim();
   const password = els.password.value;
   const totpSecret = els.totpSecret.value.trim().replace(/\s+/g, "");
@@ -334,30 +367,29 @@ async function handleUnlocked(els: ReturnType<typeof getEls>): Promise<void> {
   }
 
   els.submitBtn.disabled = true;
-  try {
-    const newVault = await encryptVault(
-      { email, password, totpSecret },
-      masterPasswordToUse
-    );
-    await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
-    storedVault = newVault;
-    clearDraft();
-    // Update session state with any changes
-    sessionPayload = { email, password, totpSecret };
-    sessionMasterPassword = masterPasswordToUse;
-    await saveSessionMaster(masterPasswordToUse);
-    // Clear optional new master password fields
-    els.newMasterPassword.value = "";
-    els.confirmNewMasterPassword.value = "";
-    setStatus("Changes saved. Secrets are encrypted locally.", true);
-  } catch {
+  const encResult = await encryptVault(
+    { email, password, totpSecret },
+    masterPasswordToUse
+  );
+  if (encResult.isErr()) {
     setStatus("Save failed. Try again.");
-  } finally {
     els.submitBtn.disabled = false;
+    return;
   }
+  const newVault = encResult.value;
+  await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
+  storedVault = newVault;
+  clearDraft();
+  sessionPayload = { email, password, totpSecret };
+  sessionMasterPassword = masterPasswordToUse;
+  await saveSessionMaster(masterPasswordToUse);
+  els.newMasterPassword.value = "";
+  els.confirmNewMasterPassword.value = "";
+  setStatus("Changes saved. Secrets are encrypted locally.", true);
+  els.submitBtn.disabled = false;
 }
 
-async function handleLock(els: ReturnType<typeof getEls>): Promise<void> {
+async function handleLock(els: PopupDom): Promise<void> {
   sessionMasterPassword = null;
   sessionPayload = null;
   await clearSessionMaster();
@@ -367,22 +399,25 @@ async function handleLock(els: ReturnType<typeof getEls>): Promise<void> {
 }
 
 async function init(): Promise<void> {
-  const els = getEls();
+  const elsResult = getEls();
+  if (elsResult.isErr()) {
+    console.error("[CUNYAutoLogin] popup DOM incomplete");
+    return;
+  }
+  const els = elsResult.value;
   storedVault = await loadStoredVault();
 
   if (!storedVault) {
     currentMode = "setup";
   } else {
-    // Attempt to restore session — auto-unlock if a master password was saved this session
     const savedMaster = await loadSessionMaster();
     if (savedMaster) {
-      try {
-        const payload = await decryptVault(storedVault, savedMaster);
-        sessionPayload = payload;
+      const decResult = await decryptVault(storedVault, savedMaster);
+      if (decResult.isOk()) {
+        sessionPayload = decResult.value;
         sessionMasterPassword = savedMaster;
         currentMode = "unlocked";
-      } catch {
-        // Saved session master is stale or vault was re-keyed — fall back to locked
+      } else {
         await clearSessionMaster();
         currentMode = "locked";
       }
@@ -424,26 +459,33 @@ async function init(): Promise<void> {
         setStatus("Vault is locked. Unlock it first.");
         return;
       }
-      try {
-        const tabs = await browser.tabs.query({
-          active: true,
-          currentWindow: true,
-        });
-        const tabId = tabs[0]?.id;
-        if (tabId === undefined) {
-          setStatus("No active tab.");
-          return;
-        }
-        await browser.tabs.sendMessage(tabId, {
+      const tabsResult = await ResultAsync.fromPromise(
+        browser.tabs.query({ active: true, currentWindow: true }),
+        () => "tabs_query_failed" as const
+      );
+      if (tabsResult.isErr()) {
+        setStatus("No active tab.");
+        return;
+      }
+      const tabId = tabsResult.value[0]?.id;
+      if (tabId === undefined) {
+        setStatus("No active tab.");
+        return;
+      }
+      const sendResult = await ResultAsync.fromPromise(
+        browser.tabs.sendMessage(tabId, {
           type: "FILL_CREDENTIALS",
           payload: sessionPayload,
-        });
-        setStatus("Filling…", true);
-      } catch {
+        }),
+        () => "send_failed" as const
+      );
+      if (sendResult.isErr()) {
         setStatus(
           "Could not send message (open ssologin.cuny.edu in the active tab?)."
         );
+        return;
       }
+      setStatus("Filling…", true);
     });
   }
 }
