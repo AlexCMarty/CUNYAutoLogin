@@ -1,0 +1,16 @@
+---
+description: TypeScript and neverthrow conventions for src and Vite configs
+globs: "**/*.ts"
+alwaysApply: false
+---
+
+# TypeScript code style
+
+- Arrow functions always
+- No `any` types
+- Named exports only
+- async/await only, no `.then()`
+- Avoid `throw`. Use the neverthrow library to return `Result` / `ResultAsync` where practical
+- Always maintain the same level of security as a password manager
+
+`vault.ts` exposes `encryptVault` / `decryptVault` as `ResultAsync` with `VaultError`. `popup.ts` uses `Result` for DOM binding (`getEls`) and `ResultAsync` for tab messaging where failures are expected. `content.ts` uses `Result` for fill steps.

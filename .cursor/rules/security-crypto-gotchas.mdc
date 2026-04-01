@@ -1,0 +1,29 @@
+---
+description: Security invariants, crypto parameters, extension gotchas
+alwaysApply: true
+---
+
+# Security, crypto, and gotchas
+
+The master password used to derive the encryption key is **never written to `storage.local` or disk**. It is held only in `browser.storage.session` (in-memory, cleared on browser restart) and in JS module memory while the popup is open.
+
+## Key constraints and gotchas
+
+- **`novalidate` on the popup form** — Firefox does not show native HTML5 validation tooltips inside extension popups; the submit event is silently swallowed. All validation is handled in JS (`popup.ts`). Do not remove `novalidate` from `<form>` in `popup.html`.
+- **Content script must be a single IIFE** — MV3 does not support ES module content scripts reliably across browsers. Use `vite.content.config.ts` (IIFE format) for anything in `src/content/`. Dependencies used there are bundled into `content.js` (not shared with popup/background chunks).
+- **`crossorigin` on built assets** — Vite injects `crossorigin` on `<script>` and `<link>` tags in the built HTML. These can cause silent failures under `moz-extension://`. Avoid adding new module preload links or external scripts.
+- **Master password never in `storage.local`** — `decryptVault` / `encryptVault` accept it as a parameter. Never write it to `storage.local` or logs. `storage.session` is the only permitted persistence location.
+- **`browser` import via `webextension-polyfill`** — always `import browser from "webextension-polyfill"`, never use `chrome.*` directly.
+- **Minimum browser versions** — `storage.session` requires Firefox 115+ and Chrome 102+ (set in `src/manifest.json`). Do not lower these without adding a fallback.
+- **Setup draft in `localStorage`** — While in `setup` mode, email/password/TOTP secret drafts are mirrored to `localStorage` (`cuny_form_draft`) so a half-filled form survives popup close. Treat this as sensitive plaintext on disk for the extension origin; do not log it.
+
+## Crypto details (`src/crypto/vault.ts`)
+
+| Parameter | Value |
+|---|---|
+| KDF | PBKDF2-SHA-256 |
+| Iterations | 310 000 |
+| Salt | 32 bytes (random per save) |
+| IV | 12 bytes (random per save) |
+| Cipher | AES-GCM-256 |
+| Storage format | `{ version: 1, saltB64, ivB64, ciphertextB64 }` |

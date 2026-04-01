@@ -1,0 +1,80 @@
+---
+description: CUNYAutoLogin project context, layout, build, load, dependencies, backlog
+alwaysApply: true
+---
+
+# CUNYAutoLogin — overview
+
+AI agent guidance for this repository.
+
+## What you should do for peak productivity
+
+These are real time savers:
+
+1. Access the internet to search for information when uncertain
+2. Run terminal commands
+3. Ask the user for clarification
+
+## What this project is
+
+A Manifest V3 browser extension (Firefox + Chromium) that:
+
+1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
+2. Keeps the vault unlocked across popup opens for the lifetime of the browser session using `browser.storage.session`.
+3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and also responds to manual `FILL_CREDENTIALS` messages from the popup.
+
+Master-password handling, `storage.local` vs `storage.session`, and related security rules are defined only in the **Security, crypto, and gotchas** project rule—do not contradict that rule.
+
+Saved email must end with **`@login.cuny.edu`** (enforced in `popup.ts`).
+
+The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
+
+## Project layout
+
+```
+popup.html                      Vite entry point for the popup UI (includes a dev “test message” button)
+src/
+  popup/popup.ts                Modes setup / locked / unlocked; encrypt/save; session unlock; master rotation;
+                                draft autosave; fill trigger to active tab
+  popup/popup.css               Popup styles
+  crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; `VAULT_STORAGE_KEY`, payload types
+  content/content.ts            IIFE bundle: MutationObserver waits for JET inputs; fill login + TOTP;
+                                `AUTO_FILL_REQUEST` + `FILL_CREDENTIALS` handling
+  background/service-worker.ts  onInstalled log; `AUTO_FILL_REQUEST` → decrypt vault via session master
+  manifest.json                 Source manifest (copied to dist/ by Vite)
+vite.config.ts                  Builds popup + background as ES modules; copies manifest
+vite.content.config.ts          Builds `content.ts` as a single IIFE (`dist/content.js`, inline deps)
+dist/                           Built extension — load this folder in the browser
+```
+
+## Build
+
+```bash
+npm install
+npm run build          # tsc --noEmit → vite popup/bg → vite content (manifest copy is part of main vite build)
+npm run build:content  # rebuild only the content script
+npm run watch          # vite build --watch (popup/bg only; rerun build:content when content changes)
+npm run typecheck      # tsc --noEmit only
+```
+
+The two-step Vite build is intentional: `vite.config.ts` bundles the popup and background as ES modules, while `vite.content.config.ts` produces a single-file IIFE (`dist/content.js`) with `inlineDynamicImports` — required for reliable MV3 content script injection and to ship `totp-generator` + `neverthrow` inside the content bundle.
+
+## Loading the extension
+
+**Firefox:** `about:debugging` → Load Temporary Add-on → select `dist/manifest.json`
+
+**Chrome/Chromium:** `chrome://extensions` → Developer mode → Load unpacked → select `dist/`
+
+Rebuild and reload the extension after any source change.
+
+## Dependencies (runtime)
+
+- `webextension-polyfill` — unified `browser` API
+- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `popup.ts`, and `content.ts`
+- `totp-generator` — TOTP codes in the content script (bundled into IIFE)
+
+## What is NOT yet implemented
+
+- Automated tests.
+- Removal or gating of the popup **dev-test** section for production builds.
+- Hardening if CUNY changes page URLs or element IDs (current logic is path- and ID-specific).

@@ -1,0 +1,28 @@
+---
+description: Session unlock modes and AUTO_FILL_REQUEST / FILL_CREDENTIALS pipeline
+alwaysApply: true
+---
+
+# Session unlock and auto-fill flows
+
+## Session unlock (`popup.ts`)
+
+The popup has three modes: `setup`, `locked`, and `unlocked`.
+
+On every popup open, `init()` checks `browser.storage.session` for a saved master password (`SESSION_MASTER_KEY = "cunySessionMaster"`). If found, it runs PBKDF2 + AES-GCM decrypt automatically and opens directly in `unlocked` mode. If decryption fails (e.g. vault was re-keyed), the session entry is purged and the popup falls back to `locked`.
+
+The master password is written to `browser.storage.session` after every successful unlock or save. It is cleared immediately when the user clicks **Lock vault**, which also resets all in-memory session state.
+
+In **unlocked** mode, users can optionally set a new master password (both “new” fields must match); saving re-encrypts the vault.
+
+`browser.storage.session` is not available in Firefox < 115 or Chrome < 102. The three session helpers (`saveSessionMaster`, `loadSessionMaster`, `clearSessionMaster`) wrap the API in try/catch and silently degrade to always-locked behaviour on unsupported browsers.
+
+## Auto-fill flow
+
+1. **On each ssologin.cuny.edu tab load** (`content.ts`): `autoFill()` sends `{ type: "AUTO_FILL_REQUEST" }` to the service worker.
+2. **Service worker** (`service-worker.ts`): Reads session master + encrypted vault from storage, decrypts, returns `{ success: true, payload }` or a failure reason (`no_session_master`, `no_vault`, `decrypt_error`). If the user never unlocked this session, auto-fill does nothing.
+3. **Content script** (`main()`): Chooses behaviour by URL and DOM ids defined in `src/cuny/ssoSite.ts` (path fragments, input ids, TOTP options). `fillCredentials` / `fillTotp` wait for Oracle JET–rendered controls, set values in a Knockout-aware way, then click submit / Verify.
+
+Oracle JET renders inputs after `document_idle`, so the content script uses a `MutationObserver` + timeouts instead of assuming immediate DOM.
+
+4. **Manual test** (`popup.ts`): **Send test FILL_CREDENTIALS to active tab** sends the in-memory `sessionPayload` to the active tab. Useful when the page was already open before unlock or for debugging.
