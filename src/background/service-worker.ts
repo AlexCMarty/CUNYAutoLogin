@@ -5,6 +5,7 @@ import {
   decryptVault,
   isStoredVault,
 } from "../crypto/vault";
+import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
 
 const SESSION_MASTER_KEY = "cunySessionMaster";
 
@@ -13,11 +14,39 @@ browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType
 });
 
 browser.runtime.onMessage.addListener((message: unknown) => {
-  if (
-    typeof message !== "object" ||
-    message === null ||
-    (message as Record<string, unknown>).type !== "AUTO_FILL_REQUEST"
-  ) return;
+  if (typeof message !== "object" || message === null) {
+    return;
+  }
+  const m = message as Record<string, unknown>;
+
+  if (m.type === "TOTP_SECRET_FROM_PAGE") {
+    return (async () => {
+      const secret = m.secret;
+      if (typeof secret !== "string" || !secret.length) {
+        return { ok: false as const };
+      }
+      const normalized = secret.replace(/\s+/g, "").toUpperCase().replace(/=+$/, "");
+      if (
+        normalized.length < 10 ||
+        normalized.length > 128 ||
+        !/^[A-Z2-7]+$/.test(normalized)
+      ) {
+        return { ok: false as const };
+      }
+      try {
+        await browser.storage.session?.set({
+          [PENDING_TOTP_SECRET_SESSION_KEY]: normalized,
+        });
+        return { ok: true as const };
+      } catch {
+        return { ok: false as const };
+      }
+    })();
+  }
+
+  if (m.type !== "AUTO_FILL_REQUEST") {
+    return;
+  }
 
   return (async () => {
     try {

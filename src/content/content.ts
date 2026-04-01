@@ -4,9 +4,11 @@ import { ok, err, Result } from "neverthrow";
 import {
   CREDENTIAL_INPUT_IDS,
   matchesCredentialPage,
+  matchesTotpEnrollPage,
   matchesTotpPage,
   TOTP_GENERATION_OPTIONS,
   TOTP_OTP_INPUT_ID,
+  TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY,
   TOTP_VERIFY_BUTTON_LABEL,
 } from "../cuny/ssoSite";
 
@@ -58,6 +60,75 @@ function waitForInputById(id: string, timeoutMs = 10000): Promise<HTMLInputEleme
     () => { const el = document.getElementById(id); return el instanceof HTMLInputElement ? el : null; },
     timeoutMs
   );
+}
+
+const TOTP_SECRET_SELECTOR = `[aria-labelledby="${TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY}"]`;
+
+/** Min/max length for Base32 secret after stripping separators (CUNY typically ~32 chars). */
+const TOTP_SECRET_LEN_MIN = 10;
+const TOTP_SECRET_LEN_MAX = 128;
+
+function normalizeTotpSecretCandidate(raw: string): string | null {
+  const normalized = raw.replace(/\s+/g, "").toUpperCase().replace(/=+$/, "");
+  if (normalized.length < TOTP_SECRET_LEN_MIN || normalized.length > TOTP_SECRET_LEN_MAX) {
+    return null;
+  }
+  if (!/^[A-Z2-7]+$/.test(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
+function parseTotpSecretFromEnrollDom(): string | null {
+  const el = document.querySelector(TOTP_SECRET_SELECTOR);
+  if (!(el instanceof HTMLElement)) {
+    return null;
+  }
+  return normalizeTotpSecretCandidate(el.textContent ?? "");
+}
+
+/**
+ * Waits until the enroll page injects a plausible Base32 secret into the labelled node.
+ */
+function waitForEnrollTotpSecret(timeoutMs = 120000): Promise<string | null> {
+  return new Promise((resolve) => {
+    const existing = parseTotpSecretFromEnrollDom();
+    if (existing) {
+      resolve(existing);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      observer.disconnect();
+      resolve(null);
+    }, timeoutMs);
+
+    const observer = new MutationObserver(() => {
+      const s = parseTotpSecretFromEnrollDom();
+      if (s) {
+        clearTimeout(timer);
+        observer.disconnect();
+        resolve(s);
+      }
+    });
+
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  });
+}
+
+let lastPostedEnrollTotpSecret: string | null = null;
+
+async function watchTotpSecretOnEnrollPage(): Promise<void> {
+  const secret = await waitForEnrollTotpSecret();
+  if (!secret || secret === lastPostedEnrollTotpSecret) {
+    return;
+  }
+  try {
+    await browser.runtime.sendMessage({ type: "TOTP_SECRET_FROM_PAGE", secret });
+    lastPostedEnrollTotpSecret = secret;
+  } catch {
+    // e.g. extension reloaded — ignore
+  }
 }
 
 /**
@@ -181,6 +252,10 @@ async function autoFill(): Promise<void> {
 }
 
 void autoFill();
+
+if (matchesTotpEnrollPage(window.location.href)) {
+  void watchTotpSecretOnEnrollPage();
+}
 
 browser.runtime.onMessage.addListener((message: unknown) => {
   if (!isFillMessage(message)) return;

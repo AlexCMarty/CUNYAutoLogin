@@ -34,6 +34,25 @@ export const matchesCredentialPage = (url: string): boolean =>
 export const matchesTotpPage = (url: string): boolean =>
   url.includes(TOTP_PAGE_PATH_MARKER);
 
+/**
+ * Path substring for the Oracle RUI “add authentication method” flow where the IdP
+ * shows the TOTP shared secret (e.g. …/oaa/rui/index.html).
+ */
+export const TOTP_ENROLL_PAGE_PATH_MARKER = "/oaa/rui/" as const;
+
+export const matchesTotpEnrollPage = (url: string): boolean =>
+  url.includes(TOTP_ENROLL_PAGE_PATH_MARKER);
+
+/**
+ * `aria-labelledby` value on the element that displays the Base32 secret. Use inside
+ * quoted attribute selectors so `|` is literal, e.g.
+ * `[aria-labelledby="${TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY}"]`.
+ */
+export const TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY = "key-labelled-by|label" as const;
+
+/** Session-only staging for a secret scraped from the enroll page (popup consumes + clears). */
+export const PENDING_TOTP_SECRET_SESSION_KEY = "cunyPendingTotpSecretFromSso" as const;
+
 /** Login form element ids on the credential page (Oracle JET). */
 export const CREDENTIAL_INPUT_IDS = {
   username: "CUNYLoginUsernameDisplay",

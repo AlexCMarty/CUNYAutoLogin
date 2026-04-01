@@ -9,7 +9,11 @@ import {
   type VaultPayload,
   type VaultError,
 } from "../crypto/vault";
-import { LOGIN_EMAIL_SUFFIX, SSO_LOGIN_HOST } from "../cuny/ssoSite";
+import {
+  LOGIN_EMAIL_SUFFIX,
+  PENDING_TOTP_SECRET_SESSION_KEY,
+  SSO_LOGIN_HOST,
+} from "../cuny/ssoSite";
 
 const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const EYE_CLOSED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
@@ -57,6 +61,7 @@ interface PopupDom {
   email: HTMLInputElement;
   password: HTMLInputElement;
   totpSecret: HTMLInputElement;
+  totpSecretSourceHint: HTMLElement;
   masterPassword: HTMLInputElement;
   masterLabel: HTMLElement;
   newMasterPassword: HTMLInputElement;
@@ -106,6 +111,46 @@ function clearDraft(): void {
   localStorage.removeItem(DRAFT_KEY);
 }
 
+function hideTotpSecretSourceHint(els: PopupDom): void {
+  els.totpSecretSourceHint.textContent = "";
+  els.totpSecretSourceHint.classList.add("hidden");
+}
+
+function showTotpSecretSourceHint(els: PopupDom): void {
+  els.totpSecretSourceHint.textContent =
+    "Filled from the open CUNY “add authentication” page.";
+  els.totpSecretSourceHint.classList.remove("hidden");
+}
+
+async function clearPendingTotpFromSession(): Promise<void> {
+  try {
+    await browser.storage.session?.remove(PENDING_TOTP_SECRET_SESSION_KEY);
+  } catch {
+    // session storage unavailable
+  }
+}
+
+async function applyPendingTotpFromPage(els: PopupDom): Promise<void> {
+  try {
+    const result = await browser.storage.session?.get(PENDING_TOTP_SECRET_SESSION_KEY);
+    const secret = result?.[PENDING_TOTP_SECRET_SESSION_KEY];
+    if (typeof secret !== "string" || !secret.length) {
+      return;
+    }
+    const current = els.totpSecret.value.trim().replace(/\s+/g, "").toUpperCase();
+    if (current === secret) {
+      await clearPendingTotpFromSession();
+      return;
+    }
+    els.totpSecret.value = secret;
+    showTotpSecretSourceHint(els);
+    await clearPendingTotpFromSession();
+    saveDraft(els);
+  } catch {
+    // session storage unavailable
+  }
+}
+
 function setupPasswordToggles(): void {
   document.querySelectorAll<HTMLButtonElement>(".toggle-visibility").forEach((btn) => {
     const input = btn.previousElementSibling;
@@ -153,6 +198,7 @@ function getEls(): Result<PopupDom, "missing_dom"> {
   const email = document.getElementById("email");
   const password = document.getElementById("password");
   const totpSecret = document.getElementById("totpSecret");
+  const totpSecretSourceHint = document.getElementById("totp-secret-source-hint");
   const masterPassword = document.getElementById("masterPassword");
   const masterLabel = document.getElementById("master-label");
   const newMasterPassword = document.getElementById("newMasterPassword");
@@ -171,6 +217,7 @@ function getEls(): Result<PopupDom, "missing_dom"> {
     !(email instanceof HTMLInputElement) ||
     !(password instanceof HTMLInputElement) ||
     !(totpSecret instanceof HTMLInputElement) ||
+    !(totpSecretSourceHint instanceof HTMLElement) ||
     !(masterPassword instanceof HTMLInputElement) ||
     !(masterLabel instanceof HTMLElement) ||
     !(newMasterPassword instanceof HTMLInputElement) ||
@@ -190,6 +237,7 @@ function getEls(): Result<PopupDom, "missing_dom"> {
     email,
     password,
     totpSecret,
+    totpSecretSourceHint,
     masterPassword,
     masterLabel,
     newMasterPassword,
@@ -287,6 +335,7 @@ async function handleSetup(els: PopupDom): Promise<void> {
   sessionMasterPassword = masterPassword;
   await saveSessionMaster(masterPassword);
   clearDraft();
+  hideTotpSecretSourceHint(els);
   els.masterPassword.value = "";
   currentMode = "unlocked";
   renderMode(els);
@@ -392,6 +441,8 @@ async function handleLock(els: PopupDom): Promise<void> {
   sessionMasterPassword = null;
   sessionPayload = null;
   await clearSessionMaster();
+  await clearPendingTotpFromSession();
+  hideTotpSecretSourceHint(els);
   currentMode = "locked";
   setStatus("");
   renderMode(els);
@@ -430,11 +481,31 @@ async function init(): Promise<void> {
 
   if (currentMode === "setup") {
     restoreDraft(els);
+    await applyPendingTotpFromPage(els);
+  }
+
+  const sessionApi = browser.storage.session;
+  if (sessionApi?.onChanged) {
+    try {
+      sessionApi.onChanged.addListener((changes) => {
+        if (changes[PENDING_TOTP_SECRET_SESSION_KEY] === undefined) {
+          return;
+        }
+        if (currentMode !== "setup") {
+          return;
+        }
+        void applyPendingTotpFromPage(els);
+      });
+    } catch {
+      // listener registration failed
+    }
   }
 
   [els.email, els.password, els.totpSecret].forEach((input) => {
     input.addEventListener("input", () => saveDraft(els));
   });
+
+  els.totpSecret.addEventListener("input", () => hideTotpSecretSourceHint(els));
 
   els.form.addEventListener("submit", async (e) => {
     e.preventDefault();
