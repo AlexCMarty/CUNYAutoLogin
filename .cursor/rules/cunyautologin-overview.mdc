@@ -78,3 +78,7 @@ Rebuild and reload the extension after any source change.
 - Automated tests.
 - Removal or gating of the popup **dev-test** section for production builds.
 - Hardening if CUNY changes page URLs or element IDs (current logic is path- and ID-specific).
+
+## Version control
+
+Please keep manifest.json up to date with the most recent git tag on branch main.
