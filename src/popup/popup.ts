@@ -448,6 +448,32 @@ async function handleLock(els: PopupDom): Promise<void> {
   renderMode(els);
 }
 
+async function resetToFreshInstall(els: PopupDom): Promise<void> {
+  try {
+    await browser.storage.local.remove(VAULT_STORAGE_KEY);
+  } catch {
+    setStatus("Could not remove vault from storage.");
+    return;
+  }
+  await clearSessionMaster();
+  await clearPendingTotpFromSession();
+  clearDraft();
+  els.email.value = "";
+  els.password.value = "";
+  els.totpSecret.value = "";
+  els.masterPassword.value = "";
+  els.newMasterPassword.value = "";
+  els.confirmNewMasterPassword.value = "";
+  hideTotpSecretSourceHint(els);
+  storedVault = null;
+  sessionPayload = null;
+  sessionMasterPassword = null;
+  currentMode = "setup";
+  renderMode(els);
+  await applyPendingTotpFromPage(els);
+  setStatus("Vault cleared. State matches a fresh install.", true);
+}
+
 async function init(): Promise<void> {
   const elsResult = getEls();
   if (elsResult.isErr()) {
@@ -556,6 +582,20 @@ async function init(): Promise<void> {
         return;
       }
       setStatus("Filling…", true);
+    });
+  }
+
+  const clearVaultBtn = document.getElementById("clear-vault-debug-btn");
+  if (clearVaultBtn instanceof HTMLButtonElement) {
+    clearVaultBtn.addEventListener("click", () => {
+      if (
+        !window.confirm(
+          "Clear the encrypted vault and all session data? This cannot be undone (debug only)."
+        )
+      ) {
+        return;
+      }
+      void resetToFreshInstall(els);
     });
   }
 }
