@@ -18,6 +18,7 @@ import {
 const LOG_PREFIX = "[CUNYAutoLogin]";
 
 function log(...args: unknown[]): void {
+  if (!import.meta.env.DEV) return;
   console.log(LOG_PREFIX, ...args);
 }
 

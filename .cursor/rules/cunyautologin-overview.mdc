@@ -32,10 +32,11 @@ The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
 ## Project layout
 
 ```
-popup.html                      Vite entry point for the popup UI (includes a dev “test message” button)
+popup.html                      Vite entry point for the popup UI (no static dev controls; see debug panel below)
 src/
   popup/popup.ts                Modes setup / locked / unlocked; encrypt/save; session unlock; master rotation;
-                                draft autosave; fill trigger to active tab
+                                draft autosave; dynamic-import debug panel when MODE=development
+  popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (not bundled in production build)
   popup/popup.css               Popup styles
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; `VAULT_STORAGE_KEY`, payload types
   content/content.ts            IIFE bundle: MutationObserver waits for JET inputs; fill login + TOTP;
@@ -51,9 +52,10 @@ dist/                           Built extension — load this folder in the brow
 
 ```bash
 npm install
-npm run build          # tsc --noEmit → vite popup/bg → vite content (manifest copy is part of main vite build)
+npm run build          # production: tsc --noEmit → vite build → vite content (no popup debug UI)
+npm run build:dev      # development mode on both Vite steps; popup includes test fill + clear vault
 npm run build:content  # rebuild only the content script
-npm run watch          # vite build --watch (popup/bg only; rerun build:content when content changes)
+npm run watch          # vite build --watch --mode development (popup/bg; rerun build:content when content changes)
 npm run typecheck      # tsc --noEmit only
 ```
 
@@ -76,9 +78,8 @@ Rebuild and reload the extension after any source change.
 ## What is NOT yet implemented
 
 - Automated tests.
-- Removal or gating of the popup **dev-test** section for production builds.
 - Hardening if CUNY changes page URLs or element IDs (current logic is path- and ID-specific).
 
-## Version control
+## Documentation
 
-Please keep manifest.json up to date with the most recent git tag on branch main.
+README.md should be oriented to less technically inclined college students. It's the first thing they see on Github. Prefer to put technical documentation elsewhere, such as CONTRIBUTING.md

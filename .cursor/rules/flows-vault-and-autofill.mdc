@@ -25,4 +25,4 @@ In **unlocked** mode, users can optionally set a new master password (both “ne
 
 Oracle JET renders inputs after `document_idle`, so the content script uses a `MutationObserver` + timeouts instead of assuming immediate DOM.
 
-4. **Manual test** (`popup.ts`): **Send test FILL_CREDENTIALS to active tab** sends the in-memory `sessionPayload` to the active tab. Useful when the page was already open before unlock or for debugging.
+4. **Manual test** (`debugPanel.ts`, `npm run build:dev` only): **Send test FILL_CREDENTIALS to active tab** sends the in-memory `sessionPayload` to the active tab. Useful when the page was already open before unlock or for debugging.

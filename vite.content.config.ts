@@ -2,13 +2,13 @@ import { defineConfig } from "vite";
 import { resolve } from "node:path";
 
 /** Single-file IIFE for MV3 content script (no shared ES chunks). */
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: ".",
   publicDir: false,
   build: {
     emptyOutDir: false,
     outDir: "dist",
-    minify: false, // for debugging
+    minify: mode !== "development",
     lib: {
       entry: resolve(__dirname, "src/content/content.ts"),
       name: "cunyAutoLoginContent",
@@ -23,4 +23,4 @@ export default defineConfig({
     target: "es2022",
     sourcemap: true,
   },
-});
+}));

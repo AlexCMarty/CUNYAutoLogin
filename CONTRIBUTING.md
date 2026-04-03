@@ -11,11 +11,17 @@ npm run build
 
 This runs TypeScript checks, then Vite for the popup and background, then a second Vite pass for the content script. Output goes to `dist/`.
 
+- **`npm run build`** — **Production** (default Vite mode): minified where appropriate, no popup debug controls (test fill / clear vault).
+- **`npm run build:dev`** — **Development**: unminified popup/background and readable `content.js` when possible; popup includes **Send test FILL_CREDENTIALS** and **Clear vault — debug**.
+
+CI and GitHub Releases use `npm run build` only.
+
 | Script | Purpose |
 |--------|---------|
-| `npm run build` | Full build (popup, background, content, manifest copy) |
-| `npm run build:content` | Rebuild only `dist/content.js` |
-| `npm run watch` | Watch mode for popup/background (rerun `build:content` when content changes) |
+| `npm run build` | Full production build (popup, background, content, manifest copy) |
+| `npm run build:dev` | Full development build (`--mode development` on both Vite steps) |
+| `npm run build:content` | Rebuild only `dist/content.js` (uses default production mode unless you pass flags) |
+| `npm run watch` | Watch mode for popup/background in development mode (rerun `build:content` or `build:dev` when content changes) |
 | `npm run typecheck` | `tsc --noEmit` only |
 
 Load `dist/` as an unpacked / temporary extension (see below), or install from a [release zip](./releases) like beta testers.
@@ -48,10 +54,12 @@ Load `dist/` as an unpacked / temporary extension (see below), or install from a
 ## Content script: confirm injection
 
 1. Open a tab to any page under `https://ssologin.cuny.edu/` (exact path may vary).
-2. Open **Developer Tools → Console** for that tab.
-3. Look for lines prefixed with `[CUNYAutoLogin]` (auto-fill and message handling logs).
+2. Use a build from **`npm run build:dev`** if you want `[CUNYAutoLogin]` lines in the page console (production builds omit those debug logs).
+3. Open **Developer Tools → Console** for that tab and look for lines prefixed with `[CUNYAutoLogin]` when running a dev build.
 
 ## Test `FILL_CREDENTIALS` messaging
+
+Requires a build from **`npm run build:dev`** (the test button is omitted from production builds).
 
 1. With a ssologin tab active, open the extension popup (vault unlocked).
 2. Click **Send test FILL_CREDENTIALS to active tab**.

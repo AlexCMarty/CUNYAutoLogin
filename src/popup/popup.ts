@@ -1,5 +1,5 @@
 import browser from "webextension-polyfill";
-import { Result, ResultAsync, err, ok } from "neverthrow";
+import { Result, err, ok } from "neverthrow";
 import {
   VAULT_STORAGE_KEY,
   encryptVault,
@@ -12,7 +12,6 @@ import {
 import {
   LOGIN_EMAIL_SUFFIX,
   PENDING_TOTP_SECRET_SESSION_KEY,
-  SSO_LOGIN_HOST,
 } from "../cuny/ssoSite";
 
 const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
@@ -56,7 +55,7 @@ interface FormDraft {
   totpSecret: string;
 }
 
-interface PopupDom {
+export interface PopupDom {
   form: HTMLFormElement;
   email: HTMLInputElement;
   password: HTMLInputElement;
@@ -548,54 +547,13 @@ async function init(): Promise<void> {
 
   els.lockBtn.addEventListener("click", () => void handleLock(els));
 
-  const testBtn = document.getElementById("test-message-btn");
-  if (testBtn instanceof HTMLButtonElement) {
-    testBtn.addEventListener("click", async () => {
-      if (!sessionPayload) {
-        setStatus("Vault is locked. Unlock it first.");
-        return;
-      }
-      const tabsResult = await ResultAsync.fromPromise(
-        browser.tabs.query({ active: true, currentWindow: true }),
-        () => "tabs_query_failed" as const
-      );
-      if (tabsResult.isErr()) {
-        setStatus("No active tab.");
-        return;
-      }
-      const tabId = tabsResult.value[0]?.id;
-      if (tabId === undefined) {
-        setStatus("No active tab.");
-        return;
-      }
-      const sendResult = await ResultAsync.fromPromise(
-        browser.tabs.sendMessage(tabId, {
-          type: "FILL_CREDENTIALS",
-          payload: sessionPayload,
-        }),
-        () => "send_failed" as const
-      );
-      if (sendResult.isErr()) {
-        setStatus(
-          `Could not send message (open ${SSO_LOGIN_HOST} in the active tab?).`
-        );
-        return;
-      }
-      setStatus("Filling…", true);
-    });
-  }
-
-  const clearVaultBtn = document.getElementById("clear-vault-debug-btn");
-  if (clearVaultBtn instanceof HTMLButtonElement) {
-    clearVaultBtn.addEventListener("click", () => {
-      if (
-        !window.confirm(
-          "Clear the encrypted vault and all session data? This cannot be undone (debug only)."
-        )
-      ) {
-        return;
-      }
-      void resetToFreshInstall(els);
+  if (import.meta.env.MODE === "development") {
+    const { mountDebugPanel } = await import("./debugPanel");
+    mountDebugPanel({
+      els,
+      setStatus,
+      getSessionPayload: () => sessionPayload,
+      onClearVault: () => void resetToFreshInstall(els),
     });
   }
 }

@@ -10,7 +10,9 @@ import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
 const SESSION_MASTER_KEY = "cunySessionMaster";
 
 browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType) => {
-  console.log("[CUNYAutoLogin] installed/updated:", details.reason);
+  if (import.meta.env.DEV) {
+    console.log("[CUNYAutoLogin] installed/updated:", details.reason);
+  }
 });
 
 browser.runtime.onMessage.addListener((message: unknown) => {
