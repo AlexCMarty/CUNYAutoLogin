@@ -255,7 +255,8 @@ async function autoFill(): Promise<void> {
 
 void autoFill();
 
-async function tryFillRuiHraOtp(otpInput: HTMLInputElement): Promise<void> {
+/** Returns true once OTP was written; false to retry later (e.g. vault still locked). */
+async function tryFillRuiHraOtp(otpInput: HTMLInputElement): Promise<boolean> {
   try {
     const response = await browser.runtime.sendMessage({ type: "AUTO_FILL_REQUEST" }) as
       | { success: true; payload: FillMessage["payload"] }
@@ -269,26 +270,52 @@ async function tryFillRuiHraOtp(otpInput: HTMLInputElement): Promise<void> {
       } else {
         log("RUI h_ra=1: cannot read vault:", response.reason);
       }
-      return;
+      return false;
     }
 
     const otp = await getOtp(response.payload.totpSecret);
     setInputValue(otpInput, otp);
     log("RUI h_ra=1: filled OTP");
+    return true;
   } catch (e) {
     log("RUI h_ra=1: error —", e);
+    return false;
   }
 }
 
 function onRuiIndexHraPage(): void {
   log("RUI index page (exact h_ra=1 URL)");
+  let filled = false;
+  let fillInFlight = false;
+  let loggedFoundOtpInput = false;
   const intervalId = window.setInterval(() => {
-    const el = document.getElementById(RUI_INDEX_H_RA_OTP_INPUT_ID);
-    if (el instanceof HTMLInputElement) {
+    if (filled) {
       window.clearInterval(intervalId);
-      log("RUI h_ra=1: found OTP input", el);
-      void tryFillRuiHraOtp(el);
+      return;
     }
+
+    const el = document.getElementById(RUI_INDEX_H_RA_OTP_INPUT_ID);
+    if (!(el instanceof HTMLInputElement)) {
+      return;
+    }
+
+    if (!loggedFoundOtpInput) {
+      loggedFoundOtpInput = true;
+      log("RUI h_ra=1: found OTP input", el);
+    }
+
+    if (fillInFlight) {
+      return;
+    }
+
+    fillInFlight = true;
+    void tryFillRuiHraOtp(el).then((ok) => {
+      fillInFlight = false;
+      if (ok) {
+        filled = true;
+        window.clearInterval(intervalId);
+      }
+    });
   }, 500);
 }
 
