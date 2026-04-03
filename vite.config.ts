@@ -2,6 +2,9 @@ import { defineConfig } from "vite";
 import { resolve } from "node:path";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
+const manifestSrc =
+  process.env.E2E_MANIFEST === "1" ? "src/manifest.e2e.json" : "src/manifest.json";
+
 export default defineConfig(({ mode }) => ({
   root: ".",
   base: "./",
@@ -28,8 +31,9 @@ export default defineConfig(({ mode }) => ({
     viteStaticCopy({
       targets: [
         {
-          src: "src/manifest.json",
+          src: manifestSrc,
           dest: ".",
+          rename: "manifest.json",
         },
       ],
     }),

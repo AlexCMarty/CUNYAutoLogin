@@ -23,8 +23,21 @@ CI and GitHub Releases use `npm run build` only.
 | `npm run build:content` | Rebuild only `dist/content.js` (uses default production mode unless you pass flags) |
 | `npm run watch` | Watch mode for popup/background in development mode (rerun `build:content` or `build:dev` when content changes) |
 | `npm run typecheck` | `tsc --noEmit` only |
+| `npm run build:e2e` | Same as `build:dev`, but copies [`src/manifest.e2e.json`](src/manifest.e2e.json) to `dist/manifest.json` (adds `http://127.0.0.1:4173/*` for local HTML fixtures used by Playwright). |
+| `npm run test:e2e` | Runs `build:e2e`, then [Playwright](https://playwright.dev/) Chromium tests against `dist/` (see **End-to-end tests** below). |
 
 Load `dist/` as an unpacked / temporary extension (see below), or install from a [release zip](./releases) like beta testers.
+
+## End-to-end tests (Chromium + Playwright)
+
+Automated tests load the unpacked extension from `dist/` and static HTML fixtures served at `http://127.0.0.1:4173` (paths and element ids match [`src/cuny/ssoSite.ts`](src/cuny/ssoSite.ts)). **Firefox is not covered** — Playwright’s documented extension loading uses Chromium only.
+
+1. One-time browser install: `npx playwright install chromium`
+2. `npm run test:e2e` — rebuilds with the E2E manifest, starts the fixture server, and runs [`e2e/autofill.spec.ts`](e2e/autofill.spec.ts).
+
+For faster iteration after changing only tests, run `npx playwright test` (still starts the fixture server via [`playwright.config.ts`](playwright.config.ts); use a recent `npm run build:e2e` so `dist/manifest.json` matches the E2E host permissions).
+
+CI should call `npm run test:e2e` so `dist/manifest.json` always includes the localhost `host_permissions` / `matches` entries required for fixtures.
 
 ## Load unpacked (from source)
 

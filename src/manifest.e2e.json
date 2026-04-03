@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "CUNYAutoLogin",
+  "version": "0.3.0",
+  "description": "CUNYAutoLogin — encrypted credential vault and ssologin.cuny.edu auto-fill.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://ssologin.cuny.edu/*",
+    "http://127.0.0.1:4173/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"],
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://ssologin.cuny.edu/*",
+        "http://127.0.0.1:4173/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "cunyautologin@local",
+      "strict_min_version": "115.0"
+    }
+  },
+  "minimum_chrome_version": "102"
+}

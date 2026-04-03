@@ -16,5 +16,5 @@
     "types": ["chrome", "webextension-polyfill", "vite/client"],
     "sourceMap": true // for debugging
   },
-  "include": ["src/**/*.ts", "vite.config.ts", "vite.content.config.ts"]
+  "include": ["src/**/*.ts", "e2e/**/*.ts", "vite.config.ts", "vite.content.config.ts", "playwright.config.ts"]
 }
