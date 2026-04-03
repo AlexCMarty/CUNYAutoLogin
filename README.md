@@ -4,7 +4,7 @@ How many times a day do you log into CUNYFirst? Probably more than once. CUNY si
 
 **Privacy:** Your email, password, and authenticator secret stay on **your computer**, encrypted. You choose a **master password** that unlocks the vault; it is not sent to the extension author or any third-party server. The extension only needs access to CUNY’s sign-in site (`ssologin.cuny.edu`) to fill the page.
 
-**Beta:** You’re helping try this out. If something breaks or feels confusing, please [open an issue](./issues).
+**Beta:** You’re helping try this out. If something breaks or feels confusing, please [open an issue](https://github.com/AlexCMarty/CUNYAutoLogin/issues).
 
 **Browsers:** Firefox **115+** or Chrome / Edge **102+** (older browsers may not keep you signed in to the extension between restarts).
 
@@ -12,7 +12,7 @@ How many times a day do you log into CUNYFirst? Probably more than once. CUNY si
 
 ## Install (recommended: GitHub Release)
 
-1. On GitHub, open this repository’s [**Releases**](./releases) page (also linked from the right-hand sidebar on the repo home page).
+1. On GitHub, open this repository’s [**Releases**](https://github.com/AlexCMarty/CUNYAutoLogin/releases) page (also linked from the right-hand sidebar on the repo home page).
 2. Download the **zip** for the version you want (for example `CUNYAutoLogin-v0.2.2.zip`).
 3. Unzip it. You should see a folder that contains **`manifest.json`** at the top level—not a zip inside a zip.
 4. Follow **Chrome or Edge** or **Firefox** below and point the browser at **that unzipped folder** when it asks you to pick a folder.
@@ -73,7 +73,7 @@ Finish on the CUNY site: give the factor a name (for example `CUNYAutoLogin`), s
 - **Wrong email:** Use your CUNY Login address ending in **`@login.cuny.edu`**.
 - **Nothing fills:** Unlock the extension first. Try refreshing the CUNY page after unlocking.
 - **You changed your CUNY password or MFA:** Update the saved credentials in the extension (unlock, then edit and save).
-- **Still stuck:** [Open an issue](./issues) and describe what you clicked and what you expected.
+- **Still stuck:** [Open an issue](https://github.com/AlexCMarty/CUNYAutoLogin/issues) and describe what you clicked and what you expected.
 
 ---
 
