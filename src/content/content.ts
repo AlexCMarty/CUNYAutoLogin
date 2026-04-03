@@ -4,8 +4,9 @@ import { ok, err, Result } from "neverthrow";
 import {
   CREDENTIAL_INPUT_IDS,
   matchesCredentialPage,
-  matchesRuiIndexHraUrl,
-  RUI_INDEX_H_RA_OTP_INPUT_ID,
+  matchesRuiMfaEnrollVerifyPage,
+  RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID,
+  RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS,
   matchesTotpEnrollPage,
   matchesTotpPage,
   TOTP_GENERATION_OPTIONS,
@@ -255,8 +256,15 @@ async function autoFill(): Promise<void> {
 
 void autoFill();
 
-/** Returns true once OTP was written; false to retry later (e.g. vault still locked). */
-async function tryFillRuiHraOtp(otpInput: HTMLInputElement): Promise<boolean> {
+function logMfaEnrollVerify(...args: unknown[]): void {
+  log("MFA self-service · TOTP verify:", ...args);
+}
+
+/**
+ * Fills the enrollment “verify now” OTP field from the vault. Returns true when the code was
+ * applied; false if the vault is unavailable or another error occurred (caller may retry).
+ */
+async function tryFillMfaEnrollVerifyOtp(otpInput: HTMLInputElement): Promise<boolean> {
   try {
     const response = await browser.runtime.sendMessage({ type: "AUTO_FILL_REQUEST" }) as
       | { success: true; payload: FillMessage["payload"] }
@@ -264,63 +272,73 @@ async function tryFillRuiHraOtp(otpInput: HTMLInputElement): Promise<boolean> {
 
     if (!response.success) {
       if (response.reason === "no_session_master") {
-        log("RUI h_ra=1: vault locked — unlock the extension popup to fill OTP");
+        logMfaEnrollVerify("vault locked — unlock the extension popup to fill the 6-digit code");
       } else if (response.reason === "no_vault") {
-        log("RUI h_ra=1: vault not set up");
+        logMfaEnrollVerify("vault not set up — save credentials in the extension first");
       } else {
-        log("RUI h_ra=1: cannot read vault:", response.reason);
+        logMfaEnrollVerify("cannot read vault:", response.reason);
       }
       return false;
     }
 
     const otp = await getOtp(response.payload.totpSecret);
     setInputValue(otpInput, otp);
-    log("RUI h_ra=1: filled OTP");
+    logMfaEnrollVerify("filled 6-digit code");
     return true;
   } catch (e) {
-    log("RUI h_ra=1: error —", e);
+    logMfaEnrollVerify("error —", e);
     return false;
   }
 }
 
-function onRuiIndexHraPage(): void {
-  log("RUI index page (exact h_ra=1 URL)");
-  let filled = false;
-  let fillInFlight = false;
-  let loggedFoundOtpInput = false;
-  const intervalId = window.setInterval(() => {
-    if (filled) {
-      window.clearInterval(intervalId);
+/**
+ * After “My authentication factors”, the MFA app keeps one URL (`…/oaa/rui/index.html?h_ra=1` for
+ * this step). The OTP field is not in the DOM until the user clicks **Verify Now**, so we poll on
+ * an interval instead of relying on MutationObserver (the Oracle UI re-renders in ways that made
+ * observers flaky). Polling continues until a code is written or the tab navigates away.
+ */
+function startMfaEnrollVerifyOtpPolling(): void {
+  logMfaEnrollVerify(
+    "polling every",
+    RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS,
+    "ms — SPA keeps one URL on this flow; the OTP field appears only after Verify Now, so we poll instead of MutationObserver",
+  );
+  let otpFilled = false;
+  let vaultRequestInFlight = false;
+  let loggedOtpFieldFound = false;
+  const pollIntervalId = window.setInterval(() => {
+    if (otpFilled) {
+      window.clearInterval(pollIntervalId);
       return;
     }
 
-    const el = document.getElementById(RUI_INDEX_H_RA_OTP_INPUT_ID);
-    if (!(el instanceof HTMLInputElement)) {
+    const otpField = document.getElementById(RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID);
+    if (!(otpField instanceof HTMLInputElement)) {
       return;
     }
 
-    if (!loggedFoundOtpInput) {
-      loggedFoundOtpInput = true;
-      log("RUI h_ra=1: found OTP input", el);
+    if (!loggedOtpFieldFound) {
+      loggedOtpFieldFound = true;
+      logMfaEnrollVerify("found verify OTP field", otpField);
     }
 
-    if (fillInFlight) {
+    if (vaultRequestInFlight) {
       return;
     }
 
-    fillInFlight = true;
-    void tryFillRuiHraOtp(el).then((ok) => {
-      fillInFlight = false;
-      if (ok) {
-        filled = true;
-        window.clearInterval(intervalId);
+    vaultRequestInFlight = true;
+    void tryFillMfaEnrollVerifyOtp(otpField).then((didFill) => {
+      vaultRequestInFlight = false;
+      if (didFill) {
+        otpFilled = true;
+        window.clearInterval(pollIntervalId);
       }
     });
-  }, 500);
+  }, RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS);
 }
 
-if (matchesRuiIndexHraUrl(window.location.href)) {
-  onRuiIndexHraPage();
+if (matchesRuiMfaEnrollVerifyPage(window.location.href)) {
+  startMfaEnrollVerifyOtpPolling();
 }
 
 if (matchesTotpEnrollPage(window.location.href)) {

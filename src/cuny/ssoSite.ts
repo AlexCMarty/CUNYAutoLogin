@@ -43,13 +43,21 @@ export const TOTP_ENROLL_PAGE_PATH_MARKER = "/oaa/rui/" as const;
 export const matchesTotpEnrollPage = (url: string): boolean =>
   url.includes(TOTP_ENROLL_PAGE_PATH_MARKER);
 
-/** Exact href for the RUI index page with `h_ra=1` (browser may differ on trailing slash / encoding). */
-export const RUI_INDEX_H_RA_URL = `${SSO_LOGIN_ORIGIN}/oaa/rui/index.html?h_ra=1` as const;
+/**
+ * MFA Self-Service “verify new TOTP factor” step: same host/path as other RUI screens, but this
+ * exact query identifies the post-enrollment verification UI. Compare with `location.href` only.
+ */
+export const RUI_MFA_ENROLL_VERIFY_PAGE_URL =
+  `${SSO_LOGIN_ORIGIN}/oaa/rui/index.html?h_ra=1` as const;
 
-export const matchesRuiIndexHraUrl = (url: string): boolean => url === RUI_INDEX_H_RA_URL;
+export const matchesRuiMfaEnrollVerifyPage = (url: string): boolean =>
+  url === RUI_MFA_ENROLL_VERIFY_PAGE_URL;
 
-/** OTP field on RUI `index.html?h_ra=1` (pipe in id — use getElementById). */
-export const RUI_INDEX_H_RA_OTP_INPUT_ID = "otp|input" as const;
+/** OTP input on that step (`id` contains `|` — use getElementById). */
+export const RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID = "otp|input" as const;
+
+/** How often the content script looks for the verify OTP field (SPA injects it late). */
+export const RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS = 500;
 
 /**
  * `aria-labelledby` value on the element that displays the Base32 secret. Use inside

@@ -12,22 +12,21 @@ How many times a day do you log into CUNYFirst? Probably multiple times. This is
 
 # How to get your TOTP secret
 
-Before you can use the extension, you will have to add a new authentication factor in CUNYFirst.
+Before you can use the extension, add a new authentication factor in CUNY MFA Self-Service (linked from CUNYFirst).
 
-1. Visit CUNY MFA Self-Service https://ssologin.cuny.edu/oaa/rui and log in as usual.
-2. You will see a page, "Allow CUNY Login to Access MFA Self-Service?" Click "Allow"
-2. Under "My authentication factors" click "Manage"
-3. Add authentication factor
-4. Click, "Mobile Authenticator - TOTP"
-5. You will see a string of random numbers and letters (the TOTP secret key), and also a QR code. **Do not share this with anyone**. This generates the six digit code.
-6. Open the extension. The key will be autofilled.
-7. While on that page, enter into the extension your CUNY email ending in @login.cuny.edu and your CUNY password.
-8. Choose a **strong master password**. You will enter this every time you open your browser to unlock the vault.
-9. Save credentials
-10. In the CUNY webpage, you must save the TOTP authentication method. In "enter a friendly name" just put CUNYAutoLogin
-11. Click "Verify Now" and the six digit code will be automatically filled in for you. If it doesn't fill, make sure you actually clicked "save credentials" in the vault.
+1. Visit [CUNY MFA Self-Service](https://ssologin.cuny.edu/oaa/rui) and sign in as usual.
+2. On **Allow CUNY Login to Access MFA Self-Service?**, click **Allow**.
+3. Under **My authentication factors**, click **Manage**.
+4. Choose **Add authentication factor**.
+5. Select **Mobile Authenticator - TOTP**.
+6. You will see a Base32 **secret key** (letters and digits) and a QR code. **Do not share this with anyone** — it is equivalent to your password for generating codes.
+7. Open the extension popup. While you stay on this enrollment screen, the secret key is detected from the page and offered for saving.
+8. Enter your CUNY email (must end with `@login.cuny.edu`), your CUNY password, and a **strong master password** for the vault (you enter the master password when you open the browser to unlock the extension).
+9. Click **Save credentials** (or the equivalent save action for your mode).
 
-!TODO functionality of autofilling six digit code in step 11 doesn't exist
+On the CUNY site, finish enrolling the factor: give it a friendly name (for example `CUNYAutoLogin`), save the new method, then click **Verify Now** so the site asks for a one-time code.
+
+**Verify step (automatic fill):** After **My authentication factors**, the self-service app often keeps the **same URL** while it swaps views in place. The code field for **Verify Now** does not exist in the page until you click that button, so the extension **polls** for that field on the dedicated verify URL (`…/oaa/rui/index.html?h_ra=1`). Unlock the vault in the extension (or complete setup first); when the field appears, the six-digit code is filled automatically. If nothing fills, confirm you saved the vault and that the popup is unlocked.
 
 ## Load unpacked
 
@@ -88,7 +87,7 @@ If the active tab is not a page where the content script runs, the send may fail
 
 - `popup.html` / `src/popup/` — popup UI, vault encrypt/save, session unlock, master rotation.
 - `src/crypto/vault.ts` — PBKDF2 + AES-GCM helpers and storage shape.
-- `src/content/content.ts` — Oracle JET–aware fill for login + TOTP; `AUTO_FILL_REQUEST` and `FILL_CREDENTIALS`.
+- `src/content/content.ts` — Oracle JET–aware fill for login + TOTP; MFA enrollment **Verify Now** uses polling on `…/oaa/rui/index.html?h_ra=1` (single-page flow); `AUTO_FILL_REQUEST` and `FILL_CREDENTIALS`.
 - `src/background/service-worker.ts` — decrypt vault for auto-fill when session master is present.
 - `vite.config.ts` — popup + background; `vite.content.config.ts` — single-file `content.js` (IIFE).
 
