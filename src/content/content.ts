@@ -4,6 +4,8 @@ import { ok, err, Result } from "neverthrow";
 import {
   CREDENTIAL_INPUT_IDS,
   matchesCredentialPage,
+  matchesRuiIndexHraUrl,
+  RUI_INDEX_H_RA_OTP_INPUT_ID,
   matchesTotpEnrollPage,
   matchesTotpPage,
   TOTP_GENERATION_OPTIONS,
@@ -252,6 +254,47 @@ async function autoFill(): Promise<void> {
 }
 
 void autoFill();
+
+async function tryFillRuiHraOtp(otpInput: HTMLInputElement): Promise<void> {
+  try {
+    const response = await browser.runtime.sendMessage({ type: "AUTO_FILL_REQUEST" }) as
+      | { success: true; payload: FillMessage["payload"] }
+      | { success: false; reason: string };
+
+    if (!response.success) {
+      if (response.reason === "no_session_master") {
+        log("RUI h_ra=1: vault locked — unlock the extension popup to fill OTP");
+      } else if (response.reason === "no_vault") {
+        log("RUI h_ra=1: vault not set up");
+      } else {
+        log("RUI h_ra=1: cannot read vault:", response.reason);
+      }
+      return;
+    }
+
+    const otp = await getOtp(response.payload.totpSecret);
+    setInputValue(otpInput, otp);
+    log("RUI h_ra=1: filled OTP");
+  } catch (e) {
+    log("RUI h_ra=1: error —", e);
+  }
+}
+
+function onRuiIndexHraPage(): void {
+  log("RUI index page (exact h_ra=1 URL)");
+  const intervalId = window.setInterval(() => {
+    const el = document.getElementById(RUI_INDEX_H_RA_OTP_INPUT_ID);
+    if (el instanceof HTMLInputElement) {
+      window.clearInterval(intervalId);
+      log("RUI h_ra=1: found OTP input", el);
+      void tryFillRuiHraOtp(el);
+    }
+  }, 500);
+}
+
+if (matchesRuiIndexHraUrl(window.location.href)) {
+  onRuiIndexHraPage();
+}
 
 if (matchesTotpEnrollPage(window.location.href)) {
   void watchTotpSecretOnEnrollPage();
