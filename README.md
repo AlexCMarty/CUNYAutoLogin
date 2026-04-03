@@ -12,8 +12,8 @@ How many times a day do you log into CUNYFirst? Probably more than once. CUNY si
 
 ## Install (recommended: GitHub Release)
 
-1. On GitHub, open this repository’s [**Releases**](https://github.com/AlexCMarty/CUNYAutoLogin/releases) page (also linked from the right-hand sidebar on the repo home page).
-2. Download the **zip** for the version you want (for example `CUNYAutoLogin-v0.2.2.zip`).
+1. On GitHub, open this repository’s [**Releases**](https://github.com/AlexCMarty/CUNYAutoLogin/releases) page (also linked from the right-hand sidebar).
+2. Download the **zip** for the version you want (for example `CUNYAutoLogin-v0.3.0.zip`).
 3. Unzip it. You should see a folder that contains **`manifest.json`** at the top level—not a zip inside a zip.
 4. Follow **Chrome or Edge** or **Firefox** below and point the browser at **that unzipped folder** when it asks you to pick a folder.
 
