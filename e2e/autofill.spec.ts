@@ -1,6 +1,10 @@
 import type { Page } from "@playwright/test";
 import { TOTP } from "totp-generator";
-import { TOTP_GENERATION_OPTIONS } from "../src/cuny/ssoSite";
+import {
+  CREDENTIAL_INPUT_IDS,
+  TOTP_GENERATION_OPTIONS,
+  TOTP_OTP_INPUT_ID,
+} from "../src/cuny/ssoSite";
 import { CREDENTIAL_FIXTURE_URL, TOTP_FIXTURE_URL } from "./constants";
 import { expect, test } from "./extension-fixture";
 import {
@@ -46,10 +50,14 @@ test.describe("extension autofill against local fixtures", () => {
     const fixturePage = await context.newPage();
     await fixturePage.goto(CREDENTIAL_FIXTURE_URL);
 
-    await expect(fixturePage.locator("#CUNYLoginUsernameDisplay")).toHaveValue(E2E_EMAIL, {
+    await expect(
+      fixturePage.locator(`#${CREDENTIAL_INPUT_IDS.username}`)
+    ).toHaveValue(E2E_EMAIL, {
       timeout: 15_000,
     });
-    await expect(fixturePage.locator("#CUNYLoginPassword")).toHaveValue(E2E_PASSWORD);
+    await expect(fixturePage.locator(`#${CREDENTIAL_INPUT_IDS.password}`)).toHaveValue(
+      E2E_PASSWORD
+    );
     expect(
       await fixturePage.evaluate(
         () => (window as unknown as { __e2eCredentialSubmitted?: boolean }).__e2eCredentialSubmitted
@@ -64,7 +72,9 @@ test.describe("extension autofill against local fixtures", () => {
     await fixturePage.goto(TOTP_FIXTURE_URL);
 
     const { otp } = await TOTP.generate(E2E_TOTP_SECRET, TOTP_GENERATION_OPTIONS);
-    await expect(fixturePage.locator('[id="otpValue|input"]')).toHaveValue(otp, { timeout: 15_000 });
+    await expect(
+      fixturePage.locator(`[id="${TOTP_OTP_INPUT_ID}"]`)
+    ).toHaveValue(otp, { timeout: 15_000 });
   });
 
   test("does not fill credential page when vault is locked", async ({ page, context }) => {
@@ -75,6 +85,6 @@ test.describe("extension autofill against local fixtures", () => {
     await fixturePage.goto(CREDENTIAL_FIXTURE_URL);
     // autoFill runs asynchronously; wait long enough that a successful fill would have completed
     await fixturePage.waitForTimeout(5000);
-    await expect(fixturePage.locator("#CUNYLoginUsernameDisplay")).toHaveValue("");
+    await expect(fixturePage.locator(`#${CREDENTIAL_INPUT_IDS.username}`)).toHaveValue("");
   });
 });
