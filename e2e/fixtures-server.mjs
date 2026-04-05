@@ -21,6 +21,9 @@ function mapPathToFile(pathname) {
   if (pathname.startsWith("/oaa-totp-factor")) {
     return "totp.html";
   }
+  if (pathname.startsWith('/oaa/rui/index.html')) {
+    return "self-service.html"
+  }
   return null;
 }
 
@@ -30,7 +33,7 @@ const server = http.createServer(async (req, res) => {
   const file = mapPathToFile(url.pathname);
   if (!file) {
     res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("Not found");
+    res.end(`Not found. req.url = ${req.url}`);
     return;
   }
   try {

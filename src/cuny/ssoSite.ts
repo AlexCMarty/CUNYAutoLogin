@@ -44,14 +44,26 @@ export const matchesTotpEnrollPage = (url: string): boolean =>
   url.includes(TOTP_ENROLL_PAGE_PATH_MARKER);
 
 /**
- * MFA Self-Service “verify new TOTP factor” step: same host/path as other RUI screens, but this
- * exact query identifies the post-enrollment verification UI. Compare with `location.href` only.
+ * MFA Self-Service “verify new TOTP factor” step: same path as other RUI screens, but `h_ra=1`
+ * identifies the post-enrollment verification UI. Match pathname + query so local E2E fixtures
+ * (e.g. http://127.0.0.1:4173/…) behave like production.
  */
 export const RUI_MFA_ENROLL_VERIFY_PAGE_URL =
   `${SSO_LOGIN_ORIGIN}/oaa/rui/index.html?h_ra=1` as const;
 
-export const matchesRuiMfaEnrollVerifyPage = (url: string): boolean =>
-  url === RUI_MFA_ENROLL_VERIFY_PAGE_URL;
+const RUI_MFA_ENROLL_VERIFY_PATH = "/oaa/rui/index.html" as const;
+
+export function matchesRuiMfaEnrollVerifyPage(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  return (
+    u.pathname === RUI_MFA_ENROLL_VERIFY_PATH && u.searchParams.get("h_ra") === "1"
+  );
+}
 
 /** OTP input on that step (`id` contains `|` — use getElementById). */
 export const RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID = "otp|input" as const;

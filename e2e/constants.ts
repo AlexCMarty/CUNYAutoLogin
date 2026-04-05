@@ -6,3 +6,5 @@ export const FIXTURE_ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}` as const;
 export const CREDENTIAL_FIXTURE_URL = `${FIXTURE_ORIGIN}/oam/server/obrareq.cgi`;
 
 export const TOTP_FIXTURE_URL = `${FIXTURE_ORIGIN}/oaa-totp-factor/`;
+
+export const SELF_SERVICE_FIXTURE_URL = `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_ra=1`;

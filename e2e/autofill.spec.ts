@@ -4,8 +4,13 @@ import {
   CREDENTIAL_INPUT_IDS,
   TOTP_GENERATION_OPTIONS,
   TOTP_OTP_INPUT_ID,
+  RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID
 } from "../src/cuny/ssoSite";
-import { CREDENTIAL_FIXTURE_URL, TOTP_FIXTURE_URL } from "./constants";
+import { 
+  CREDENTIAL_FIXTURE_URL, 
+  TOTP_FIXTURE_URL,
+  SELF_SERVICE_FIXTURE_URL
+} from "./constants";
 import { expect, test } from "./extension-fixture";
 import {
   E2E_EMAIL,
@@ -86,5 +91,17 @@ test.describe("extension autofill against local fixtures", () => {
     // autoFill runs asynchronously; wait long enough that a successful fill would have completed
     await fixturePage.waitForTimeout(5000);
     await expect(fixturePage.locator(`#${CREDENTIAL_INPUT_IDS.username}`)).toHaveValue("");
+  });
+
+  test("autofills otp code on self-service page during onboarding", async ({ page, context }) => {
+    await setupVault(page);
+
+    const fixturePage = await context.newPage();
+    await fixturePage.goto(SELF_SERVICE_FIXTURE_URL);
+
+    const { otp } = await TOTP.generate(E2E_TOTP_SECRET, TOTP_GENERATION_OPTIONS);
+    await expect(
+      fixturePage.locator(`[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"]`)
+    ).toHaveValue(otp, { timeout: 15_000 });
   });
 });

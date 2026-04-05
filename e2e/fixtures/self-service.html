@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Self-service TOTP onboarding fixture</title>
+  </head>
+  <body>
+    <!-- Relevant elements are added *long* after the URL matches.
+         Staggered delays simulates the user clicking through.
+         Delays shortened in the interest of time. -->
+    <script>
+        setTimeout(() => {
+            const totpBox = document.createElement('div');
+            totpBox.setAttribute('aria-labelledby', "key-labelled-by|label");
+            totpBox.innerHTML = "UU7UV2G7UCS5LETS";
+            document.body.appendChild(totpBox);
+        },
+         1_000);
+        setTimeout(() => {
+            const inputBox = document.createElement('input');
+            inputBox.setAttribute('id', 'otp|input');
+            document.body.appendChild(inputBox);
+        }, 2_000);
+    </script>
+  </body>
+</html>
