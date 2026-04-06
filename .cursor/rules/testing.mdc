@@ -1,0 +1,71 @@
+---
+description: Playwright E2E testing conventions for the e2e/ directory
+globs: "e2e/**"
+alwaysApply: false
+---
+
+# E2E testing conventions
+
+## Before running tests
+
+Always run `npm run build:e2e` before `npm run test:e2e`. The Playwright specs load the built extension from `dist/` — stale build artifacts cause false failures.
+
+`build:e2e` is a dev build with `manifest.e2e.json` substituted for `manifest.json`. The E2E manifest adds `http://127.0.0.1:4173/*` to both `host_permissions` and `content_scripts.matches` so the content script is injected into fixture pages served by the local fixture server.
+
+## How the test infrastructure works
+
+- **Fixture server** (`e2e/fixtures-server.mjs`): A local HTTP server on `FIXTURE_PORT` (see `e2e/constants.ts`) serving static HTML pages from `e2e/fixtures/`. These pages mimic specific CUNY SSO screens.
+- **Extension loader** (`e2e/extension-fixture.ts`): Extends Playwright's `test` with a `context` fixture that launches Chromium via `chromium.launchPersistentContext` with `--load-extension=dist/`. Also provides the `extensionId` fixture (parsed from the service worker URL).
+- **Firefox is not supported** in E2E — Firefox does not allow loading temporary extensions via CLI flags in the same way. Test manually via `about:debugging`.
+
+## Test isolation and concurrency
+
+`playwright.config.ts` sets `workers: 1` and `fullyParallel: false`. Extension state (`browser.storage.local`, `browser.storage.session`) is global to the browser context — tests that mutate vault state cannot safely run concurrently.
+
+Each spec's `beforeEach` clears the vault via the debug panel button (`#clear-vault-debug-btn`) when it is visible. This button is only rendered in dev builds (`build:e2e` uses dev mode). Do not assume a clean vault state at the start of a test without this reset step.
+
+## Adding fixture pages
+
+Add new HTML pages to `e2e/fixtures/` and expose their URLs as named constants in `e2e/constants.ts`. Do not construct fixture URLs inline inside specs — keep all fixture URLs in one place so they are easy to update.
+
+```typescript
+// e2e/constants.ts
+export const CREDENTIAL_FIXTURE_URL = `http://127.0.0.1:${FIXTURE_PORT}/credential.html`;
+
+// spec — import the constant, don't hardcode
+await fixturePage.goto(CREDENTIAL_FIXTURE_URL);
+```
+
+## Test naming
+
+Test names describe observable behavior, written as plain sentences:
+
+```typescript
+// Bad
+test("test fill", async () => { ... });
+test("locked vault test", async () => { ... });
+
+// Good
+test("fills credential page via AUTO_FILL_REQUEST on load", async () => { ... });
+test("does not fill credential page when vault is locked", async () => { ... });
+```
+
+## Test behavior, not implementation
+
+Assert what the user (or extension) observes — filled inputs, page state changes, submitted forms. Do not inspect internal module state or variables.
+
+```typescript
+// Bad — reaches into implementation internals
+expect((content as any)._lastFilledEmail).toBe(E2E_EMAIL);
+
+// Good — observes the DOM outcome the user would see
+await expect(fixturePage.locator(`#${CREDENTIAL_INPUT_IDS.username}`)).toHaveValue(E2E_EMAIL);
+```
+
+## DOM element IDs and constants
+
+Import element IDs and TOTP parameters from `src/cuny/ssoSite.ts` in specs — the same constants the extension itself uses. This guarantees specs break immediately if a constant is renamed, rather than silently testing the wrong element.
+
+```typescript
+import { CREDENTIAL_INPUT_IDS, TOTP_OTP_INPUT_ID } from "../src/cuny/ssoSite";
+```

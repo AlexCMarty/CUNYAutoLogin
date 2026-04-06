@@ -1,5 +1,5 @@
 ---
-description: CUNYAutoLogin project context, layout, build, load, dependencies, backlog
+description: CUNYAutoLogin project context, layout, build, load, dependencies
 alwaysApply: true
 ---
 
@@ -39,12 +39,25 @@ src/
   popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (not bundled in production build)
   popup/popup.css               Popup styles
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; `VAULT_STORAGE_KEY`, payload types
+  cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs, and TOTP
+                                constants — never hardcode these in content scripts or the service worker
   content/content.ts            IIFE bundle: MutationObserver waits for JET inputs; fill login + TOTP;
+                                enroll-page secret scraping; MFA self-service verify OTP polling;
                                 `AUTO_FILL_REQUEST` + `FILL_CREDENTIALS` handling
-  background/service-worker.ts  onInstalled log; `AUTO_FILL_REQUEST` → decrypt vault via session master
+  background/service-worker.ts  onInstalled log; `AUTO_FILL_REQUEST` → decrypt vault via session master;
+                                `TOTP_SECRET_FROM_PAGE` → validate + stage in session storage
   manifest.json                 Source manifest (copied to dist/ by Vite)
+  manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host permissions and
+                                content_scripts matches for the Playwright fixture server
 vite.config.ts                  Builds popup + background as ES modules; copies manifest
 vite.content.config.ts          Builds `content.ts` as a single IIFE (`dist/content.js`, inline deps)
+e2e/
+  autofill.spec.ts              Playwright E2E specs
+  extension-fixture.ts          Loads the built extension into Chromium via --load-extension
+  fixtures-server.mjs           Local HTTP server serving e2e/fixtures/*.html pages
+  fixtures/                     HTML pages that mimic CUNY SSO screens (credential, totp, self-service)
+  constants.ts                  Shared constants (FIXTURE_PORT, etc.)
+  test-credentials.ts           Plaintext test credentials used only by E2E tests
 dist/                           Built extension — load this folder in the browser
 ```
 
@@ -54,9 +67,11 @@ dist/                           Built extension — load this folder in the brow
 npm install
 npm run build          # production: tsc --noEmit → vite build → vite content (no popup debug UI)
 npm run build:dev      # development mode on both Vite steps; popup includes test fill + clear vault
+npm run build:e2e      # dev build with manifest.e2e.json (required before running E2E tests)
 npm run build:content  # rebuild only the content script
 npm run watch          # vite build --watch --mode development (popup/bg; rerun build:content when content changes)
 npm run typecheck      # tsc --noEmit only
+npm run test:e2e       # build:e2e then playwright test
 ```
 
 The two-step Vite build is intentional: `vite.config.ts` bundles the popup and background as ES modules, while `vite.content.config.ts` produces a single-file IIFE (`dist/content.js`) with `inlineDynamicImports` — required for reliable MV3 content script injection and to ship `totp-generator` + `neverthrow` inside the content bundle.
@@ -74,11 +89,6 @@ Rebuild and reload the extension after any source change.
 - `webextension-polyfill` — unified `browser` API
 - `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `popup.ts`, and `content.ts`
 - `totp-generator` — TOTP codes in the content script (bundled into IIFE)
-
-## What is NOT yet implemented
-
-- Automated tests.
-- Hardening if CUNY changes page URLs or element IDs (current logic is path- and ID-specific).
 
 ## Documentation
 
