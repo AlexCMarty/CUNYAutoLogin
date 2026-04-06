@@ -9,18 +9,23 @@
          Staggered delays simulates the user clicking through.
          Delays shortened in the interest of time. -->
     <script>
-        setTimeout(() => {
-            const totpBox = document.createElement('div');
-            totpBox.setAttribute('aria-labelledby', "key-labelled-by|label");
-            totpBox.innerHTML = "UU7UV2G7UCS5LETS";
-            document.body.appendChild(totpBox);
-        },
-         1_000);
-        setTimeout(() => {
-            const inputBox = document.createElement('input');
-            inputBox.setAttribute('id', 'otp|input');
-            document.body.appendChild(inputBox);
-        }, 2_000);
+      const params = new URLSearchParams(window.location.search);
+      const secret = params.get("secret") ?? "UU7UV2G7UCS5LETS";
+      const secretDelayMs = Number(params.get("secretDelayMs") ?? 1_000);
+      const otpDelayMs = Number(params.get("otpDelayMs") ?? 2_000);
+
+      setTimeout(() => {
+        const totpBox = document.createElement("div");
+        totpBox.setAttribute("aria-labelledby", "key-labelled-by|label");
+        totpBox.innerHTML = secret;
+        document.body.appendChild(totpBox);
+      }, secretDelayMs);
+
+      setTimeout(() => {
+        const inputBox = document.createElement("input");
+        inputBox.setAttribute("id", "otp|input");
+        document.body.appendChild(inputBox);
+      }, otpDelayMs);
     </script>
   </body>
 </html>

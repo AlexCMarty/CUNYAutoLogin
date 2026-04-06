@@ -15,7 +15,10 @@ function mapPathToFile(pathname) {
   if (pathname.startsWith("/oam/server/obrareq.cgi")) {
     return "credential.html";
   }
-  if (pathname.startsWith("/oamfed/idp/samlv20")) {
+  if (
+    pathname.startsWith("/oamfed/idp/samlv20") ||
+    pathname.startsWith("/oamfed/idp/samlv20/")
+  ) {
     return "credential.html";
   }
   if (pathname.startsWith("/oaa-totp-factor")) {
