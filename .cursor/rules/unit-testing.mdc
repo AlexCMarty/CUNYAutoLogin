@@ -58,6 +58,12 @@ describe("tampered StoredVault → decrypt_failed", () => {
 
 Use `vi.spyOn(globalThis.crypto.subtle, "deriveKey").mockRejectedValueOnce(...)` to force crypto failures. Always pair with `afterEach(() => vi.restoreAllMocks())` so spies don't bleed between tests.
 
+## Pure-function modules
+
+Modules that export only pure string/boolean functions (e.g. `ssoSite.ts`) need no mocking, no `beforeEach`, and no async setup. Use flat `describe` blocks with inline inputs — see `src/cuny/ssoSite.test.ts` as the reference.
+
+Always include a `constants` describe block that pins the literal values of exported strings/arrays that the rest of the extension depends on. A typo in a constant breaks autofill silently; a pinned assertion catches it immediately.
+
 ## Test naming
 
 Same rule as E2E: plain sentences describing observable behavior, no "should":
@@ -66,4 +72,5 @@ Same rule as E2E: plain sentences describing observable behavior, no "should":
 // Good
 test("wrong master password returns decrypt_failed", async () => { ... });
 test("missing totpSecret field returns invalid_payload", async () => { ... });
+test("URL contains /oaa-totp-factor/ → true", () => { ... });
 ```

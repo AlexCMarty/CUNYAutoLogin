@@ -19,7 +19,9 @@ src/
   popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (not bundled in production)
   popup/popup.css               Popup styles
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; VAULT_STORAGE_KEY; payload types
+  crypto/vault.test.ts          Unit tests: encrypt/decrypt round-trips, tamper detection, isStoredVault guard
   cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs, and TOTP constants
+  cuny/ssoSite.test.ts          Unit tests: all URL matcher functions and critical constants
   content/content.ts            IIFE bundle: MutationObserver; fill login + TOTP; enroll-page secret scraping;
                                 MFA self-service verify OTP polling; AUTO_FILL_REQUEST + FILL_CREDENTIALS handling
   background/service-worker.ts  onInstalled log; AUTO_FILL_REQUEST → decrypt vault via session master;
@@ -143,7 +145,7 @@ DOM helpers return `Result<El, string>` — fail fast at a single consolidated e
 
 ## Unit testing conventions
 
-Unit tests live alongside source files as `*.test.ts` (e.g. `src/crypto/vault.test.ts`). The runner is **Vitest** (`npm run test:unit`) — no build step needed.
+Unit tests live alongside source files as `*.test.ts` (e.g. `src/crypto/vault.test.ts`, `src/cuny/ssoSite.test.ts`). The runner is **Vitest** (`npm run test:unit`) — no build step needed.
 
 ### Result unwrapping
 
@@ -161,6 +163,10 @@ function unwrap<T, E>(result: Result<T, E>): T {
 When a function both serialises *and* parses (e.g. `encryptVault` JSON-encodes before encrypting, `decryptVault` decodes after decrypting), test the parsing branches with a raw helper that writes arbitrary bytes into the encrypted blob — without going through the production serialisation path. This keeps the serialisation and parsing branches independently exercised.
 
 See `encryptRaw` in `src/crypto/vault.test.ts` for the pattern.
+
+### Pure-function modules
+
+Modules that export only pure string/boolean functions (e.g. `ssoSite.ts`) need no mocking, no `beforeEach`, and no async setup. Use flat `describe` + `test` blocks with inline inputs — see `src/cuny/ssoSite.test.ts` as the reference.
 
 ### Shared setup in describe blocks
 

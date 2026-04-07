@@ -39,8 +39,10 @@ src/
   popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (not bundled in production build)
   popup/popup.css               Popup styles
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; `VAULT_STORAGE_KEY`, payload types
+  crypto/vault.test.ts          Unit tests: encrypt/decrypt round-trips, tamper detection, isStoredVault guard
   cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs, and TOTP
                                 constants — never hardcode these in content scripts or the service worker
+  cuny/ssoSite.test.ts          Unit tests: all URL matcher functions and critical constants
   content/content.ts            IIFE bundle: MutationObserver waits for JET inputs; fill login + TOTP;
                                 enroll-page secret scraping; MFA self-service verify OTP polling;
                                 `AUTO_FILL_REQUEST` + `FILL_CREDENTIALS` handling
@@ -71,6 +73,7 @@ npm run build:e2e      # dev build with manifest.e2e.json (required before runni
 npm run build:content  # rebuild only the content script
 npm run watch          # vite build --watch --mode development (popup/bg; rerun build:content when content changes)
 npm run typecheck      # tsc --noEmit only
+npm run test:unit      # vitest run (no build step needed)
 npm run test:e2e       # build:e2e then playwright test
 ```
 
