@@ -1,0 +1,209 @@
+# CUNYAutoLogin — Claude Code guidance
+
+## What this project is
+
+A Manifest V3 browser extension (Firefox + Chromium) that:
+
+1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
+2. Keeps the vault unlocked across popup opens for the lifetime of the browser session using `browser.storage.session`.
+3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and responds to manual `FILL_CREDENTIALS` messages from the popup.
+
+Saved email must end with **`@login.cuny.edu`** (enforced in `popup.ts`).
+
+## Project layout
+
+```
+popup.html                      Vite entry point for the popup UI
+src/
+  popup/popup.ts                Modes: setup / locked / unlocked; encrypt/save; session unlock; master rotation; draft autosave
+  popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (not bundled in production)
+  popup/popup.css               Popup styles
+  crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; VAULT_STORAGE_KEY; payload types
+  cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs, and TOTP constants
+  content/content.ts            IIFE bundle: MutationObserver; fill login + TOTP; enroll-page secret scraping;
+                                MFA self-service verify OTP polling; AUTO_FILL_REQUEST + FILL_CREDENTIALS handling
+  background/service-worker.ts  onInstalled log; AUTO_FILL_REQUEST → decrypt vault via session master;
+                                TOTP_SECRET_FROM_PAGE → validate + stage in session storage
+  manifest.json                 Source manifest (copied to dist/ by Vite)
+  manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host_permissions and content_scripts
+vite.config.ts                  Builds popup + background as ES modules; copies manifest
+vite.content.config.ts          Builds content.ts as a single IIFE (dist/content.js, inline deps)
+e2e/
+  autofill.spec.ts              Playwright E2E specs
+  extension-fixture.ts          Loads the built extension into Chromium via --load-extension
+  fixtures-server.mjs           Local HTTP server serving e2e/fixtures/*.html pages
+  fixtures/                     HTML pages that mimic CUNY SSO screens
+  constants.ts                  Shared constants (FIXTURE_PORT, fixture URLs)
+  test-credentials.ts           Plaintext test credentials used only by E2E tests
+dist/                           Built extension — load this folder in the browser
+```
+
+## Build commands
+
+```bash
+npm install
+npm run build          # production: tsc --noEmit → vite build → vite content
+npm run build:dev      # development mode; popup includes debug panel
+npm run build:e2e      # dev build with manifest.e2e.json (required before E2E tests)
+npm run build:content  # rebuild only the content script
+npm run watch          # vite build --watch --mode development
+npm run typecheck      # tsc --noEmit only
+npm run test:e2e       # build:e2e then playwright test
+```
+
+The two-step Vite build is intentional: `vite.config.ts` bundles the popup and background as ES modules; `vite.content.config.ts` produces a single-file IIFE with `inlineDynamicImports` — required for reliable MV3 content script injection and to ship `totp-generator` + `neverthrow` inside the content bundle.
+
+## Loading the extension
+
+**Firefox:** `about:debugging` → Load Temporary Add-on → select `dist/manifest.json`  
+**Chrome/Chromium:** `chrome://extensions` → Developer mode → Load unpacked → select `dist/`
+
+Rebuild and reload the extension after any source change.
+
+## Runtime dependencies
+
+- `webextension-polyfill` — unified `browser` API (never use `chrome.*` directly)
+- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `popup.ts`, and `content.ts`
+- `totp-generator` — TOTP codes in the content script (bundled into IIFE)
+
+---
+
+## Security invariants
+
+The master password **is never written to `storage.local` or disk**. It is held only in `browser.storage.session` and in JS module memory while the popup is open.
+
+- **Master password never in `storage.local`** — `decryptVault` / `encryptVault` accept it as a parameter. Never write it to `storage.local` or logs.
+- **`PENDING_TOTP_SECRET_SESSION_KEY`** — The scraped Base32 TOTP secret is staged in `browser.storage.session` only. Never write it to `storage.local`, logs, or any persistent store.
+- **Setup draft in `localStorage`** — email/password/TOTP drafts are mirrored to `localStorage` (`cuny_form_draft`) while in setup mode. Treat as sensitive plaintext; do not log it.
+- **`browser` import** — always `import browser from "webextension-polyfill"`, never `chrome.*`.
+- **Minimum browser versions** — `storage.session` requires Firefox 115+ and Chrome 102+. Do not lower these without adding a fallback.
+
+### Crypto parameters (`src/crypto/vault.ts`)
+
+| Parameter | Value |
+|---|---|
+| KDF | PBKDF2-SHA-256 |
+| Iterations | 310 000 |
+| Salt | 32 bytes (random per save) |
+| IV | 12 bytes (random per save) |
+| Cipher | AES-GCM-256 |
+| Storage format | `{ version: 1, saltB64, ivB64, ciphertextB64 }` |
+
+---
+
+## Key architectural gotchas
+
+- **`novalidate` on the popup form** — Firefox silently swallows submit events with native HTML5 validation inside extension popups. All validation is in JS. Do not remove `novalidate` from `<form>` in `popup.html`.
+- **Content script must be a single IIFE** — MV3 does not support ES module content scripts reliably across browsers. Always build `src/content/` via `vite.content.config.ts`.
+- **`crossorigin` on built assets** — Vite injects `crossorigin` on `<script>` and `<link>` tags. These cause silent failures under `moz-extension://`. Avoid adding module preload links or external scripts.
+- **Oracle JET inputs** — inputs render after `document_idle`. Content script uses `MutationObserver` + timeouts, not immediate DOM access.
+- **SSO constants** — All URL path markers, DOM element IDs, and timing constants live in `src/cuny/ssoSite.ts`. Never hardcode these in `content.ts` or `service-worker.ts`.
+- **MFA self-service OTP polling** — `startMfaEnrollVerifyOtpPolling` uses `setInterval` instead of `MutationObserver` because the Oracle SPA re-renders the form in ways that make observers flaky. See the comment in that function.
+
+---
+
+## TypeScript style
+
+- Arrow functions always
+- No `any` — use precise union types or generics
+- Named exports only
+- `async`/`await` only; no `.then()`
+- Avoid `throw` — use neverthrow `Result` / `ResultAsync`. A `throw` **requires** a comment explaining why neverthrow was unsuitable.
+- Functions do one thing. If you need "and" to describe it, split it.
+- Aim for 20–40 lines per function; hard cap 80 lines.
+- Early returns over nesting — fail fast, keep the happy path obvious.
+
+### Naming
+
+Functions and variables announce their purpose without needing a comment.
+
+- Predicates: `matchesCredentialPage`, `matchesTotpPage` — not `check`, `test`, `verify`
+- Waiters: `waitForInputById`, `waitForEnrollTotpSecret` — not `getEl`, `findInput`
+- Error strings in unions: screaming snake case — `"decrypt_failed"`, `"no_session_master"`
+
+### Comments
+
+The code shows *what*. Comments explain *why this approach* was chosen, or what non-obvious constraint forced the decision. Never restate what the code already says. Never leave commented-out code in a committed branch — use git history.
+
+### neverthrow patterns
+
+```typescript
+// Good — both tracks are typed and explicit
+const result = await decryptVault(stored, master);
+return result.match(
+  (payload) => ({ success: true as const, payload }),
+  ()        => ({ success: false as const, reason: "decrypt_error" as const }),
+);
+```
+
+DOM helpers return `Result<El, string>` — fail fast at a single consolidated error surface, not scattered null checks.
+
+---
+
+## E2E testing conventions
+
+- Always run `npm run build:e2e` before `npm run test:e2e`. Stale artifacts cause false failures.
+- `workers: 1`, `fullyParallel: false` — extension storage is global to the browser context.
+- Each spec's `beforeEach` clears vault state via `#clear-vault-debug-btn` (only present in dev/e2e builds). Never assume clean state without this reset.
+- Use shared helpers from `e2e/helpers.ts` (`gotoPopup`, `clearVaultIfPossible`, `setupVault`, `lockVault`).
+- Firefox is not supported in E2E — test Firefox manually via `about:debugging`.
+
+### Fixture URLs
+
+All fixture URLs are named constants in `e2e/constants.ts`. Never construct or hardcode fixture URLs inside specs.
+
+```typescript
+// Good
+await fixturePage.goto(CREDENTIAL_FIXTURE_URL);
+```
+
+### Test naming
+
+Plain sentences describing observable behavior:
+
+```typescript
+// Good
+test("fills credential page via AUTO_FILL_REQUEST on load", async () => { ... });
+test("does not fill credential page when vault is locked", async () => { ... });
+```
+
+### Assert behavior, not internals
+
+```typescript
+// Good — observes the DOM outcome
+await expect(fixturePage.locator(`#${CREDENTIAL_INPUT_IDS.username}`)).toHaveValue(E2E_EMAIL);
+```
+
+Import element IDs from `src/cuny/ssoSite.ts` in specs — the same constants the extension uses — so specs break immediately if a constant is renamed.
+
+---
+
+## Code quality
+
+1. Write code that will be read by humans, not by AI.
+2. Always choose the simplest solution. Add complexity only when it solves a real problem.
+3. Always leave the codebase better than you found it.
+
+**We do not:**
+- Use `any` as a way to avoid thinking about types
+- Skip tests because we're confident a change is safe
+- Add comments that restate what the code says
+- Leave commented-out code in committed branches
+- Write code that only the original author can maintain
+
+### Pre-merge checklist
+
+- [ ] Does every function do exactly one thing?
+- [ ] Can a stranger understand each variable's purpose from its name alone?
+- [ ] Are all error paths handled explicitly (typed, not swallowed)?
+- [ ] Are there tests for the new behavior, including edge cases?
+- [ ] Is there a test that would catch a regression if this broke?
+- [ ] Are there any `TODO`s that should be tickets instead?
+- [ ] Is there any commented-out code?
+- [ ] Could a sleep-deprived on-call developer understand this at 3am?
+
+---
+
+## Documentation
+
+`README.md` is oriented toward less technically inclined college students — it's the first thing they see on GitHub. Put technical documentation in `CONTRIBUTING.md` or inline comments, not the README.
