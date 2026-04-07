@@ -48,6 +48,7 @@ npm run build:e2e      # dev build with manifest.e2e.json (required before E2E t
 npm run build:content  # rebuild only the content script
 npm run watch          # vite build --watch --mode development
 npm run typecheck      # tsc --noEmit only
+npm run test:unit      # vitest run (no build needed)
 npm run test:e2e       # build:e2e then playwright test
 ```
 
@@ -137,6 +138,41 @@ return result.match(
 ```
 
 DOM helpers return `Result<El, string>` — fail fast at a single consolidated error surface, not scattered null checks.
+
+---
+
+## Unit testing conventions
+
+Unit tests live alongside source files as `*.test.ts` (e.g. `src/crypto/vault.test.ts`). The runner is **Vitest** (`npm run test:unit`) — no build step needed.
+
+### Result unwrapping
+
+Never use `_unsafeUnwrap()` or `_unsafeUnwrapErr()` in tests. When a test fails, these throw an opaque `UnsafeUnwrapError` with no indication of the actual value. Use the `unwrap` / `unwrapErr` helpers defined in each test file instead:
+
+```typescript
+function unwrap<T, E>(result: Result<T, E>): T {
+  if (result.isErr()) throw new Error(`Expected Ok, got err(${JSON.stringify(result.error)})`);
+  return result.value;
+}
+```
+
+### Bypassing serialisation to test parsing branches
+
+When a function both serialises *and* parses (e.g. `encryptVault` JSON-encodes before encrypting, `decryptVault` decodes after decrypting), test the parsing branches with a raw helper that writes arbitrary bytes into the encrypted blob — without going through the production serialisation path. This keeps the serialisation and parsing branches independently exercised.
+
+See `encryptRaw` in `src/crypto/vault.test.ts` for the pattern.
+
+### Shared setup in describe blocks
+
+Use `beforeEach` + a `let` variable when multiple tests in the same `describe` block need the same freshly-created value. Do not repeat `await setup()` in every test body.
+
+```typescript
+describe("tampered StoredVault → decrypt_failed", () => {
+  let stored: StoredVault;
+  beforeEach(async () => { stored = unwrap(await encryptVault(PAYLOAD, MASTER)); });
+  // tests use stored directly
+});
+```
 
 ---
 

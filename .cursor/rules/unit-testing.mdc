@@ -1,0 +1,69 @@
+---
+description: Vitest unit testing conventions for src/**/*.test.ts files
+globs: "src/**/*.test.ts"
+alwaysApply: false
+---
+
+# Unit testing conventions
+
+## Runner and location
+
+Unit tests live **alongside source files** as `*.test.ts` (e.g. `src/crypto/vault.test.ts`). The runner is **Vitest** — no build step is required.
+
+```bash
+npm run test:unit   # vitest run
+```
+
+`vitest.config.ts` at the repo root picks up all `src/**/*.test.ts` files and runs them in a Node.js environment, which provides `globalThis.crypto.subtle` natively (Node 20+).
+
+## Result unwrapping
+
+**Never** use `_unsafeUnwrap()` or `_unsafeUnwrapErr()` directly in test assertions. When a test fails, these throw an opaque `UnsafeUnwrapError` with no indication of the actual value. Define `unwrap` / `unwrapErr` helpers in each test file:
+
+```typescript
+function unwrap<T, E>(result: Result<T, E>): T {
+  if (result.isErr()) throw new Error(`Expected Ok, got err(${JSON.stringify(result.error)})`);
+  return result.value;
+}
+
+function unwrapErr<T, E>(result: Result<T, E>): E {
+  if (result.isOk()) throw new Error(`Expected Err, got ok(${JSON.stringify(result.value)})`);
+  return result.error;
+}
+```
+
+Failures then read `Expected Ok, got err("decrypt_failed")` — immediately actionable.
+
+## Bypassing serialisation to test parsing branches
+
+When a function both serialises and parses (e.g. `encryptVault` JSON-encodes, `decryptVault` JSON-decodes), test the parsing error branches with a raw helper that writes **arbitrary bytes** into the encrypted blob, bypassing the production serialisation path. This keeps the two branches independently exercised and ensures the parser is tested against genuinely malformed input.
+
+See `encryptRaw` in `src/crypto/vault.test.ts` for the pattern. If you duplicate private constants from the source file (salt length, IV length, key bits), add a comment noting that the helper must be updated if those constants change.
+
+## Shared setup in describe blocks
+
+Use `beforeEach` + a `let` variable when multiple tests in the same `describe` block need the same freshly-created value. Do not repeat the setup call in every test body.
+
+```typescript
+describe("tampered StoredVault → decrypt_failed", () => {
+  let stored: StoredVault;
+  beforeEach(async () => {
+    stored = unwrap(await encryptVault(PAYLOAD, MASTER));
+  });
+  // each test mutates a spread of `stored` without re-encrypting
+});
+```
+
+## Mocking WebCrypto
+
+Use `vi.spyOn(globalThis.crypto.subtle, "deriveKey").mockRejectedValueOnce(...)` to force crypto failures. Always pair with `afterEach(() => vi.restoreAllMocks())` so spies don't bleed between tests.
+
+## Test naming
+
+Same rule as E2E: plain sentences describing observable behavior, no "should":
+
+```typescript
+// Good
+test("wrong master password returns decrypt_failed", async () => { ... });
+test("missing totpSecret field returns invalid_payload", async () => { ... });
+```

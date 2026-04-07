@@ -1,5 +1,5 @@
 ---
-description: Playwright E2E testing conventions for the e2e/ directory
+description: Playwright E2E testing conventions for the e2e/ directory. For unit tests (src/**/*.test.ts) see unit-testing.mdc.
 globs: "e2e/**"
 alwaysApply: false
 ---
