@@ -7,17 +7,26 @@ import {
   isStoredVault,
   type StoredVault,
   type VaultPayload,
-  type VaultError,
 } from "../crypto/vault";
+import { LOGIN_EMAIL_SUFFIX, PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
 import {
-  LOGIN_EMAIL_SUFFIX,
-  PENDING_TOTP_SECRET_SESSION_KEY,
-} from "../cuny/ssoSite";
+  DRAFT_KEY,
+  type FormDraft,
+  type PopupDom,
+  validateEmail,
+  decryptStatusMessage,
+  parseDraft,
+  setStatus,
+  hideTotpSecretSourceHint,
+  saveDraft,
+  clearPendingTotpFromSession,
+  applyPendingTotpFromPage,
+} from "./popup.utils";
+export type { PopupDom } from "./popup.utils";
 
 const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const EYE_CLOSED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
-const DRAFT_KEY = "cuny_form_draft";
 const SESSION_MASTER_KEY = "cunySessionMaster";
 
 /** Write master password to session storage if available (Chrome 102+, Firefox 115+). */
@@ -49,105 +58,25 @@ async function clearSessionMaster(): Promise<void> {
   }
 }
 
-interface FormDraft {
-  email: string;
-  password: string;
-  totpSecret: string;
+function clearDraft(): void {
+  localStorage.removeItem(DRAFT_KEY);
 }
 
-export interface PopupDom {
-  form: HTMLFormElement;
-  email: HTMLInputElement;
-  password: HTMLInputElement;
-  totpSecret: HTMLInputElement;
-  totpSecretSourceHint: HTMLElement;
-  masterPassword: HTMLInputElement;
-  masterLabel: HTMLElement;
-  newMasterPassword: HTMLInputElement;
-  confirmNewMasterPassword: HTMLInputElement;
-  submitBtn: HTMLButtonElement;
-  lockBtn: HTMLButtonElement;
-  modeHint: HTMLElement;
-  credentialFields: HTMLElement;
-  masterPasswordField: HTMLElement;
-  changeMasterSection: HTMLElement;
-}
-
-function saveDraft(els: PopupDom): void {
-  const draft: FormDraft = {
-    email: els.email.value,
-    password: els.password.value,
-    totpSecret: els.totpSecret.value,
-  };
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+function applyDraft(els: PopupDom, draft: FormDraft): void {
+  if (draft.email) els.email.value = draft.email;
+  if (draft.password) els.password.value = draft.password;
+  if (draft.totpSecret) els.totpSecret.value = draft.totpSecret;
 }
 
 function restoreDraft(els: PopupDom): void {
   const raw = localStorage.getItem(DRAFT_KEY);
   if (!raw) return;
-  let parsed: Result<unknown, "bad_json">;
-  try {
-    parsed = ok(JSON.parse(raw) as unknown);
-  } catch {
-    parsed = err("bad_json");
-  }
-  if (parsed.isErr()) {
+  const draft = parseDraft(raw);
+  if (!draft) {
     localStorage.removeItem(DRAFT_KEY);
     return;
   }
-  const draft = parsed.value;
-  if (typeof draft !== "object" || draft === null) {
-    localStorage.removeItem(DRAFT_KEY);
-    return;
-  }
-  const d = draft as Record<string, unknown>;
-  if (typeof d.email === "string" && d.email) els.email.value = d.email;
-  if (typeof d.password === "string" && d.password) els.password.value = d.password;
-  if (typeof d.totpSecret === "string" && d.totpSecret) els.totpSecret.value = d.totpSecret;
-}
-
-function clearDraft(): void {
-  localStorage.removeItem(DRAFT_KEY);
-}
-
-function hideTotpSecretSourceHint(els: PopupDom): void {
-  els.totpSecretSourceHint.textContent = "";
-  els.totpSecretSourceHint.classList.add("hidden");
-}
-
-function showTotpSecretSourceHint(els: PopupDom): void {
-  els.totpSecretSourceHint.textContent =
-    "Filled from the open CUNY “add authentication” page.";
-  els.totpSecretSourceHint.classList.remove("hidden");
-}
-
-async function clearPendingTotpFromSession(): Promise<void> {
-  try {
-    await browser.storage.session?.remove(PENDING_TOTP_SECRET_SESSION_KEY);
-  } catch {
-    // session storage unavailable
-  }
-}
-
-async function applyPendingTotpFromPage(els: PopupDom): Promise<void> {
-  try {
-    const result = await browser.storage.session?.get(PENDING_TOTP_SECRET_SESSION_KEY);
-    const secret = result?.[PENDING_TOTP_SECRET_SESSION_KEY];
-    if (typeof secret !== "string" || !secret.length) {
-      return;
-    }
-    const current = els.totpSecret.value.trim().replace(/\s+/g, "").toUpperCase();
-    if (current === secret) {
-      await clearPendingTotpFromSession();
-      return;
-    }
-    els.totpSecret.value = secret;
-    showTotpSecretSourceHint(els);
-    await clearPendingTotpFromSession();
-    saveDraft(els);
-  } catch {
-    // session storage unavailable
-  }
+  applyDraft(els, draft);
 }
 
 function setupPasswordToggles(): void {
@@ -173,16 +102,6 @@ let sessionMasterPassword: string | null = null;
 let sessionPayload: VaultPayload | null = null;
 let storedVault: StoredVault | null = null;
 
-function setStatus(message: string, ok = false): void {
-  const el = document.getElementById("status");
-  if (!el) return;
-  el.textContent = message;
-  el.classList.toggle("ok", ok);
-}
-
-function validateEmail(email: string): boolean {
-  return email.trim().toLowerCase().endsWith(LOGIN_EMAIL_SUFFIX);
-}
 
 async function loadStoredVault(): Promise<StoredVault | null> {
   const result = await browser.storage.local.get(VAULT_STORAGE_KEY);
@@ -250,11 +169,6 @@ function getEls(): Result<PopupDom, "missing_dom"> {
   });
 }
 
-function decryptStatusMessage(e: VaultError): string {
-  return e === "decrypt_failed"
-    ? "Wrong master password or corrupted vault."
-    : "Could not decrypt vault.";
-}
 
 function renderMode(els: PopupDom): void {
   const { credentialFields, masterPasswordField, changeMasterSection } = els;
