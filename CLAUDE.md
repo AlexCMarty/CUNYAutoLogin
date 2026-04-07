@@ -16,6 +16,8 @@ Saved email must end with **`@login.cuny.edu`** (enforced in `popup.ts`).
 popup.html                      Vite entry point for the popup UI
 src/
   popup/popup.ts                Modes: setup / locked / unlocked; encrypt/save; session unlock; master rotation; draft autosave
+  popup/popup.utils.ts          Pure helpers + small DOM utilities used by the popup (email validation, draft parse, status copy)
+  popup/popup.test.ts           Unit tests: popup.utils (jsdom + mocked webextension-polyfill)
   popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (not bundled in production)
   popup/popup.css               Popup styles
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; VAULT_STORAGE_KEY; payload types
@@ -24,14 +26,20 @@ src/
   cuny/ssoSite.test.ts          Unit tests: all URL matcher functions and critical constants
   content/content.ts            IIFE bundle: MutationObserver; fill login + TOTP; enroll-page secret scraping;
                                 MFA self-service verify OTP polling; AUTO_FILL_REQUEST + FILL_CREDENTIALS handling
+  content/content.utils.ts      Pure helpers for the content script (TOTP normalization, enroll scrape, KO-aware setInputValue, message guards)
+  content/content.test.ts       Unit tests: content.utils (jsdom)
   background/service-worker.ts  onInstalled log; AUTO_FILL_REQUEST → decrypt vault via session master;
                                 TOTP_SECRET_FROM_PAGE → validate + stage in session storage
+  background/service-worker.test.ts  Unit tests: message routing, AUTO_FILL paths, TOTP staging (mocked polyfill + vault helpers)
   manifest.json                 Source manifest (copied to dist/ by Vite)
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host_permissions and content_scripts
 vite.config.ts                  Builds popup + background as ES modules; copies manifest
 vite.content.config.ts          Builds content.ts as a single IIFE (dist/content.js, inline deps)
 e2e/
-  autofill.spec.ts              Playwright E2E specs
+  onboarding.spec.ts            Playwright: first-run / setup flow
+  locked.spec.ts                Playwright: vault locked behavior
+  unlocked.spec.ts              Playwright: unlocked vault + autofill
+  helpers.ts                    Shared popup / vault setup for specs
   extension-fixture.ts          Loads the built extension into Chromium via --load-extension
   fixtures-server.mjs           Local HTTP server serving e2e/fixtures/*.html pages
   fixtures/                     HTML pages that mimic CUNY SSO screens
@@ -145,7 +153,20 @@ DOM helpers return `Result<El, string>` — fail fast at a single consolidated e
 
 ## Unit testing conventions
 
-Unit tests live alongside source files as `*.test.ts` (e.g. `src/crypto/vault.test.ts`, `src/cuny/ssoSite.test.ts`). The runner is **Vitest** (`npm run test:unit`) — no build step needed.
+Unit tests live alongside source files as `*.test.ts`. The runner is **Vitest** (`npm run test:unit`) — no build step needed. `vitest.config.ts` includes `src/**/*.test.ts`.
+
+**Suites today:** `vault.test.ts`, `ssoSite.test.ts`, `popup.test.ts`, `content.test.ts`, `service-worker.test.ts`.
+
+Logic that is awkward to test inside an IIFE or a top-level service worker lives in colocated `*.utils.ts` modules (`popup.utils.ts`, `content.utils.ts`) so Vitest can import it directly.
+
+### Vitest environment
+
+- **Default (Node):** `vault.test.ts`, `ssoSite.test.ts`, and `service-worker.test.ts` run in Node; `globalThis.crypto.subtle` is available on supported Node versions.
+- **jsdom:** Files that need `document` / `HTMLElement` start with `// @vitest-environment jsdom` — see `popup.test.ts` and `content.test.ts`.
+
+### Mocking `webextension-polyfill`
+
+Popup and background unit tests use `vi.mock("webextension-polyfill", …)` to stub `browser.storage`, `browser.runtime.onMessage`, etc. Pair `vi.spyOn` on `crypto.subtle` with `afterEach(() => vi.restoreAllMocks())` so mocks do not leak across tests (see `unit-testing.mdc`).
 
 ### Result unwrapping
 

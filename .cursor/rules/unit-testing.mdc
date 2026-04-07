@@ -8,13 +8,38 @@ alwaysApply: false
 
 ## Runner and location
 
-Unit tests live **alongside source files** as `*.test.ts` (e.g. `src/crypto/vault.test.ts`). The runner is **Vitest** — no build step is required.
+Unit tests live **alongside source files** as `*.test.ts`. The runner is **Vitest** — no build step is required.
 
 ```bash
 npm run test:unit   # vitest run
 ```
 
-`vitest.config.ts` at the repo root picks up all `src/**/*.test.ts` files and runs them in a Node.js environment, which provides `globalThis.crypto.subtle` natively (Node 20+).
+`vitest.config.ts` at the repo root picks up all `src/**/*.test.ts` files.
+
+**Current suites:**
+
+| File | What it exercises |
+|------|-------------------|
+| `src/crypto/vault.test.ts` | Encrypt/decrypt, `isStoredVault`, tamper / malformed blob branches |
+| `src/cuny/ssoSite.test.ts` | URL matchers + pinned SSO constants |
+| `src/popup/popup.test.ts` | `popup.utils.ts` — validation, drafts, status strings, TOTP hint helpers |
+| `src/content/content.test.ts` | `content.utils.ts` — TOTP normalization, enroll scrape, `setInputValue`, `isFillMessage` |
+| `src/background/service-worker.test.ts` | Message routing, `AUTO_FILL_REQUEST` outcomes, `TOTP_SECRET_FROM_PAGE` staging |
+
+Prefer colocated `*.utils.ts` for testable logic when the main file is an IIFE or otherwise hard to import (`popup.utils.ts`, `content.utils.ts`).
+
+## Vitest environment
+
+- **Node (default):** `vault.test.ts`, `ssoSite.test.ts`, and `service-worker.test.ts` — Node provides `globalThis.crypto.subtle` on supported versions.
+- **jsdom:** Add `// @vitest-environment jsdom` as the **first line** of any file that needs `document` / DOM APIs (`popup.test.ts`, `content.test.ts`).
+
+## Mocking `webextension-polyfill`
+
+`popup.test.ts` and `service-worker.test.ts` call `vi.mock("webextension-polyfill", () => ({ default: { … } }))` so `browser.storage` / `browser.runtime` are in-memory fakes.
+
+For `service-worker.test.ts`, the module under test registers `onMessage` at import time — use `beforeAll(async () => { await import("./service-worker"); … })` and read the listener from `vi.mocked(browser.runtime.onMessage.addListener).mock.calls`.
+
+Reset mock state in `beforeEach` / `afterEach` as appropriate so one test cannot rely on another test's call history.
 
 ## Result unwrapping
 

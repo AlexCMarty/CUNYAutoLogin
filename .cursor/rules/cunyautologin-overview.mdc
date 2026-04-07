@@ -36,6 +36,8 @@ popup.html                      Vite entry point for the popup UI (no static dev
 src/
   popup/popup.ts                Modes setup / locked / unlocked; encrypt/save; session unlock; master rotation;
                                 draft autosave; dynamic-import debug panel when MODE=development
+  popup/popup.utils.ts          Pure helpers + small DOM utilities (email validation, draft parse, status strings, hint visibility)
+  popup/popup.test.ts           Unit tests: popup.utils (jsdom; mocked webextension-polyfill)
   popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (not bundled in production build)
   popup/popup.css               Popup styles
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; `VAULT_STORAGE_KEY`, payload types
@@ -46,15 +48,21 @@ src/
   content/content.ts            IIFE bundle: MutationObserver waits for JET inputs; fill login + TOTP;
                                 enroll-page secret scraping; MFA self-service verify OTP polling;
                                 `AUTO_FILL_REQUEST` + `FILL_CREDENTIALS` handling
+  content/content.utils.ts      Pure helpers for content script (TOTP normalization, enroll scrape, KO-aware input setter, message guards)
+  content/content.test.ts       Unit tests: content.utils (jsdom)
   background/service-worker.ts  onInstalled log; `AUTO_FILL_REQUEST` → decrypt vault via session master;
                                 `TOTP_SECRET_FROM_PAGE` → validate + stage in session storage
+  background/service-worker.test.ts  Unit tests: message routing, AUTO_FILL, TOTP staging (mocked polyfill + vault)
   manifest.json                 Source manifest (copied to dist/ by Vite)
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host permissions and
                                 content_scripts matches for the Playwright fixture server
 vite.config.ts                  Builds popup + background as ES modules; copies manifest
 vite.content.config.ts          Builds `content.ts` as a single IIFE (`dist/content.js`, inline deps)
 e2e/
-  autofill.spec.ts              Playwright E2E specs
+  onboarding.spec.ts            Playwright: first-run / setup flow
+  locked.spec.ts                Playwright: vault locked behavior
+  unlocked.spec.ts              Playwright: unlocked vault + autofill
+  helpers.ts                    Shared popup / vault setup for specs
   extension-fixture.ts          Loads the built extension into Chromium via --load-extension
   fixtures-server.mjs           Local HTTP server serving e2e/fixtures/*.html pages
   fixtures/                     HTML pages that mimic CUNY SSO screens (credential, totp, self-service)
