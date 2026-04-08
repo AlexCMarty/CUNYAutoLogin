@@ -1,21 +1,13 @@
-import { TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY } from "../cuny/ssoSite";
+import {
+  TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY,
+  TOTP_SECRET_LEN_MIN,
+  TOTP_SECRET_LEN_MAX,
+  normalizeTotpSecretCandidate,
+} from "../cuny/ssoSite";
 
-/** Min/max length for Base32 secret after stripping separators (CUNY typically ~32 chars). */
-export const TOTP_SECRET_LEN_MIN = 10;
-export const TOTP_SECRET_LEN_MAX = 128;
+export { TOTP_SECRET_LEN_MIN, TOTP_SECRET_LEN_MAX, normalizeTotpSecretCandidate };
 
 export const TOTP_SECRET_SELECTOR = `[aria-labelledby="${TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY}"]`;
-
-export function normalizeTotpSecretCandidate(raw: string): string | null {
-  const normalized = raw.replace(/\s+/g, "").toUpperCase().replace(/=+$/, "");
-  if (normalized.length < TOTP_SECRET_LEN_MIN || normalized.length > TOTP_SECRET_LEN_MAX) {
-    return null;
-  }
-  if (!/^[A-Z2-7]+$/.test(normalized)) {
-    return null;
-  }
-  return normalized;
-}
 
 export function parseTotpSecretFromEnrollDom(): string | null {
   const el = document.querySelector(TOTP_SECRET_SELECTOR);
