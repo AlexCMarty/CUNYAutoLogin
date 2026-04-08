@@ -78,6 +78,9 @@ export const RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS = 500;
  */
 export const TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY = "key-labelled-by|label" as const;
 
+/** Session storage key for the master password (held only for the browser session lifetime). */
+export const SESSION_MASTER_KEY = "cunySessionMaster" as const;
+
 /** Session-only staging for a secret scraped from the enroll page (popup consumes + clears). */
 export const PENDING_TOTP_SECRET_SESSION_KEY = "cunyPendingTotpSecretFromSso" as const;
 

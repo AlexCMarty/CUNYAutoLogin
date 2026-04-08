@@ -5,9 +5,11 @@ import {
   decryptVault,
   isStoredVault,
 } from "../crypto/vault";
-import { PENDING_TOTP_SECRET_SESSION_KEY, normalizeTotpSecretCandidate } from "../cuny/ssoSite";
-
-const SESSION_MASTER_KEY = "cunySessionMaster";
+import {
+  PENDING_TOTP_SECRET_SESSION_KEY,
+  SESSION_MASTER_KEY,
+  normalizeTotpSecretCandidate,
+} from "../cuny/ssoSite";
 
 browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType) => {
   if (import.meta.env.DEV) {

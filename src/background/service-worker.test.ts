@@ -31,12 +31,9 @@ vi.mock("../crypto/vault", async (importOriginal) => {
 import browser from "webextension-polyfill";
 import { decryptVault, isStoredVault, VAULT_STORAGE_KEY } from "../crypto/vault";
 import type { VaultPayload } from "../crypto/vault";
-import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
+import { PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../cuny/ssoSite";
 
 // ──── shared fixtures ─────────────────────────────────────────────────────────
-
-// Duplicated from service-worker.ts (private constant); update here if it changes there.
-const SESSION_MASTER_KEY = "cunySessionMaster";
 
 const MASTER = "correct-horse-battery-staple";
 
