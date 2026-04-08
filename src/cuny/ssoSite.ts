@@ -100,3 +100,23 @@ export const TOTP_GENERATION_OPTIONS = {
   digits: 6,
   period: 30,
 };
+
+/** Min/max length for a Base32 secret after stripping separators (CUNY typically ~32 chars). */
+export const TOTP_SECRET_LEN_MIN = 10;
+export const TOTP_SECRET_LEN_MAX = 128;
+
+/**
+ * Normalizes and validates a raw Base32 TOTP secret candidate.
+ * Strips whitespace, uppercases, removes trailing padding, then checks length and alphabet.
+ * Returns the normalized string on success, or null if the input is not a valid Base32 secret.
+ */
+export function normalizeTotpSecretCandidate(raw: string): string | null {
+  const normalized = raw.replace(/\s+/g, "").toUpperCase().replace(/=+$/, "");
+  if (normalized.length < TOTP_SECRET_LEN_MIN || normalized.length > TOTP_SECRET_LEN_MAX) {
+    return null;
+  }
+  if (!/^[A-Z2-7]+$/.test(normalized)) {
+    return null;
+  }
+  return normalized;
+}
