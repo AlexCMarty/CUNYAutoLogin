@@ -4,6 +4,9 @@ import type { VaultError } from "../crypto/vault";
 
 export const DRAFT_KEY = "cuny_form_draft";
 
+/** Minimum character length enforced for the master password in both setup and change-master flows. */
+export const MIN_MASTER_PASSWORD_LENGTH = 8;
+
 export interface FormDraft {
   email: string;
   password: string;

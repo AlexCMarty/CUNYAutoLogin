@@ -11,6 +11,7 @@ import {
 import { LOGIN_EMAIL_SUFFIX, PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../cuny/ssoSite";
 import {
   DRAFT_KEY,
+  MIN_MASTER_PASSWORD_LENGTH,
   type FormDraft,
   type PopupDom,
   validateEmail,
@@ -227,7 +228,7 @@ async function handleSetup(els: PopupDom): Promise<void> {
     setStatus("TOTP secret is required.");
     return;
   }
-  if (masterPassword.length < 8) {
+  if (masterPassword.length < MIN_MASTER_PASSWORD_LENGTH) {
     setStatus("Master password must be at least 8 characters.");
     return;
   }
@@ -315,7 +316,7 @@ async function handleUnlocked(els: PopupDom): Promise<void> {
       setStatus("New master passwords do not match.");
       return;
     }
-    if (newMaster.length < 8) {
+    if (newMaster.length < MIN_MASTER_PASSWORD_LENGTH) {
       setStatus("New master password must be at least 8 characters.");
       return;
     }
