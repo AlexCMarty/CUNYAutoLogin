@@ -25,7 +25,7 @@ In **unlocked** mode, users can optionally set a new master password (both "new"
 
 Oracle JET renders inputs after `document_idle`, so the content script uses a `MutationObserver` + timeouts instead of assuming immediate DOM.
 
-4. **Manual test** (`debugPanel.ts`, `npm run build:dev` only): **Send test FILL_CREDENTIALS to active tab** sends the in-memory `sessionPayload` to the active tab. Useful when the page was already open before unlock or for debugging.
+4. **Manual test** (`debugPanel.ts`, `npm run build:dev` only): **Send test FILL_CREDENTIALS to active tab** sends the in-memory `sessionPayload` to the active tab. Useful when the page was already open before unlock or for debugging. The `browser.runtime.onMessage` listener in `content.ts` that handles `FILL_CREDENTIALS` is gated with `if (import.meta.env.DEV)` — it is **absent from the production IIFE bundle**. Vite statically evaluates the guard and tree-shakes the listener in production builds.
 
 ## TOTP enroll secret scraping flow
 

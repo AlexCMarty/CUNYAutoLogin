@@ -5,10 +5,15 @@ import {
   validateEmail,
   decryptStatusMessage,
   parseDraft,
+  coerceDraft,
+  saveDraft,
+  clearDraft,
   setStatus,
   hideTotpSecretSourceHint,
   showTotpSecretSourceHint,
   applyPendingTotpFromPage,
+  MIN_MASTER_PASSWORD_LENGTH,
+  DRAFT_KEY,
   type PopupDom,
 } from "./popup.utils";
 import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
@@ -69,6 +74,16 @@ function makeMinimalEls(totpValue = ""): PopupDom {
     changeMasterSection: document.createElement("div"),
   };
 }
+
+// ---------------------------------------------------------------------------
+// MIN_MASTER_PASSWORD_LENGTH
+// ---------------------------------------------------------------------------
+
+describe("MIN_MASTER_PASSWORD_LENGTH", () => {
+  test("is at least 12", () => {
+    expect(MIN_MASTER_PASSWORD_LENGTH).toBeGreaterThanOrEqual(12);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // validateEmail
@@ -243,7 +258,6 @@ describe("showTotpSecretSourceHint", () => {
 
 describe("applyPendingTotpFromPage", () => {
   beforeEach(() => {
-    localStorage.clear();
     vi.resetAllMocks();
   });
 
@@ -259,16 +273,20 @@ describe("applyPendingTotpFromPage", () => {
   const mockSessionRemove = () =>
     vi.spyOn(browser.storage.session, "remove").mockResolvedValue();
 
-  test("new secret → updates totp field, shows hint, clears session key", async () => {
+  test("new secret → updates totp field, shows hint, clears session key, saves draft", async () => {
     const els = makeMinimalEls(""); // field is currently empty
     mockSessionGet("NEWSECRET");
     const removeSpy = mockSessionRemove();
+    const setSpy = vi.spyOn(browser.storage.session, "set").mockResolvedValue();
 
     await applyPendingTotpFromPage(els);
 
     expect(els.totpSecret.value).toBe("NEWSECRET");
     expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(false);
     expect(removeSpy).toHaveBeenCalledWith(PENDING_TOTP_SECRET_SESSION_KEY);
+    expect(setSpy).toHaveBeenCalledWith({
+      [DRAFT_KEY]: { email: "", password: "", totpSecret: "NEWSECRET" },
+    });
   });
 
   test("secret matches current field value (normalized) → field unchanged, hint stays hidden", async () => {
@@ -310,5 +328,95 @@ describe("applyPendingTotpFromPage", () => {
 
     await expect(applyPendingTotpFromPage(els)).resolves.toBeUndefined();
     expect(els.totpSecret.value).toBe("existing");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// coerceDraft
+// ---------------------------------------------------------------------------
+
+describe("coerceDraft", () => {
+  test("plain object with all string fields → FormDraft", () => {
+    expect(coerceDraft({ email: "a@login.cuny.edu", password: "pw", totpSecret: "AB" }))
+      .toEqual({ email: "a@login.cuny.edu", password: "pw", totpSecret: "AB" });
+  });
+
+  test("null → null", () => {
+    expect(coerceDraft(null)).toBeNull();
+  });
+
+  test("primitive string → null", () => {
+    expect(coerceDraft("string")).toBeNull();
+  });
+
+  test("number → null", () => {
+    expect(coerceDraft(42)).toBeNull();
+  });
+
+  test("missing fields default to empty string", () => {
+    expect(coerceDraft({})).toEqual({ email: "", password: "", totpSecret: "" });
+  });
+
+  test("non-string field values fall back to empty string", () => {
+    expect(coerceDraft({ email: 123, password: null, totpSecret: true }))
+      .toEqual({ email: "", password: "", totpSecret: "" });
+  });
+
+  test("extra unknown fields are ignored", () => {
+    expect(coerceDraft({ email: "a@b.c", password: "pw", totpSecret: "AB", extra: "x" }))
+      .toEqual({ email: "a@b.c", password: "pw", totpSecret: "AB" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// saveDraft
+// ---------------------------------------------------------------------------
+
+describe("saveDraft", () => {
+  beforeEach(() => { vi.resetAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  test("writes FormDraft object to storage.session under DRAFT_KEY", async () => {
+    const els = makeMinimalEls("");
+    els.email.value = "a@login.cuny.edu";
+    els.password.value = "pw";
+    els.totpSecret.value = "ABCD";
+    const setSpy = vi.spyOn(browser.storage.session, "set").mockResolvedValue();
+
+    await saveDraft(els);
+
+    expect(setSpy).toHaveBeenCalledWith({
+      [DRAFT_KEY]: { email: "a@login.cuny.edu", password: "pw", totpSecret: "ABCD" },
+    });
+  });
+
+  test("does not throw when storage.session.set rejects", async () => {
+    const els = makeMinimalEls("");
+    vi.spyOn(browser.storage.session, "set").mockRejectedValue(new Error("unavailable"));
+
+    await expect(saveDraft(els)).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// clearDraft
+// ---------------------------------------------------------------------------
+
+describe("clearDraft", () => {
+  beforeEach(() => { vi.resetAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  test("calls storage.session.remove with DRAFT_KEY", async () => {
+    const removeSpy = vi.spyOn(browser.storage.session, "remove").mockResolvedValue();
+
+    await clearDraft();
+
+    expect(removeSpy).toHaveBeenCalledWith(DRAFT_KEY);
+  });
+
+  test("does not throw when storage.session.remove rejects", async () => {
+    vi.spyOn(browser.storage.session, "remove").mockRejectedValue(new Error("unavailable"));
+
+    await expect(clearDraft()).resolves.toBeUndefined();
   });
 });

@@ -85,9 +85,13 @@ The master password **is never written to `storage.local` or disk**. It is held 
 
 - **Master password never in `storage.local`** — `decryptVault` / `encryptVault` accept it as a parameter. Never write it to `storage.local` or logs.
 - **`PENDING_TOTP_SECRET_SESSION_KEY`** — The scraped Base32 TOTP secret is staged in `browser.storage.session` only. Never write it to `storage.local`, logs, or any persistent store.
-- **Setup draft in `localStorage`** — email/password/TOTP drafts are mirrored to `localStorage` (`cuny_form_draft`) while in setup mode. Treat as sensitive plaintext; do not log it.
+- **Setup draft in `browser.storage.session`** — email/password/TOTP drafts are mirrored to `browser.storage.session` (key: `cuny_form_draft`) **while in setup mode only**. `storage.session` is in-memory and never written to disk. `localStorage` is explicitly forbidden for this data — it persists to disk indefinitely and was a prior audit finding. Draft saving is gated: input listeners check `currentMode === "setup"` before calling `saveDraft`.
 - **`browser` import** — always `import browser from "webextension-polyfill"`, never `chrome.*`.
 - **Minimum browser versions** — `storage.session` requires Firefox 115+ and Chrome 102+. Do not lower these without adding a fallback.
+
+### Security stakes
+
+This extension stores institutional login credentials (email, password, TOTP secret) for 275,000+ CUNY students. It is subject to CUNY IT security review and Chrome Web Store scrutiny. A credential exposure is an institutional-scale incident — the kind that gets extensions removed from the Web Store and triggers disciplinary proceedings against the developer. Every change to credential-handling code carries this weight. When in doubt, check with a security-aware reviewer before merging.
 
 ### Crypto parameters (`src/crypto/vault.ts`)
 

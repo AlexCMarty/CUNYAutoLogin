@@ -19,7 +19,7 @@
   "content_scripts": [
     {
       "matches": [
-        "*://ssologin.cuny.edu/*",
+        "https://ssologin.cuny.edu/*",
         "http://127.0.0.1:4173/*"
       ],
       "js": ["content.js"],

@@ -16,10 +16,11 @@ import {
   type PopupDom,
   validateEmail,
   decryptStatusMessage,
-  parseDraft,
+  coerceDraft,
   setStatus,
   hideTotpSecretSourceHint,
   saveDraft,
+  clearDraft,
   clearPendingTotpFromSession,
   applyPendingTotpFromPage,
 } from "./popup.utils";
@@ -57,25 +58,26 @@ async function clearSessionMaster(): Promise<void> {
   }
 }
 
-function clearDraft(): void {
-  localStorage.removeItem(DRAFT_KEY);
-}
-
 function applyDraft(els: PopupDom, draft: FormDraft): void {
   if (draft.email) els.email.value = draft.email;
   if (draft.password) els.password.value = draft.password;
   if (draft.totpSecret) els.totpSecret.value = draft.totpSecret;
 }
 
-function restoreDraft(els: PopupDom): void {
-  const raw = localStorage.getItem(DRAFT_KEY);
-  if (!raw) return;
-  const draft = parseDraft(raw);
-  if (!draft) {
-    localStorage.removeItem(DRAFT_KEY);
-    return;
+async function restoreDraft(els: PopupDom): Promise<void> {
+  try {
+    const result = await browser.storage.session?.get(DRAFT_KEY);
+    const raw = result?.[DRAFT_KEY];
+    if (raw === undefined || raw === null) return;
+    const draft = coerceDraft(raw);
+    if (!draft) {
+      await browser.storage.session?.remove(DRAFT_KEY);
+      return;
+    }
+    applyDraft(els, draft);
+  } catch {
+    // session storage unavailable — proceed without draft
   }
-  applyDraft(els, draft);
 }
 
 function setupPasswordToggles(): void {
@@ -229,7 +231,7 @@ async function handleSetup(els: PopupDom): Promise<void> {
     return;
   }
   if (masterPassword.length < MIN_MASTER_PASSWORD_LENGTH) {
-    setStatus("Master password must be at least 8 characters.");
+    setStatus(`Master password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`);
     return;
   }
 
@@ -246,7 +248,7 @@ async function handleSetup(els: PopupDom): Promise<void> {
   sessionPayload = { email, password, totpSecret };
   sessionMasterPassword = masterPassword;
   await saveSessionMaster(masterPassword);
-  clearDraft();
+  await clearDraft();
   hideTotpSecretSourceHint(els);
   els.masterPassword.value = "";
   currentMode = "unlocked";
@@ -317,7 +319,7 @@ async function handleUnlocked(els: PopupDom): Promise<void> {
       return;
     }
     if (newMaster.length < MIN_MASTER_PASSWORD_LENGTH) {
-      setStatus("New master password must be at least 8 characters.");
+      setStatus(`New master password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`);
       return;
     }
     masterPasswordToUse = newMaster;
@@ -339,7 +341,7 @@ async function handleUnlocked(els: PopupDom): Promise<void> {
   const newVault = encResult.value;
   await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
   storedVault = newVault;
-  clearDraft();
+  await clearDraft();
   sessionPayload = { email, password, totpSecret };
   sessionMasterPassword = masterPasswordToUse;
   await saveSessionMaster(masterPasswordToUse);
@@ -369,7 +371,7 @@ async function resetToFreshInstall(els: PopupDom): Promise<void> {
   }
   await clearSessionMaster();
   await clearPendingTotpFromSession();
-  clearDraft();
+  await clearDraft();
   els.email.value = "";
   els.password.value = "";
   els.totpSecret.value = "";
@@ -418,7 +420,7 @@ async function init(): Promise<void> {
   setupPasswordToggles();
 
   if (currentMode === "setup") {
-    restoreDraft(els);
+    await restoreDraft(els);
     await applyPendingTotpFromPage(els);
   }
 
@@ -440,7 +442,10 @@ async function init(): Promise<void> {
   }
 
   [els.email, els.password, els.totpSecret].forEach((input) => {
-    input.addEventListener("input", () => saveDraft(els));
+    input.addEventListener("input", () => {
+      if (currentMode !== "setup") return;
+      void saveDraft(els);
+    });
   });
 
   els.totpSecret.addEventListener("input", () => hideTotpSecretSourceHint(els));

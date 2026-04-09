@@ -15,7 +15,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://ssologin.cuny.edu/*"],
+      "matches": ["https://ssologin.cuny.edu/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

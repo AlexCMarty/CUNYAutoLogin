@@ -289,8 +289,12 @@ if (matchesTotpEnrollPage(window.location.href)) {
   void watchTotpSecretOnEnrollPage();
 }
 
-browser.runtime.onMessage.addListener((message: unknown) => {
-  if (!isFillMessage(message)) return;
-  log("runtime.onMessage FILL_CREDENTIALS — triggering main()");
-  void main(message.payload);
-});
+// isFillMessage is only called in the DEV block below; Vite tree-shakes it from
+// the production IIFE because import.meta.env.DEV evaluates to false at build time.
+if (import.meta.env.DEV) {
+  browser.runtime.onMessage.addListener((message: unknown) => {
+    if (!isFillMessage(message)) return;
+    log("runtime.onMessage FILL_CREDENTIALS — triggering main()");
+    void main(message.payload);
+  });
+}
