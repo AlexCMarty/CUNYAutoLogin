@@ -1,142 +1,454 @@
-# Context
-Presently the onboarding process requires the user to read a README. As I plan to put this on the Chrome web store, that is unacceptable. Today we overhaul the user onboarding process to provide a seamless user experience.
+# Onboarding Overhaul v2
 
-## Popup structure during onboarding.
-Every page will have:
-- a back button (where applicable)
-- a forwards button (where applicable). It should be grayed out / visibly unclickable until the current page is done by the user
-- progress beads / circles on the bottom. Their color & brightness indicate progress. 
-- input fields are pill shaped and have a width of about the whole page.
+## Goals
 
-## Key todos
-1. Allow autofill without the master password. Note how presently, no autofill occurs until the master password is saved. Add the feature where the email and CUNY password can be entered into the extension and those will be autofilled (but ofc not the TOTP because it will be empty). This is required for the below autofill to show the user the immediate value.
-2. Presently if the extension holds a wrong email / password / TOTP, it will still click verify. enters loop. keeps trying, will lock account!!! Add feature for both email and TOTP pages: if there's an error, detect this and don't automatically retry.
-3. Some way to direct user attention on what buttons on the webpage to click. I'm imagining the page grays out and the appropiate button is highlighted so it's very obvious what to click.
-4. In self-service page, get the input field "Friendly Name" and autofill it with "CUNYAutoLogin" automatically for the user.
-5. Add support for biometric authentication. When the vault is set up (after all these onboarding steps) the user will open their browser and scan their face or tap their finger, then their vault will unlock. Retain the master password as a fallback since not every laptop or computer will support this.
+- A CUNY student who has never set up 2FA can complete onboarding unassisted.
+- No technical jargon reaches the student unless unavoidable and immediately explained.
+- Trust is established on Screen 1 and reinforced throughout.
+- The student sees the extension work before they're done.
 
-## Agent notes
-You can edit this to provide the best UX possible. I'm not a UX nor UI expert.
+---
 
-## The CUNY Self-Service page's existing flow (without extension)
-This is at https://ssologin.cuny.edu/oaa/rui.
+## User profile
 
-This is where people go to add 2FA
+Non-technical CUNY college student. First time setting up an authenticator app. Mildly skeptical about entering credentials into a browser extension they just installed. Will abandon at the first moment of confusion or distrust. Has multiple CUNY-adjacent passwords and is not sure which one applies here.
 
-1. Sign in as usual 
-2. A thing pops up **Allow CUNY Login to Access MFA Self-Service?**, they must click **Allow**.
+---
 
-This is where they manage two factor authentication and also signed in session on other devices btw.
+## Copy rules (enforce everywhere)
 
-3. Under **My authentication factors**, click **Manage**.
-4. Choose **Add authentication factor**.
+| Never say | Say instead |
+|---|---|
+| TOTP | login code / verification code |
+| TOTP secret / secret key | (never show to student — captured silently) |
+| Master password | extension password |
+| MFA / 2FA | two-factor login / login codes |
+| Base32 | (never show) |
+| Self-service portal | CUNY Login page |
 
-They could delete some authentication factors on this page, max is 5.
+When students go to Brightspace for their grades they are redirected to ssologin.cuny.edu. "Brightspace" here is the more familiar since it refers to the same login page.
 
-5. Select **Mobile Authenticator - TOTP**.
-6. They will see a **secret key** (letters and digits) and a QR code.
+Tone: friendly, brief, one idea per sentence. No exclamation points in body copy — save them for genuine celebration (Screen 13 only).
 
-Most people here like use Microsoft or Google Authenticator or whatever to scan the QR code
+---
 
-7. Enter a name for the 2FA factor like "Microsoft Authenticator" or whatever. Click "Verify"
+## Progress model
 
-A field pops up and they type in the six digit done then click continue and that's it
+The student sees **5 progress beads** representing the top-level stages:
 
-# New desired flow for the extension
+1. Your info
+2. Log in to CUNY
+3. Set up login codes
+4. Extension password
+5. Done
 
-1. **Popup**
+Beads fill in as stages complete. Individual screens within a stage do not get their own bead — they just animate through the active one. This keeps the top-level map simple even though there are ~13 internal screens.
 
-Welcome screen. Preview full flow:
+---
 
-- enter email and CUNY password
-- log into the sso self service page
-- all the annoying steps to get totp secret
-- enter master password for extension
-- set up biometrics if device allows
+## Screen 1 — Welcome
 
-The whole self service page means it will be quite the task to make this as minimally annoying as possible!!!
+**No back button. CTA: "Let's go"**
 
-2. **Popup**
+**Headline:** CUNYAutoLogin fills in your login and generates your verification codes for you.
 
-blurb: "Welcome to CUNYAutoLogin! Never manually login to CUNY ever again."
-add to the blurb a security notice that their information is safe, such as "Your credentials are encrypted locally and never leave your device."
+**Body:** Setup takes about 3 minutes.
 
-The box for email entry. `@login.cuny.edu` is already prefilled.
+**Reassurance line** (same visual weight as the headline — not smaller):
+Your information is stored only on this device and is never sent anywhere.
 
-No back button.
+### Design notes
+- The reassurance line is **not** smaller text. For a user who is already skeptical about handing credentials to a browser extension, "stored only on this device" is the most important sentence on this screen — it earns the right to proceed. Reducing its size buries the trust signal under the marketing claim.
+- The headline is a factual description of what the extension does, not a promise or a pitch. Promises ("never type your password again") read as bait before trust is established, and land identically to what a phishing extension would say.
+- No step-by-step preview of the flow. Listing "annoying steps" upfront causes abandonment before it starts.
 
-3. **Popup** 
+---
 
-The box for CUNY password entry.
+## Screen 2 — Email Entry
 
-4. **Popup**
+**No back button. Forward button grayed until input is valid.**
 
-"To continue, we need information from CUNYFirst please [log in](https://ssologin.cuny.edu/oaa/rui)"
+**Label:** What email do you use to log in to Brightspace?
 
-Put a spinner or waiting icon of some kind as visual feedback they they need to log in.
+**Subtext directly below label:**
+This is usually firstname.lastname@login.cuny.edu. It is not your @baruchmail.cuny.edu or other school email.
 
-Forwards button should always be grayed out / unclickable here. The only thing should be a back button and a link so it's clear to the user then must log in. This page will automatically proceed once they get to the "**Allow CUNY Login to Access MFA Self-Service?**" page.
+**Input:** Pill-shaped. Prefilled value: `@login.cuny.edu`. Cursor placed before the `@` on focus.
 
-5. **Webpage**
+**Forward button behavior:**
+- Grayed until input is non-empty and ends with `@login.cuny.edu`.
+- If the student types a non-`@login.cuny.edu` address and tabs/taps away, inline hint appears below the input:
+  > "CUNY logins end in @login.cuny.edu — check your CUNYfirst welcome email if you're unsure."
 
-The pop is in the above "we need information please log in" state. Since the user has already entered their username and password into the extension, **log them in automatically** to CUNYFirst. This will immediately convey to the user the value of the extension. Of course, there will be no TOTP secret information, so they will still have to do that manually.
+### Design notes
+- "CUNYfirst email" is dropped from the label. Students associate CUNYfirst with class registration and Brightspace with coursework — using both names without explaining they share a login introduces doubt about which account the extension needs. "What email do you use to log in to Brightspace?" is unambiguous.
+- The @login.cuny.edu vs school email distinction is the single biggest source of wrong-credential failures. Address it here, not after the failure happens.
 
-This also check if their username and password are correct. If not, the extension will detect this. In the popup add red text for feedback to indicate that they must change either their email or password since it didnt' work.
+---
 
-6. **Webpage**
+## Screen 3 — Password Entry
 
-On the page "**Allow CUNY Login to Access MFA Self-Service?**", gray everything else out a bit and highlight the "allow" button.
+**Back button returns to Screen 2. Forward button grayed until input is non-empty.**
 
-7. **Popup**
+**Label:** What's your Brightspace password?
 
-Prominent text "Please follow the instructions on the page to continue with setup."
+**Subtext directly below label:**
+The password you use to log in to Brightspace.
 
-Now it's clear to the user then should look at the page and click click click. However, the popup will have field:
+**Reassurance line** (below the input, above the forward button):
+We'll use these to log you in once, right now, so you can watch it work.
 
-Input field 1: TOTP secret
+**Input:** Pill-shaped. Password type. Show/hide toggle (eye icon) on the right side of the pill.
 
-Forward button is grayed out / unclickable until it's filled in.
+### Design notes
+- The reassurance line is new in v2. At this point the student has handed a browser extension their school email and password. Without acknowledgment, the extension immediately runs off to do something with those credentials — which feels opaque to a skeptical user. The reassurance line converts "I just gave this thing my password" into "I just gave it what it needs to show me something." It reframes handing over credentials from alarming to purposeful.
+- We discover wrong passwords during auto-login (Screen 5), not here. No content validation — just non-empty.
+- Show/hide toggle is not optional. Students mistype passwords in narrow inputs constantly, especially on laptops with small keyboards.
 
-The secret should be automatically filled in from the CUNY page once it shows up. Once they go through steps (see below) and get their secret key, this popup page will transition to the "choose master password"
+---
 
-8. **Webpage**
+## Screen 4 — "Opening CUNY…" (transition)
 
-Gray everything else out. Under **My authentication factors** (it's a heading), highlight **Manage** (button).
+**Back button returns to Screen 3. No forward button.**
 
-9. **Webpage**
+**Headline:** Opening CUNY Login…
 
-Gray everything else out. Highlight **Choose authentication factor** (a dropdown)
+**Body:** We're opening your school's login page in a new tab. We'll fill in your email and password so you can see how the extension works.
 
-10. **Webpage**
+**Directional line** (below body):
+The action is on the new tab — this window will update automatically.
 
-Gray everything else out. Highlight the button **Mobile Authentication Factor - TOTP**.
+**Reassurance line:** This is the same page you'd visit normally. We're not taking you anywhere unexpected.
 
-It might be the case that the user already has 5 factors (the max). I don't know why any CUNY student would do that, but hey edge cases. Sub-plan: let's figure this out. The user will already be in a bit of a "click the button... ugh i won't even read i'll just do it" mode. I don't want to tell them "delete this" then ruin their account... hmmm. 
+**Visual:** Pulsing animation. Label beneath it: "Nothing to do yet — waiting for the tab to open."
 
-11. **Webpage**
+**Behavior on open:**
+- Extension opens `https://ssologin.cuny.edu/oaa/rui` in a new tab.
+- Content script fills email and password fields.
+- Popup stays open on this screen and monitors the tab.
 
-At this point the TOTP secret shows up. The extension will autofill the popup as usual. The popup shouldn't transition just yet.
+### Design notes
+- The directional line is new in v2. Without it, the student doesn't know whether to watch the popup or the tab — both are visible. "The action is on the new tab" resolves this immediately.
+- The label beneath the pulsing animation ("Nothing to do yet") is new in v2. A pulsing animation is ambiguous: it could mean "the extension is doing something" or "you're supposed to do something." Students who don't know they should switch to the tab will sit and wait. The label removes the ambiguity.
 
-12. **Webpage**
+---
 
-Get the input field "Friendly Name" and autofill it with "CUNYAutoLogin" automatically for the user. This functionality will have to be added. It won't let the user leave it blank.
+## Screen 4-error — Wrong Credentials
 
-Gray everything else out. Highlight the button "Verify Now"
+If the content script detects a login error on the CUNY page (error message element present, or page has not advanced after submit):
 
-13. **Webpage**
+**Do not retry automatically.** An extension that keeps submitting wrong credentials can lock a CUNY account.
 
-The extension will autofill the OTP code. Highlight the button "Verify and Save". Once the user clicks it, if successful it goes back to the "My Authentication Factors" page. To detect success, I'm thinking that we check if "CUNYAutoLogin" is on that page 🤔 . Or maybe assume success when the button "Verify and Save" is clicked. hmmm. If there's an error (empty name or wrong code) the webpage shows a message underneath the input field. 
+**On the CUNY tab:** Show an overlay banner at the top of the page. The banner must be **visually distinct from CUNY's own error messages** — it should read as "the extension is talking to me," not "CUNY is telling me something failed." Include the extension icon in the banner so the source is unambiguous.
 
-I'll just think about the happy path.
+Banner copy:
+> "CUNYAutoLogin: your email or password didn't work. Tap here to correct them."
 
-14. **Popup**
+Tapping the banner focuses the popup and returns to Screen 3 (password entry). If the email is more likely wrong (e.g. format mismatch was just discovered), return to Screen 2 instead.
 
-Now the user must choose a **strong master password**. They enter it twice.
+**On the popup:** Replace the pulsing animation with a red status line:
+> "That didn't work — tap the banner on the CUNY tab to fix your email or password."
 
-15. **Popup**
+### Design notes
+- The error must surface on the webpage because the student is not looking at the popup during auto-login. Popup-only errors are invisible here.
+- Visual distinctness from CUNY's own alerts is critical. An extension-injected banner on a school-branded page can read as a phishing indicator to a skeptical student. The extension icon in the banner establishes authorship — this banner is from the extension, not from CUNY.
 
-Can we enroll the user in biometric auth so they can just scan their face / tap their finger when they open the browser?
+---
 
-16. **Popup**
+## Screen 5 — "Click Allow" gate
 
-"You're all set!"
+Auto-advances once the Allow action is detected on the CUNY page. **Back button returns to Screen 3. No forward button.**
+
+**Headline:** Almost there — one more tap on the CUNY tab.
+
+**Body:** CUNY is confirming it's really you before showing your account settings. Look for the prompt on the tab and click Allow.
+
+**On the CUNY tab (overlay):**
+- Page dimmed to ~50% opacity.
+- "Allow" button highlighted (full opacity, soft white glow ring).
+- Tooltip attached to the button — first overlay use, so include a primer line:
+  > "The extension will guide you with highlights like this. Click Allow to continue."
+
+After this first overlay use, subsequent overlays do not need the primer — the student now understands the pattern.
+
+### Design notes
+- "CUNY is asking for permission to continue" (v1) is vague to the point of anxiety. Students who've encountered phishing flows recognize unexpected permission dialogs as a red flag. The v2 body copy explains specifically what Allow does: it's CUNY confirming identity before showing account settings. This converts an alarming unknown into a recognizable step.
+
+---
+
+## Screens 6–9 — Guided Clicks (CUNY Self-Service)
+
+During these screens, the **popup shows a step-specific message** — one line of context explaining why the current step matters, plus the standing instruction. No forward button. Back button is available but returns to Screen 3 with a confirmation: "Going back will restart the CUNY setup steps. Are you sure?"
+
+**Popup message format (per step):**
+
+- **Step 1:** "Opening your login settings. Follow the highlight on the CUNY tab."
+- **Step 2:** "Adding CUNYAutoLogin as a login method. Follow the highlight on the CUNY tab."
+- **Step 3:** "Choosing how your codes will be generated. Follow the highlight on the CUNY tab."
+- **Step 4:** "Connecting the extension to your account. Follow the highlight on the CUNY tab."
+
+A **step counter chip** sits in the bottom-right corner of the overlay on the CUNY tab throughout these steps:
+`Step 1 of 4`, `Step 2 of 4`, etc.
+
+### Design notes
+- v1 used a single static message for all four steps: "Follow the highlights on the CUNY tab. We'll move forward automatically after each step." This gave the student no sense of what they were doing or why. The guided-click section is the highest dropout risk in the flow — the student is navigating a government-style website they've never visited before, clicking through menus an extension is pointing at, with no understanding of the purpose.
+- Per-step context lines are short enough to read in a glance and give the student enough agency to feel like a participant rather than an obedient cursor.
+
+---
+
+### Screen 6 (overlay step 1 of 4) — Manage
+
+Highlight the **Manage** button under the "My authentication factors" heading.
+
+Tooltip: "Click Manage to see your login methods."
+
+---
+
+### Screen 7 (overlay step 2 of 4) — Add authentication factor
+
+Highlight the **Add authentication factor** button or option.
+
+Tooltip: "Click here to add a new login method."
+
+---
+
+### Screen 7-edge — Five existing factors
+
+If the extension detects the page shows 5 existing factors (the maximum), **pause the overlay** and surface a popup message:
+
+> You've reached CUNY's limit of 5 login methods. To add CUNYAutoLogin, you'll need to remove one. Look for an old or unused method in the list — click the three dots and select "delete" — then come back to this step.
+
+Do not automate or suggest which factor to delete. Deleting an active factor can lock the student out of CUNY. This is a decision only they can make.
+
+Do not link to a help article. If they truly have 5 2FA they can figure it out.
+
+---
+
+### Screen 8 (overlay step 3 of 4) — Mobile Authenticator
+
+Highlight the **Mobile Authenticator** option (the TOTP option).
+
+Tooltip: "Select this to connect CUNYAutoLogin as your verification app."
+
+**Popup message** (in addition to the standing step 3 line):
+> "On the next step, we'll automatically save the key that generates your codes — you won't need to do anything."
+
+Do not use the word "TOTP" in the tooltip or anywhere student-facing.
+
+### Design notes
+- The advance notice on Screen 8 is new in v2. On Screen 9, the extension silently captures something from the CUNY page. Even with good intentions, "we captured something from that page without you seeing it" can feel intrusive the first time a user notices it. Priming the student one step earlier converts the Screen 9 confirmation from an announcement of something that happened behind their back into a confirmation of something they were told to expect.
+
+---
+
+### Screen 9 (overlay step 4 of 4) — Secret key page
+
+When the secret key page loads, the extension silently captures the secret from the page. **The student never sees the raw key.** The popup status indicator updates:
+
+> ✓ Your login code key was saved.
+
+On the CUNY tab:
+- Extension autofills the **Friendly Name** field with "CUNYAutoLogin".
+- Tooltip on the field: "We've filled in a name for you."
+- Highlight the **Verify Now** button.
+- Tooltip: "Click Verify Now to confirm."
+
+---
+
+## Screen 10 — Verify Login Code (overlay)
+
+Extension autofills the 6-digit verification code into the code field.
+
+Highlight the **Verify and Save** button.
+Tooltip: "Click Verify and Save to finish."
+
+**On first error** (wrong code, expired code, or CUNY shows an inline validation message):
+- Show overlay message below the button: "That code expired — we've entered a fresh one. Click Verify and Save again."
+- Extension regenerates the code and autofills once automatically.
+
+**On second failure:**
+- Overlay pauses. Popup shows:
+  > "That code didn't work. Wait a moment for it to refresh, then click Verify and Save once more."
+- If the second failure persists, add: "This can happen if your device clock is slightly off — try restarting your browser and running setup again."
+- Do not loop. After two failures, stop retrying and wait for the student to act.
+
+**On success** (extension detects return to "My Authentication Factors" page, OR assumes success on button click):
+- Popup auto-advances to Screen 10a.
+- Overlay dismisses cleanly.
+
+Detect return to the factors page by checking for "CUNYAutoLogin" in the factor list.
+
+### Design notes
+- The clock explanation is moved to the second failure in v2. On first failure, it's noise — the student doesn't know what their device clock has to do with a 6-digit code, and it introduces "something is wrong with my device" anxiety. The actionable message ("wait a moment, try again") is sufficient for first failure. The clock explanation is only surfaced on a persistent second failure, where the student needs something actionable beyond "try again."
+
+---
+
+## Screen 10a — Set as Default (overlay)
+
+**Immediately follows Screen 10 success** — the student is back on the "My Authentication Factors" page. No back button. No forward button.
+
+CUNY uses whatever factor is marked "default" at next login. The newly added factor is not default automatically. If the student skips this step, their old authenticator app will be used and the extension will appear to not work.
+
+**Two-click guided interaction:**
+
+**Click 1 — Three-dot menu:**
+- Highlight the three-dot (kebab) menu icon on the CUNYAutoLogin row.
+- Tooltip: "Click the three dots next to CUNYAutoLogin."
+- Popup message: "One last tap — make CUNYAutoLogin your default login method."
+
+**Click 2 — Set as default:**
+- After the menu opens, highlight the "Set as default" option.
+- Tooltip: "Click Set as default."
+- No additional popup message needed — the student is mid-gesture.
+
+**Success detection:**
+- Extension detects that CUNYAutoLogin is now marked as default on the "My Authentication Factors" page (e.g., a "default" badge or label appears on the CUNYAutoLogin row).
+- On success, popup auto-advances to Screen 11. Overlay dismisses cleanly.
+
+Do not auto-advance on the menu click alone — wait for the default badge to appear before advancing. A student who opens the menu and clicks something else should not trigger a false advance.
+
+### Design notes
+- This step is not optional. An extension that correctly fills credentials and generates codes will still appear broken if the old factor remains default — CUNY will challenge with the old app, not with the extension's code. Skipping this step causes a silent failure at the next real login, which is far harder to debug than a clear prompt during setup.
+- The two-click structure (three dots → Set as default) is represented as one screen rather than two. Both clicks happen in rapid succession on the same page; splitting them into separate screens would overweight a trivial interaction. The overlay handles the sequencing.
+- Do not use the word "default" in the popup message — it's jargon without context. "Make CUNYAutoLogin your default login method" is acceptable because "default" is immediately explained by what follows in the sentence.
+
+---
+
+## Screen 11 — Extension Password Setup
+
+**Back button not available here** — credentials and secret are already staged. Returning would require clearing everything and starting over. If a student needs to go back, they can clear the extension from the browser.
+
+**Headline:** Create your extension password
+
+**Body:** This is separate from your CUNY password. It locks what we just saved on your device — you'll need it when you open a new browser session.
+
+**Subtext at bottom:** If you forget this password, just run setup again — it takes about 3 minutes.
+
+**Two inputs:**
+- "Choose a password" — pill-shaped, password type, show/hide toggle.
+- "Confirm password" — pill-shaped, password type, show/hide toggle.
+
+**Inline validation:**
+- Strength indicator below first input: Weak / Fair / Strong (red / yellow / green). Minimum accepted: Fair.
+- Second input shows green checkmark when both match, red X while they don't match.
+
+**Forward button:** Grayed until both fields match and strength is at least Fair.
+
+### Design notes
+- "Master password" is renamed "extension password" throughout. "Master" implies control over multiple services, which raises questions and anxiety. "Extension password" is scoped and self-explanatory.
+- The recovery framing is changed in v2. "If you forget this password, you'll need to set up the extension again" (v1) is vague about consequences — a student reading it wonders if "set up the extension again" means losing their CUNY account, reinstalling, or something worse. "Just run setup again — it takes about 3 minutes" tells them exactly what happens and that it's fine. Students under pressure will pick passwords they can remember if they know the stakes are recoverable.
+- Minimum strength "Fair" rather than "Strong" reduces abandonment while still ruling out "1234".
+
+---
+
+## Screen 12 — Biometrics (conditional)
+
+**Only show this screen if the browser reports a platform authenticator is available.** If not available, skip directly to Screen 13.
+
+**Headline:** Unlock faster with Face ID or fingerprint
+
+**Body:** Instead of typing your extension password each time, use your device's built-in fingerprint or face scanner.
+
+**Two equal-weight buttons** (same visual size and color — neither is "primary"):
+- "Use Face ID / Fingerprint"
+- "Type my password each time"
+
+### Design notes
+- "Use my password instead" (v1) frames the second option as a fallback. "Type my password each time" (v2) describes a deliberate choice and communicates what it means in practice. A student on a shared computer, library computer, or older device should not feel like they are choosing the worse option — the language should match the visual parity of the buttons.
+
+---
+
+### Screen 12a — Biometric preparation (shown before triggering system dialog)
+
+**Only shown after tapping "Use Face ID / Fingerprint".**
+
+**Body:** Your browser is about to ask for permission to use your fingerprint or face. This is handled by your device — not by us.
+
+CTA: "Continue"
+
+Then trigger the WebAuthn / platform authenticator prompt.
+
+**On failure or denial:**
+Provide option to try again. Sometimes fingerprint or face doesn't work the first time.
+After the first error, show an option to continue instead with extension password. Show brief confirmation on the popup:
+> "No problem — you'll use your extension password to unlock."
+
+### Design notes
+- The preparation screen exists purely to eliminate the jarring context switch when a native OS dialog appears mid-flow. Priming the student for it converts "alarming" into "expected."
+
+---
+
+## Screen 13 — "You're all set!" + Live Demo
+
+**Headline:** You're all set!
+
+**Body:** Next time you open Brightspace, this is what happens — no password needed.
+
+**CTA button:** "Show me"
+
+Tapping "Show me" opens `https://ssologin.cuny.edu` in a new tab and triggers AUTO_FILL_REQUEST. The student watches their email and password fill in automatically. This is the payoff moment.
+
+After the fill is detected (or after 10 seconds with no tab activity, as a fallback), popup updates:
+> That's it. Enjoy never logging in manually again.
+
+**Secondary link** (small, below the button): "Skip" — for students who don't want the demo.
+
+### Design notes
+- "Try it now" (v1) framed the demo as a test, implying setup might not have worked. The student also just went through an entire login flow as part of setup — being asked to "try it" again raises the question of whether anything was saved.
+- v2 reframes the demo as a preview of the next-time experience: "Next time you open Brightspace, this is what happens." This makes the demo forward-looking — the student is watching their future, not re-doing their past. It also makes "Skip" feel like "I get it, I don't need to see it" rather than "I'm giving up on the test."
+- "Show me" is changed from "Try it now" to match the reframing.
+
+---
+
+## Overlay component spec
+
+Used on all guided-click screens (Screens 5–10).
+
+| Property | Value |
+|---|---|
+| Page dim | Semi-transparent dark overlay, ~50% opacity |
+| Highlighted element | Full opacity, 3px white glow ring |
+| Tooltip | Small pill, dark background, white text, max one sentence, attached to highlighted element with a 4–8px gap |
+| Step counter | Small chip, bottom-right of overlay: "Step N of 4" |
+| First-use primer | One additional tooltip line on Screen 5 only, explaining the overlay pattern |
+| Animation | Fade-in on first appearance (~200ms). Subsequent steps crossfade (~150ms). |
+
+The overlay must not cover the click target of the highlighted element. The dim layer sits behind the highlighted element in z-order.
+
+---
+
+## Interrupted onboarding
+
+If the student closes the popup mid-flow, onboarding progress is saved in `browser.storage.session` (in-memory, not disk — consistent with existing draft-saving behavior).
+
+On the next popup open, if onboarding is incomplete:
+> "Welcome back — pick up where you left off."
+
+With a CTA to resume at the last completed step.
+
+Email, password, and the captured secret are all already in session storage per existing security invariants. This is purely a UI state persistence concern.
+
+On Screen 4, the extension opens a CUNY tab. If the student closes the popup and reopens it, that tab may still be open or may be gone. Show a "Reopen CUNY tab" button? Reattaching silently to a tab the student may have navigated away from is surprising.
+
+---
+
+## Existing 2FA / Re-setup path
+
+### All students already have 2FA
+
+All CUNY students are required to use 2FA. The majority of authenticator apps (Microsoft Authenticator, Google Authenticator, Authy, Duo Mobile) do not let the user view or export the underlying secret — it is write-only from the student's perspective. A minority of apps, usually password managers (1Password, Bitwarden), do expose it.
+
+Crucially: the CUNY self-service page only shows a censored version of existing secrets (`2Q************EU`). The **full secret is only visible once — during the "Add authentication factor" flow.** After the factor is saved, it cannot be retrieved from the CUNY page.
+
+### Student is re-installing the extension
+
+If a student already has a "CUNYAutoLogin" factor in CUNY and needs to re-install the extension, there are two paths:
+
+**Path A — They have their secret saved somewhere** (rare; requires a password manager that exports TOTP secrets): offer a shortcut on Screen 1: a small link "Already set this up before?" below the "Let's go" button that leads to a single input screen where they paste their secret and skip the entire CUNY setup flow (Screens 4–10). They still go through extension password setup (Screen 11) and biometrics (Screen 12).
+
+**Path B — They don't have their secret** (the common case): they must delete the existing CUNYAutoLogin factor in CUNY and go through the full setup flow again. The extension cannot recover or reuse the old secret — CUNY does not expose it.
+
+For Path B, when the extension detects a "CUNYAutoLogin" factor already present on the "My Authentication Factors" page during setup, surface a popup message:
+
+> It looks like CUNYAutoLogin is already set up in CUNY. To continue, you'll need to delete that entry first: click the three dots next to "CUNYAutoLogin" and select Delete, then come back here.
+
+Do not automate deletion.
