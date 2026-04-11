@@ -272,13 +272,44 @@ Tooltip: "Click Verify and Save to finish."
 - Do not loop. After two failures, stop retrying and wait for the student to act.
 
 **On success** (extension detects return to "My Authentication Factors" page, OR assumes success on button click):
-- Popup auto-advances to Screen 11.
+- Popup auto-advances to Screen 10a.
 - Overlay dismisses cleanly.
 
-Detect success by checking for "CUNYAutoLogin" on the factors page.
+Detect return to the factors page by checking for "CUNYAutoLogin" in the factor list.
 
 ### Design notes
 - The clock explanation is moved to the second failure in v2. On first failure, it's noise — the student doesn't know what their device clock has to do with a 6-digit code, and it introduces "something is wrong with my device" anxiety. The actionable message ("wait a moment, try again") is sufficient for first failure. The clock explanation is only surfaced on a persistent second failure, where the student needs something actionable beyond "try again."
+
+---
+
+## Screen 10a — Set as Default (overlay)
+
+**Immediately follows Screen 10 success** — the student is back on the "My Authentication Factors" page. No back button. No forward button.
+
+CUNY uses whatever factor is marked "default" at next login. The newly added factor is not default automatically. If the student skips this step, their old authenticator app will be used and the extension will appear to not work.
+
+**Two-click guided interaction:**
+
+**Click 1 — Three-dot menu:**
+- Highlight the three-dot (kebab) menu icon on the CUNYAutoLogin row.
+- Tooltip: "Click the three dots next to CUNYAutoLogin."
+- Popup message: "One last tap — make CUNYAutoLogin your default login method."
+
+**Click 2 — Set as default:**
+- After the menu opens, highlight the "Set as default" option.
+- Tooltip: "Click Set as default."
+- No additional popup message needed — the student is mid-gesture.
+
+**Success detection:**
+- Extension detects that CUNYAutoLogin is now marked as default on the "My Authentication Factors" page (e.g., a "default" badge or label appears on the CUNYAutoLogin row).
+- On success, popup auto-advances to Screen 11. Overlay dismisses cleanly.
+
+Do not auto-advance on the menu click alone — wait for the default badge to appear before advancing. A student who opens the menu and clicks something else should not trigger a false advance.
+
+### Design notes
+- This step is not optional. An extension that correctly fills credentials and generates codes will still appear broken if the old factor remains default — CUNY will challenge with the old app, not with the extension's code. Skipping this step causes a silent failure at the next real login, which is far harder to debug than a clear prompt during setup.
+- The two-click structure (three dots → Set as default) is represented as one screen rather than two. Both clicks happen in rapid succession on the same page; splitting them into separate screens would overweight a trivial interaction. The overlay handles the sequencing.
+- Do not use the word "default" in the popup message — it's jargon without context. "Make CUNYAutoLogin your default login method" is acceptable because "default" is immediately explained by what follows in the sentence.
 
 ---
 
@@ -441,3 +472,4 @@ Do not automate deletion.
 | Screen 11 recovery warning: "you'll need to set up the extension again" | Recovery framing: "just run setup again — it takes about 3 minutes" |
 | Screen 12 second button: "Use my password instead" | Screen 12 second button: "Type my password each time" |
 | Screen 13 CTA: "Try it now" — implies setup might not have worked | Screen 13 body reframes demo as next-time preview; CTA is "Show me" |
+| No step for setting the new factor as default — old factor remains default, causing silent failure at next login | Screen 10a added: guided two-click sequence (three dots → Set as default); setup is not complete until CUNYAutoLogin shows as default |
