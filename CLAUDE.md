@@ -14,7 +14,13 @@ Saved email must end with **`@login.cuny.edu`** (enforced in `popup.ts`).
 
 ```
 popup.html                      Vite entry point for the popup UI
+sidebar.html                    Dev-only Vite entry: vault state side UI (Chrome side panel + Firefox sidebar); omitted from production build
 src/
+  vaultSession/snapshot.ts      loadVaultSessionSnapshot — shared vault + session master mode (used by popup init and dev sidebar)
+  vaultSession/snapshot.test.ts Unit tests for snapshot (injected storage mocks; no top-level webextension-polyfill import)
+  dev/sideSurface.manifest.patch.ts  Single object: both vendors’ manifest keys for the dev side UI (merged in vite only when MODE=development)
+  dev/sidebar/sidebar.ts        Dev-only page: Onboarding / Locked / Unlocked from snapshot + storage.onChanged
+  dev/sidebar/sidebar.css       Dev sidebar styles
   popup/popup.ts                Modes: setup / locked / unlocked; encrypt/save; session unlock; master rotation; draft autosave
   popup/popup.utils.ts          Pure helpers + small DOM utilities used by the popup (email validation, draft parse, status copy)
   popup/popup.test.ts           Unit tests: popup.utils (jsdom + mocked webextension-polyfill)
@@ -31,9 +37,10 @@ src/
   background/service-worker.ts  onInstalled log; AUTO_FILL_REQUEST → decrypt vault via session master;
                                 TOTP_SECRET_FROM_PAGE → validate + stage in session storage
   background/service-worker.test.ts  Unit tests: message routing, AUTO_FILL paths, TOTP staging (mocked polyfill + vault helpers)
-  manifest.json                 Source manifest (copied to dist/ by Vite)
+  manifest.json                 Source manifest; Vite writes dist/manifest.json (merges dev side UI in development mode)
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host_permissions and content_scripts
-vite.config.ts                  Builds popup + background as ES modules; copies manifest
+icons/dev-sidebar-48.png        Copied to dist/ in dev builds only — Firefox sidebar_action icon
+vite.config.ts                  Builds popup + background (+ dev sidebar); merges manifest; dev copies sidebar icon
 vite.content.config.ts          Builds content.ts as a single IIFE (dist/content.js, inline deps)
 e2e/
   onboarding.spec.ts            Playwright: first-run / setup flow
@@ -53,7 +60,7 @@ dist/                           Built extension — load this folder in the brow
 ```bash
 npm install
 npm run build          # production: tsc --noEmit → vite build → vite content
-npm run build:dev      # development mode; popup includes debug panel
+npm run build:dev      # development mode; popup includes debug panel; dist includes dev sidebar + merged manifest (Chrome 114+)
 npm run build:e2e      # dev build with manifest.e2e.json (required before E2E tests)
 npm run build:content  # rebuild only the content script
 npm run watch          # vite build --watch --mode development

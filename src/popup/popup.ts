@@ -4,10 +4,10 @@ import {
   VAULT_STORAGE_KEY,
   encryptVault,
   decryptVault,
-  isStoredVault,
   type StoredVault,
   type VaultPayload,
 } from "../crypto/vault";
+import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 import { LOGIN_EMAIL_SUFFIX, PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../cuny/ssoSite";
 import {
   DRAFT_KEY,
@@ -35,17 +35,6 @@ async function saveSessionMaster(masterPassword: string): Promise<void> {
     await browser.storage.session?.set({ [SESSION_MASTER_KEY]: masterPassword });
   } catch {
     // session storage not available — silently degrade
-  }
-}
-
-/** Read master password from session storage. Returns null if unavailable or not set. */
-async function loadSessionMaster(): Promise<string | null> {
-  try {
-    const result = await browser.storage.session?.get(SESSION_MASTER_KEY);
-    const val = result?.[SESSION_MASTER_KEY];
-    return typeof val === "string" ? val : null;
-  } catch {
-    return null;
   }
 }
 
@@ -103,14 +92,6 @@ let sessionMasterPassword: string | null = null;
 let sessionPayload: VaultPayload | null = null;
 let storedVault: StoredVault | null = null;
 
-
-async function loadStoredVault(): Promise<StoredVault | null> {
-  const result = await browser.storage.local.get(VAULT_STORAGE_KEY);
-  const raw = result[VAULT_STORAGE_KEY];
-  if (raw === undefined || raw === null) return null;
-  if (!isStoredVault(raw)) return null;
-  return raw;
-}
 
 function getEls(): Result<PopupDom, "missing_dom"> {
   const form = document.getElementById("vault-form");
@@ -395,26 +376,11 @@ async function init(): Promise<void> {
     return;
   }
   const els = elsResult.value;
-  storedVault = await loadStoredVault();
-
-  if (!storedVault) {
-    currentMode = "setup";
-  } else {
-    const savedMaster = await loadSessionMaster();
-    if (savedMaster) {
-      const decResult = await decryptVault(storedVault, savedMaster);
-      if (decResult.isOk()) {
-        sessionPayload = decResult.value;
-        sessionMasterPassword = savedMaster;
-        currentMode = "unlocked";
-      } else {
-        await clearSessionMaster();
-        currentMode = "locked";
-      }
-    } else {
-      currentMode = "locked";
-    }
-  }
+  const snap = await loadVaultSessionSnapshot();
+  storedVault = snap.storedVault;
+  sessionMasterPassword = snap.sessionMasterPassword;
+  sessionPayload = snap.sessionPayload;
+  currentMode = snap.mode;
 
   renderMode(els);
   setupPasswordToggles();

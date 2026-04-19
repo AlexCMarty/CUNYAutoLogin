@@ -33,7 +33,11 @@ The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
 
 ```
 popup.html                      Vite entry point for the popup UI (no static dev controls; see debug panel below)
+sidebar.html                    Dev-only Vite entry: side UI showing vault state (Chrome `side_panel` + Firefox `sidebar_action`); not emitted in production
 src/
+  vaultSession/snapshot.ts      `loadVaultSessionSnapshot` — shared setup / locked / unlocked from storage (popup init + dev sidebar)
+  dev/sideSurface.manifest.patch.ts  One exported object with both vendors’ manifest keys; Vite merges it in development builds only
+  dev/sidebar/sidebar.ts        Dev-only: label Onboarding / Locked / Unlocked + `storage.onChanged` refresh
   popup/popup.ts                Modes setup / locked / unlocked; encrypt/save; session unlock; master rotation;
                                 draft autosave; dynamic-import debug panel when MODE=development
   popup/popup.utils.ts          Pure helpers + small DOM utilities (email validation, draft parse, status strings, hint visibility)
@@ -53,10 +57,11 @@ src/
   background/service-worker.ts  onInstalled log; `AUTO_FILL_REQUEST` → decrypt vault via session master;
                                 `TOTP_SECRET_FROM_PAGE` → validate + stage in session storage
   background/service-worker.test.ts  Unit tests: message routing, AUTO_FILL, TOTP staging (mocked polyfill + vault)
-  manifest.json                 Source manifest (copied to dist/ by Vite)
+  manifest.json                 Source manifest; Vite writes dist/manifest.json (development merges dev side UI + Chrome min 114)
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host permissions and
                                 content_scripts matches for the Playwright fixture server
-vite.config.ts                  Builds popup + background as ES modules; copies manifest
+icons/dev-sidebar-48.png        Dev-only; copied to dist/icons/ for Firefox sidebar_action icon
+vite.config.ts                  Builds popup + background (+ dev sidebar); merges manifest; copies dev icon in development mode
 vite.content.config.ts          Builds `content.ts` as a single IIFE (`dist/content.js`, inline deps)
 e2e/
   onboarding.spec.ts            Playwright: first-run / setup flow
@@ -76,7 +81,7 @@ dist/                           Built extension — load this folder in the brow
 ```bash
 npm install
 npm run build          # production: tsc --noEmit → vite build → vite content (no popup debug UI)
-npm run build:dev      # development mode on both Vite steps; popup includes test fill + clear vault
+npm run build:dev      # development mode on both Vite steps; popup includes test fill + clear vault; includes dev sidebar in `dist/`
 npm run build:e2e      # dev build with manifest.e2e.json (required before running E2E tests)
 npm run build:content  # rebuild only the content script
 npm run watch          # vite build --watch --mode development (popup/bg; rerun build:content when content changes)
