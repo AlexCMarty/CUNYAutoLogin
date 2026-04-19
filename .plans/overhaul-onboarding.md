@@ -1,11 +1,11 @@
-# Onboarding Overhaul v2
+# Onboarding Overhaul
 
 ## Goals
 
 - A CUNY student who has never set up 2FA can complete onboarding unassisted.
 - No technical jargon reaches the student unless unavoidable and immediately explained.
 - Trust is established on Screen 1 and reinforced throughout.
-- The student sees the extension work before they're done.
+- The student sees the extension work (aha moment) before they're done.
 
 ---
 
@@ -124,12 +124,15 @@ The action is on the new tab — this window will update automatically.
 
 **Behavior on open:**
 - Extension opens `https://ssologin.cuny.edu/oaa/rui` in a new tab.
-- Content script fills email and password fields.
-- Popup stays open on this screen and monitors the tab.
+- CUNY redirects to the SSO login page. Content script fills email and password fields and submits.
+- CUNY then challenges with a 6-digit verification code from the student's existing authenticator app. The popup animation label updates to: "Enter the 6-digit code on the CUNY tab — use your existing authenticator app."
+- After the student completes that step, CUNY shows the Allow/Deny consent page. Popup advances to Screen 5.
+- Popup stays open on this screen and monitors the tab throughout.
 
 ### Design notes
 - The directional line is new in v2. Without it, the student doesn't know whether to watch the popup or the tab — both are visible. "The action is on the new tab" resolves this immediately.
 - The label beneath the pulsing animation ("Nothing to do yet") is new in v2. A pulsing animation is ambiguous: it could mean "the extension is doing something" or "you're supposed to do something." Students who don't know they should switch to the tab will sit and wait. The label removes the ambiguity.
+- The label must update when the TOTP challenge appears. The extension auto-fills credentials and submits — but CUNY then requires the student's existing TOTP code before reaching the Allow page. The student never typed a code before (the extension just did it). Without a label change, the pulsing animation looks stuck. "Enter the 6-digit code on the CUNY tab" gives the student an action. CUNY currently offers only TOTP for this step — no push notification option exists.
 
 ---
 
@@ -142,16 +145,17 @@ If the content script detects a login error on the CUNY page (error message elem
 **On the CUNY tab:** Show an overlay banner at the top of the page. The banner must be **visually distinct from CUNY's own error messages** — it should read as "the extension is talking to me," not "CUNY is telling me something failed." Include the extension icon in the banner so the source is unambiguous.
 
 Banner copy:
-> "CUNYAutoLogin: your email or password didn't work. Tap here to correct them."
+> "CUNYAutoLogin: your email or password didn't work. Click the extension icon to fix it."
 
-Tapping the banner focuses the popup and returns to Screen 3 (password entry). If the email is more likely wrong (e.g. format mismatch was just discovered), return to Screen 2 instead.
+Tapping the banner writes a `resume_at_screen` flag (`3` for password error, `2` for email error) to `browser.storage.session`. The student then clicks the extension icon themselves to open the popup. On open, the popup reads the flag and navigates directly to Screen 3 (or Screen 2 if the email is more likely wrong). The flag is cleared on read.
 
 **On the popup:** Replace the pulsing animation with a red status line:
-> "That didn't work — tap the banner on the CUNY tab to fix your email or password."
+> "That didn't work — click the extension icon and follow the instructions there."
 
 ### Design notes
 - The error must surface on the webpage because the student is not looking at the popup during auto-login. Popup-only errors are invisible here.
 - Visual distinctness from CUNY's own alerts is critical. An extension-injected banner on a school-branded page can read as a phishing indicator to a skeptical student. The extension icon in the banner establishes authorship — this banner is from the extension, not from CUNY.
+- The popup cannot be programmatically opened or focused from the content script in MV3 — there is no API that allows this from a non-user-gesture context. The session storage flag approach produces the same outcome (popup opens at Screen 3) with one extra click (the extension icon). This is an accepted technical tradeoff.
 
 ---
 
@@ -173,6 +177,8 @@ After this first overlay use, subsequent overlays do not need the primer — the
 
 ### Design notes
 - "CUNY is asking for permission to continue" (v1) is vague to the point of anxiety. Students who've encountered phishing flows recognize unexpected permission dialogs as a red flag. The v2 body copy explains specifically what Allow does: it's CUNY confirming identity before showing account settings. This converts an alarming unknown into a recognizable step.
+- The Allow/Deny page is a standard CUNY consent dialog that appears after login and the student's existing TOTP challenge. It reads: "Allow CUNY Login to access MFA Self-service? To set up or manage your CUNY Login MFA authentication factor(s), you must allow CUNY Login to access to the MFA self-service application. Click Allow to continue." The "Allow" button is on-screen on the computer — there is no phone prompt. CUNY does not offer push notification ("approve from your phone") at any point in this flow. The only 2FA method CUNY provides is a 6-digit TOTP code.
+- The content script detects this page by the presence of the Allow and Deny buttons, highlights Allow, and auto-advances the popup once Allow is clicked and the next page loads.
 
 ---
 
