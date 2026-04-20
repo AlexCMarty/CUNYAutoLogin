@@ -10,12 +10,12 @@ import {
   TOTP_FIXTURE_URL,
 } from "./constants";
 import { expect, test } from "./extension-fixture";
-import { clearVaultIfPossible, gotoPopup, setupVault } from "./helpers";
+import { clearVaultIfPossible, gotoPrimarySurface, setupVault } from "./helpers";
 import { E2E_EMAIL, E2E_PASSWORD, E2E_TOTP_SECRET } from "./test-credentials";
 
 test.describe("vault unlocked", () => {
   test.beforeEach(async ({ page, extensionId }) => {
-    await gotoPopup(page, extensionId);
+    await gotoPrimarySurface(page, extensionId);
     await clearVaultIfPossible(page);
     await setupVault(page);
   });

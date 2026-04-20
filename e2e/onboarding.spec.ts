@@ -8,18 +8,18 @@ import {
   SELF_SERVICE_INVALID_SECRET_FIXTURE_URL,
 } from "./constants";
 import { expect, test } from "./extension-fixture";
-import { clearVaultIfPossible, gotoPopup, setupVault } from "./helpers";
+import { clearVaultIfPossible, gotoPrimarySurface, setupVault } from "./helpers";
 import { E2E_TOTP_SECRET } from "./test-credentials";
 
 const FIXTURE_SECRET = "UU7UV2G7UCS5LETS";
 
 test.describe("not set up (onboarding)", () => {
   test.beforeEach(async ({ page, extensionId }) => {
-    await gotoPopup(page, extensionId);
+    await gotoPrimarySurface(page, extensionId);
     await clearVaultIfPossible(page);
   });
 
-  test("pulls delayed TOTP secret from self-service page into popup", async ({ page, context }) => {
+  test("pulls delayed TOTP secret from self-service page into side panel", async ({ page, context }) => {
     const fixturePage = await context.newPage();
     await fixturePage.goto(SELF_SERVICE_FIXTURE_URL);
 

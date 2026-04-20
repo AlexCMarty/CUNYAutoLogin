@@ -3,6 +3,9 @@ import { err, ok } from "neverthrow";
 
 vi.mock("webextension-polyfill", () => ({
   default: {
+    sidePanel: {
+      setPanelBehavior: vi.fn(),
+    },
     runtime: {
       onInstalled: { addListener: vi.fn() },
       onMessage: { addListener: vi.fn() },
@@ -69,6 +72,18 @@ beforeEach(() => {
 // ──── message routing ─────────────────────────────────────────────────────────
 
 describe("message routing", () => {
+  test("enables side panel click behavior when API is available", async () => {
+    vi.resetModules();
+    const { default: reloadedBrowser } = await import("webextension-polyfill");
+    await import("./service-worker");
+    const sidePanelApi = (reloadedBrowser as unknown as {
+      sidePanel?: { setPanelBehavior: ReturnType<typeof vi.fn> };
+    }).sidePanel;
+    expect(vi.mocked(sidePanelApi!.setPanelBehavior)).toHaveBeenCalledWith({
+      openPanelOnActionClick: true,
+    });
+  });
+
   test("non-object message (string) → undefined", () => {
     expect(handler("hello")).toBeUndefined();
   });

@@ -1,9 +1,9 @@
 ---
 name: cunyautologin-browser-testing
 description: >-
-  Loads the CUNYAutoLogin dev extension in Chromium, opens the dev sidebar or
-  popup, and drives or inspects it for manual or MCP-assisted testing. Use when
-  the user wants to test the extension in a real browser, verify sidebar/popup,
+  Loads the CUNYAutoLogin dev extension in Chromium, opens the sidebar UI,
+  and drives or inspects it for manual or MCP-assisted testing. Use when
+  the user wants to test the extension in a real browser, verify the sidebar,
   debug autofill on ssologin.cuny.edu, or connect Chrome DevTools MCP to an
   extension-loaded browser session.
 ---
@@ -29,8 +29,7 @@ description: >-
 
 - After launch, get the id from the extension **service worker** URL:  
   `chrome-extension://<id>/background.js` → `<id>` is the second path segment.
-- **Popup:** `chrome-extension://<id>/popup.html`
-- **Dev sidebar only:** `chrome-extension://<id>/sidebar.html` (vault mode label: Onboarding / Locked / Unlocked)
+- **Primary surface:** `chrome-extension://<id>/sidebar.html`
 
 ## Chrome DevTools MCP (`chrome-devtools-mcp`)
 
@@ -47,8 +46,8 @@ description: >-
 
 ## What to automate vs. eyeball
 
-- **Popup / sidebar:** Fully automatable via Playwright or MCP (`navigate_page`, `take_snapshot`, `fill`, etc.) on `chrome-extension://` pages.
-- **CUNY SSO (`https://ssologin.cuny.edu/*`):** Content script runs there; vault must be **unlocked** (session in `storage.session`). Test flow mirrors e2e: save vault in popup, open an ssologin tab, wait for async Oracle/JET UI and autofill.
+- **Sidebar:** Fully automatable via Playwright or MCP (`navigate_page`, `take_snapshot`, `fill`, etc.) on `chrome-extension://` pages.
+- **CUNY SSO (`https://ssologin.cuny.edu/*`):** Content script runs there; vault must be **unlocked** (session in `storage.session`). Test flow mirrors e2e: save vault in the sidebar, open an ssologin tab, wait for async Oracle/JET UI and autofill.
 
 ## Secrets
 

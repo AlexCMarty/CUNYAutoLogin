@@ -20,30 +20,28 @@ These are real time savers:
 A Manifest V3 browser extension (Firefox + Chromium) that:
 
 1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
-2. Keeps the vault unlocked across popup opens for the lifetime of the browser session using `browser.storage.session`.
-3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and also responds to manual `FILL_CREDENTIALS` messages from the popup.
+2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
+3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and also responds to manual `FILL_CREDENTIALS` messages from the dev side panel.
 
 Master-password handling, `storage.local` vs `storage.session`, and related security rules are defined only in the **Security, crypto, and gotchas** project rule—do not contradict that rule.
 
-Saved email must end with **`@login.cuny.edu`** (enforced in `popup.ts`).
+Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts`).
 
 The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
 
 ## Project layout
 
 ```
-popup.html                      Vite entry point for the popup UI (no static dev controls; see debug panel below)
-sidebar.html                    Dev-only Vite entry: side UI showing vault state (Chrome `side_panel` + Firefox `sidebar_action`); not emitted in production
+sidebar.html                    Vite entry point for side panel/sidebar UI
 src/
-  vaultSession/snapshot.ts      `loadVaultSessionSnapshot` — shared setup / locked / unlocked from storage (popup init + dev sidebar)
-  dev/sideSurface.manifest.patch.ts  One exported object with both vendors’ manifest keys; Vite merges it in development builds only
-  dev/sidebar/sidebar.ts        Dev-only: label Onboarding / Locked / Unlocked + `storage.onChanged` refresh
+  vaultSession/snapshot.ts      `loadVaultSessionSnapshot` — shared setup / locked / unlocked from storage (sidebar init)
+  sidebar/sidebar.ts            Side panel entrypoint (delegates to shared controller)
   popup/popup.ts                Modes setup / locked / unlocked; encrypt/save; session unlock; master rotation;
                                 draft autosave; dynamic-import debug panel when MODE=development
-  popup/popup.utils.ts          Pure helpers + small DOM utilities (email validation, draft parse, status strings, hint visibility)
+  sidebar/sidebar.utils.ts      Side panel utility export surface (re-exported from `popup/popup.utils.ts`)
   popup/popup.test.ts           Unit tests: popup.utils (jsdom; mocked webextension-polyfill)
-  popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (not bundled in production build)
-  popup/popup.css               Popup styles
+  sidebar/debugPanel.ts         Side panel debug panel export surface (re-exported from `popup/debugPanel.ts`)
+  sidebar/sidebar.css           Side panel stylesheet entrypoint
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; `VAULT_STORAGE_KEY`, payload types
   crypto/vault.test.ts          Unit tests: encrypt/decrypt round-trips, tamper detection, isStoredVault guard
   cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs, and TOTP
@@ -57,17 +55,16 @@ src/
   background/service-worker.ts  onInstalled log; `AUTO_FILL_REQUEST` → decrypt vault via session master;
                                 `TOTP_SECRET_FROM_PAGE` → validate + stage in session storage
   background/service-worker.test.ts  Unit tests: message routing, AUTO_FILL, TOTP staging (mocked polyfill + vault)
-  manifest.json                 Source manifest; Vite writes dist/manifest.json (development merges dev side UI + Chrome min 114)
+  manifest.json                 Source manifest; Vite writes dist/manifest.json with side panel keys
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host permissions and
                                 content_scripts matches for the Playwright fixture server
-icons/dev-sidebar-48.png        Dev-only; copied to dist/icons/ for Firefox sidebar_action icon
-vite.config.ts                  Builds popup + background (+ dev sidebar); merges manifest; copies dev icon in development mode
+vite.config.ts                  Builds sidebar + background and emits manifest
 vite.content.config.ts          Builds `content.ts` as a single IIFE (`dist/content.js`, inline deps)
 e2e/
   onboarding.spec.ts            Playwright: first-run / setup flow
   locked.spec.ts                Playwright: vault locked behavior
   unlocked.spec.ts              Playwright: unlocked vault + autofill
-  helpers.ts                    Shared popup / vault setup for specs
+  helpers.ts                    Shared side panel / vault setup for specs
   extension-fixture.ts          Loads the built extension into Chromium via --load-extension
   fixtures-server.mjs           Local HTTP server serving e2e/fixtures/*.html pages
   fixtures/                     HTML pages that mimic CUNY SSO screens (credential, totp, self-service)
@@ -80,17 +77,17 @@ dist/                           Built extension — load this folder in the brow
 
 ```bash
 npm install
-npm run build          # production: tsc --noEmit → vite build → vite content (no popup debug UI)
-npm run build:dev      # development mode on both Vite steps; popup includes test fill + clear vault; includes dev sidebar in `dist/`
+npm run build          # production: tsc --noEmit → vite build → vite content
+npm run build:dev      # development mode on both Vite steps; sidebar includes test fill + clear vault
 npm run build:e2e      # dev build with manifest.e2e.json (required before running E2E tests)
 npm run build:content  # rebuild only the content script
-npm run watch          # vite build --watch --mode development (popup/bg; rerun build:content when content changes)
+npm run watch          # vite build --watch --mode development (sidebar/bg; rerun build:content when content changes)
 npm run typecheck      # tsc --noEmit only
 npm run test:unit      # vitest run (no build step needed)
 npm run test:e2e       # build:e2e then playwright test
 ```
 
-The two-step Vite build is intentional: `vite.config.ts` bundles the popup and background as ES modules, while `vite.content.config.ts` produces a single-file IIFE (`dist/content.js`) with `inlineDynamicImports` — required for reliable MV3 content script injection and to ship `totp-generator` + `neverthrow` inside the content bundle.
+The two-step Vite build is intentional: `vite.config.ts` bundles the sidebar and background as ES modules, while `vite.content.config.ts` produces a single-file IIFE (`dist/content.js`) with `inlineDynamicImports` — required for reliable MV3 content script injection and to ship `totp-generator` + `neverthrow` inside the content bundle.
 
 ## Loading the extension
 
@@ -103,7 +100,7 @@ Rebuild and reload the extension after any source change.
 ## Dependencies (runtime)
 
 - `webextension-polyfill` — unified `browser` API
-- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `popup.ts`, and `content.ts`
+- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `sidebar.ts`, and `content.ts`
 - `totp-generator` — TOTP codes in the content script (bundled into IIFE)
 
 ## Documentation

@@ -9,7 +9,14 @@
     "http://127.0.0.1:4173/*"
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_title": "CUNYAutoLogin"
+  },
+  "side_panel": {
+    "default_path": "sidebar.html"
+  },
+  "sidebar_action": {
+    "default_title": "CUNYAutoLogin",
+    "default_panel": "sidebar.html"
   },
   "background": {
     "service_worker": "background.js",
@@ -32,5 +39,5 @@
       "strict_min_version": "115.0"
     }
   },
-  "minimum_chrome_version": "102"
+  "minimum_chrome_version": "114"
 }

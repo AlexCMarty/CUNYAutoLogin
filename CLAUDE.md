@@ -5,27 +5,27 @@
 A Manifest V3 browser extension (Firefox + Chromium) that:
 
 1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
-2. Keeps the vault unlocked across popup opens for the lifetime of the browser session using `browser.storage.session`.
-3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and responds to manual `FILL_CREDENTIALS` messages from the popup.
+2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
+3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and responds to manual `FILL_CREDENTIALS` messages from the dev side panel.
 
-Saved email must end with **`@login.cuny.edu`** (enforced in `popup.ts`).
+Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts`).
 
 ## Project layout
 
 ```
-popup.html                      Vite entry point for the popup UI
-sidebar.html                    Dev-only Vite entry: vault state side UI (Chrome side panel + Firefox sidebar); omitted from production build
+sidebar.html                    Vite entry point for the extension side panel/sidebar UI
 src/
-  vaultSession/snapshot.ts      loadVaultSessionSnapshot — shared vault + session master mode (used by popup init and dev sidebar)
+  vaultSession/snapshot.ts      loadVaultSessionSnapshot — shared vault + session master mode (used by sidebar init)
   vaultSession/snapshot.test.ts Unit tests for snapshot (injected storage mocks; no top-level webextension-polyfill import)
-  dev/sideSurface.manifest.patch.ts  Single object: both vendors’ manifest keys for the dev side UI (merged in vite only when MODE=development)
-  dev/sidebar/sidebar.ts        Dev-only page: Onboarding / Locked / Unlocked from snapshot + storage.onChanged
-  dev/sidebar/sidebar.css       Dev sidebar styles
+  sidebar/sidebar.ts            Side panel entrypoint (currently delegates to popup controller module)
+  sidebar/sidebar.utils.ts      Side panel utility export surface (currently re-exports popup utils)
+  sidebar/debugPanel.ts         Side panel debug panel export surface (currently re-exports popup debug panel)
+  sidebar/sidebar.css           Side panel stylesheet entrypoint (currently imports popup styles)
   popup/popup.ts                Modes: setup / locked / unlocked; encrypt/save; session unlock; master rotation; draft autosave
-  popup/popup.utils.ts          Pure helpers + small DOM utilities used by the popup (email validation, draft parse, status copy)
+  popup/popup.utils.ts          Pure helpers + small DOM utilities used by the side panel controller (email validation, draft parse, status copy)
   popup/popup.test.ts           Unit tests: popup.utils (jsdom + mocked webextension-polyfill)
   popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (not bundled in production)
-  popup/popup.css               Popup styles
+  popup/popup.css               Base vault UI styles imported by the side panel stylesheet
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; VAULT_STORAGE_KEY; payload types
   crypto/vault.test.ts          Unit tests: encrypt/decrypt round-trips, tamper detection, isStoredVault guard
   cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs, and TOTP constants
@@ -37,16 +37,15 @@ src/
   background/service-worker.ts  onInstalled log; AUTO_FILL_REQUEST → decrypt vault via session master;
                                 TOTP_SECRET_FROM_PAGE → validate + stage in session storage
   background/service-worker.test.ts  Unit tests: message routing, AUTO_FILL paths, TOTP staging (mocked polyfill + vault helpers)
-  manifest.json                 Source manifest; Vite writes dist/manifest.json (merges dev side UI in development mode)
+  manifest.json                 Source manifest; Vite writes dist/manifest.json with side_panel + sidebar_action
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host_permissions and content_scripts
-icons/dev-sidebar-48.png        Copied to dist/ in dev builds only — Firefox sidebar_action icon
-vite.config.ts                  Builds popup + background (+ dev sidebar); merges manifest; dev copies sidebar icon
+vite.config.ts                  Builds sidebar + background and emits manifest.json
 vite.content.config.ts          Builds content.ts as a single IIFE (dist/content.js, inline deps)
 e2e/
   onboarding.spec.ts            Playwright: first-run / setup flow
   locked.spec.ts                Playwright: vault locked behavior
   unlocked.spec.ts              Playwright: unlocked vault + autofill
-  helpers.ts                    Shared popup / vault setup for specs
+  helpers.ts                    Shared side panel / vault setup for specs
   extension-fixture.ts          Loads the built extension into Chromium via --load-extension
   fixtures-server.mjs           Local HTTP server serving e2e/fixtures/*.html pages
   fixtures/                     HTML pages that mimic CUNY SSO screens
@@ -60,7 +59,7 @@ dist/                           Built extension — load this folder in the brow
 ```bash
 npm install
 npm run build          # production: tsc --noEmit → vite build → vite content
-npm run build:dev      # development mode; popup includes debug panel; dist includes dev sidebar + merged manifest (Chrome 114+)
+npm run build:dev      # development mode; side panel includes debug panel
 npm run build:e2e      # dev build with manifest.e2e.json (required before E2E tests)
 npm run build:content  # rebuild only the content script
 npm run watch          # vite build --watch --mode development
@@ -69,7 +68,7 @@ npm run test:unit      # vitest run (no build needed)
 npm run test:e2e       # build:e2e then playwright test
 ```
 
-The two-step Vite build is intentional: `vite.config.ts` bundles the popup and background as ES modules; `vite.content.config.ts` produces a single-file IIFE with `inlineDynamicImports` — required for reliable MV3 content script injection and to ship `totp-generator` + `neverthrow` inside the content bundle.
+The two-step Vite build is intentional: `vite.config.ts` bundles the side panel and background as ES modules; `vite.content.config.ts` produces a single-file IIFE with `inlineDynamicImports` — required for reliable MV3 content script injection and to ship `totp-generator` + `neverthrow` inside the content bundle.
 
 ## Loading the extension
 
@@ -81,20 +80,20 @@ Rebuild and reload the extension after any source change.
 ## Runtime dependencies
 
 - `webextension-polyfill` — unified `browser` API (never use `chrome.*` directly)
-- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `popup.ts`, and `content.ts`
+- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `sidebar.ts`, and `content.ts`
 - `totp-generator` — TOTP codes in the content script (bundled into IIFE)
 
 ---
 
 ## Security invariants
 
-The master password **is never written to `storage.local` or disk**. It is held only in `browser.storage.session` and in JS module memory while the popup is open.
+The master password **is never written to `storage.local` or disk**. It is held only in `browser.storage.session` and in JS module memory while the side panel is open.
 
 - **Master password never in `storage.local`** — `decryptVault` / `encryptVault` accept it as a parameter. Never write it to `storage.local` or logs.
 - **`PENDING_TOTP_SECRET_SESSION_KEY`** — The scraped Base32 TOTP secret is staged in `browser.storage.session` only. Never write it to `storage.local`, logs, or any persistent store.
 - **Setup draft in `browser.storage.session`** — email/password/TOTP drafts are mirrored to `browser.storage.session` (key: `cuny_form_draft`) **while in setup mode only**. `storage.session` is in-memory and never written to disk. `localStorage` is explicitly forbidden for this data — it persists to disk indefinitely and was a prior audit finding. Draft saving is gated: input listeners check `currentMode === "setup"` before calling `saveDraft`.
 - **`browser` import** — always `import browser from "webextension-polyfill"`, never `chrome.*`.
-- **Minimum browser versions** — `storage.session` requires Firefox 115+ and Chrome 102+. Do not lower these without adding a fallback.
+- **Minimum browser versions** — `storage.session` requires Firefox 115+ and Chrome 114+. Do not lower these without adding a fallback.
 
 ### Security stakes
 
@@ -115,7 +114,7 @@ This extension stores institutional login credentials (email, password, TOTP sec
 
 ## Key architectural gotchas
 
-- **`novalidate` on the popup form** — Firefox silently swallows submit events with native HTML5 validation inside extension popups. All validation is in JS. Do not remove `novalidate` from `<form>` in `popup.html`.
+- **`novalidate` on the side panel form** — Keep JS-managed validation on `<form>` in `sidebar.html`; this avoids browser-specific native validation inconsistencies in extension surfaces.
 - **Content script must be a single IIFE** — MV3 does not support ES module content scripts reliably across browsers. Always build `src/content/` via `vite.content.config.ts`.
 - **`crossorigin` on built assets** — Vite injects `crossorigin` on `<script>` and `<link>` tags. These cause silent failures under `moz-extension://`. Avoid adding module preload links or external scripts.
 - **Oracle JET inputs** — inputs render after `document_idle`. Content script uses `MutationObserver` + timeouts, not immediate DOM access.
@@ -168,7 +167,7 @@ Unit tests live alongside source files as `*.test.ts`. The runner is **Vitest** 
 
 **Suites today:** `vault.test.ts`, `ssoSite.test.ts`, `popup.test.ts`, `content.test.ts`, `service-worker.test.ts`.
 
-Logic that is awkward to test inside an IIFE or a top-level service worker lives in colocated `*.utils.ts` modules (`popup.utils.ts`, `content.utils.ts`) so Vitest can import it directly.
+Logic that is awkward to test inside an IIFE or a top-level service worker lives in colocated `*.utils.ts` modules (`sidebar.utils.ts`/`popup.utils.ts`, `content.utils.ts`) so Vitest can import it directly.
 
 ### Vitest environment
 
@@ -219,7 +218,7 @@ describe("tampered StoredVault → decrypt_failed", () => {
 - Always run `npm run build:e2e` before `npm run test:e2e`. Stale artifacts cause false failures.
 - `workers: 1`, `fullyParallel: false` — extension storage is global to the browser context.
 - Each spec's `beforeEach` clears vault state via `#clear-vault-debug-btn` (only present in dev/e2e builds). Never assume clean state without this reset.
-- Use shared helpers from `e2e/helpers.ts` (`gotoPopup`, `clearVaultIfPossible`, `setupVault`, `lockVault`).
+- Use shared helpers from `e2e/helpers.ts` (`gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault`).
 - Firefox is not supported in E2E — test Firefox manually via `about:debugging`.
 
 ### Fixture URLs

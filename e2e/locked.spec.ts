@@ -12,14 +12,14 @@ import { expect, test } from "./extension-fixture";
 import {
   clearVaultIfPossible,
   expectInputRemainsEmpty,
-  gotoPopup,
+  gotoPrimarySurface,
   lockVault,
   setupVault,
 } from "./helpers";
 
 test.describe("vault locked", () => {
   test.beforeEach(async ({ page, extensionId }) => {
-    await gotoPopup(page, extensionId);
+    await gotoPrimarySurface(page, extensionId);
     await clearVaultIfPossible(page);
     await setupVault(page);
     await lockVault(page);

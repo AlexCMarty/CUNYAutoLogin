@@ -29,7 +29,7 @@ State-oriented specs are split by vault status:
 - `e2e/locked.spec.ts`
 - `e2e/unlocked.spec.ts`
 
-Prefer shared setup helpers from `e2e/helpers.ts` (`gotoPopup`, `clearVaultIfPossible`, `setupVault`, `lockVault`) instead of duplicating setup flows in each spec.
+Prefer shared setup helpers from `e2e/helpers.ts` (`gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault`) instead of duplicating setup flows in each spec.
 
 ## Adding fixture pages
 

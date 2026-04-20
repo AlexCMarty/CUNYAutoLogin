@@ -7,8 +7,8 @@ import {
   E2E_TOTP_SECRET,
 } from "./test-credentials";
 
-export async function gotoPopup(page: Page, extensionId: string): Promise<void> {
-  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+export async function gotoPrimarySurface(page: Page, extensionId: string): Promise<void> {
+  await page.goto(`chrome-extension://${extensionId}/sidebar.html`);
 }
 
 export async function clearVaultIfPossible(page: Page): Promise<void> {

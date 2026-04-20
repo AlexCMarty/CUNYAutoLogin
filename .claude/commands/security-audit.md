@@ -12,8 +12,8 @@ Your job: perform a full, anal-retentive security audit. Assume the worst. Be ni
 
 Read every file that touches `email`, `password`, `totpSecret`, or `masterPassword`. Trace the full lifecycle: input → storage → retrieval → use. Ask at every step: could this value escape to an unintended location?
 
-- **`src/popup/popup.ts`** — how are credentials read from the form? Where do they go after unlock/setup?
-- **`src/popup/popup.utils.ts`** — `saveDraft`, `clearDraft`, `coerceDraft`: what storage API do they use? Is it `browser.storage.session` (in-memory, acceptable) or `localStorage`/`storage.local` (on-disk, **not acceptable** for plaintext)?
+- **`src/sidebar/sidebar.ts`** (and delegated controller modules) — how are credentials read from the form? Where do they go after unlock/setup?
+- **`src/sidebar/sidebar.utils.ts` / `src/popup/popup.utils.ts`** — `saveDraft`, `clearDraft`, `coerceDraft`: what storage API do they use? Is it `browser.storage.session` (in-memory, acceptable) or `localStorage`/`storage.local` (on-disk, **not acceptable** for plaintext)?
 - **`src/background/service-worker.ts`** — does the decrypted vault payload (`{ email, password, totpSecret }`) get logged, stored, or forwarded anywhere other than back to the requesting content script?
 - **`src/content/content.ts`** — does it log credential values? Does it post them anywhere? Does it write them to the DOM in a way the page's JS could read?
 
@@ -30,7 +30,7 @@ Check:
 
 - Search all `console.log`, `console.error`, `console.warn`, `console.debug` calls. Are any of them passed a value that could contain credentials?
 - Check the `log()` wrapper in `content.ts` — is it gated by `import.meta.env.DEV` (build-time guard, safe) or a runtime check (not safe in production)?
-- Check `service-worker.ts` and `popup.ts` for any logging in catch blocks that might capture error objects containing credential data.
+- Check `service-worker.ts` and sidebar controller modules for any logging in catch blocks that might capture error objects containing credential data.
 
 ### 4. Attack surface — what can external code trigger?
 
@@ -42,7 +42,7 @@ Check:
 ### 5. Crypto strength
 
 - **`src/crypto/vault.ts`**: PBKDF2 iterations (should be ≥ 310,000 for SHA-256 per OWASP 2023), salt length (≥ 32 bytes), IV length (12 bytes for AES-GCM), key size (256 bits).
-- **Master password minimum length** in `popup.utils.ts` (`MIN_MASTER_PASSWORD_LENGTH`): should be ≥ 12. Anything lower is too weak for a credential vault.
+- **Master password minimum length** in `sidebar.utils.ts`/`popup.utils.ts` (`MIN_MASTER_PASSWORD_LENGTH`): should be ≥ 12. Anything lower is too weak for a credential vault.
 
 ### 6. Git history
 

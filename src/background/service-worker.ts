@@ -11,6 +11,24 @@ import {
   normalizeTotpSecretCandidate,
 } from "../cuny/ssoSite";
 
+type SidePanelApi = {
+  setPanelBehavior: (options: { openPanelOnActionClick: boolean }) => Promise<void>;
+};
+
+const maybeEnableSidePanelOnActionClick = async (): Promise<void> => {
+  const sidePanelApi = (browser as unknown as { sidePanel?: SidePanelApi }).sidePanel;
+  if (!sidePanelApi) {
+    return;
+  }
+  try {
+    await sidePanelApi.setPanelBehavior({ openPanelOnActionClick: true });
+  } catch {
+    // Side panel behavior is Chromium-only; ignore unsupported runtimes.
+  }
+};
+
+void maybeEnableSidePanelOnActionClick();
+
 browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType) => {
   if (import.meta.env.DEV) {
     console.log("[CUNYAutoLogin] installed/updated:", details.reason);

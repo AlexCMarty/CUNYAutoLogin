@@ -5,11 +5,11 @@ alwaysApply: true
 
 # Session unlock and auto-fill flows
 
-## Session unlock (`popup.ts`)
+## Session unlock (`sidebar.ts`)
 
-The popup has three modes: `setup`, `locked`, and `unlocked`.
+The side panel has three modes: `setup`, `locked`, and `unlocked`.
 
-On every popup open, `init()` checks `browser.storage.session` for a saved master password (`SESSION_MASTER_KEY = "cunySessionMaster"`). If found, it runs PBKDF2 + AES-GCM decrypt automatically and opens directly in `unlocked` mode. If decryption fails (e.g. vault was re-keyed), the session entry is purged and the popup falls back to `locked`.
+On every side panel open, `init()` checks `browser.storage.session` for a saved master password (`SESSION_MASTER_KEY = "cunySessionMaster"`). If found, it runs PBKDF2 + AES-GCM decrypt automatically and opens directly in `unlocked` mode. If decryption fails (e.g. vault was re-keyed), the session entry is purged and the side panel falls back to `locked`.
 
 The master password is written to `browser.storage.session` after every successful unlock or save. It is cleared immediately when the user clicks **Lock vault**, which also resets all in-memory session state.
 
@@ -29,11 +29,11 @@ Oracle JET renders inputs after `document_idle`, so the content script uses a `M
 
 ## TOTP enroll secret scraping flow
 
-When the user navigates to the Oracle RUI "add authentication method" page to enroll a new TOTP factor, the extension captures the displayed Base32 secret automatically so the user does not have to copy-paste it into the popup.
+When the user navigates to the Oracle RUI "add authentication method" page to enroll a new TOTP factor, the extension captures the displayed Base32 secret automatically so the user does not have to copy-paste it into the side panel.
 
 1. **Content script** (`watchTotpSecretOnEnrollPage`): On pages matching `matchesTotpEnrollPage`, waits via `MutationObserver` for the element identified by `TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY`. Normalizes the candidate string (strips whitespace, uppercases, strips trailing `=`; rejects if not valid Base32 length/alphabet) and sends `{ type: "TOTP_SECRET_FROM_PAGE", secret }` to the service worker.
 2. **Service worker**: Validates the secret again (same normalization) and writes it to `browser.storage.session` under `PENDING_TOTP_SECRET_SESSION_KEY`.
-3. **Popup** (`storage.session.onChanged` listener): Detects the new key, reads it, pre-fills the TOTP secret input, and clears the session key. The user sees the field pre-populated and just saves.
+3. **Side panel** (`storage.session.onChanged` listener): Detects the new key, reads it, pre-fills the TOTP secret input, and clears the session key. The user sees the field pre-populated and just saves.
 
 The scraped secret is sensitive plaintext — see the **Security, crypto, and gotchas** rule.
 
