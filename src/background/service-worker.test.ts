@@ -366,3 +366,155 @@ describe("AUTO_FILL_REQUEST — success path", () => {
     expect(result.payload).toEqual(custom);
   });
 });
+
+// ──── ONBOARDING_* — valid payload acceptance ────────────────────────────────
+
+describe("ONBOARDING_* — valid payload acceptance", () => {
+  test("ONBOARDING_STAGE_DETECTED with known stage → { ok: true }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_STAGE_DETECTED", stage: "allow_gate" })
+    ).toEqual({ ok: true });
+  });
+
+  test("ONBOARDING_CREDENTIAL_ERROR with culprit=password → { ok: true }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_CREDENTIAL_ERROR", culprit: "password" })
+    ).toEqual({ ok: true });
+  });
+
+  test("ONBOARDING_OVERLAY_COMMAND with full payload → { ok: true }", async () => {
+    expect(
+      await handler({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        target: "#allow-btn",
+        tooltipText: "Click Allow to continue.",
+        stepIndex: 0,
+        stepTotal: 4,
+      })
+    ).toEqual({ ok: true });
+  });
+
+  test("ONBOARDING_VERIFY_STATUS=success → { ok: true }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_VERIFY_STATUS", status: "success" })
+    ).toEqual({ ok: true });
+  });
+
+  test("ONBOARDING_REOPEN_CUNY_TAB without url → { ok: true }", async () => {
+    expect(await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" })).toEqual({
+      ok: true,
+    });
+  });
+
+  test("ONBOARDING_TAB_REATTACHED with integer tabId → { ok: true }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_TAB_REATTACHED", tabId: 7 })
+    ).toEqual({ ok: true });
+  });
+});
+
+// ──── ONBOARDING_* — invalid payload rejection ───────────────────────────────
+
+describe("ONBOARDING_* — invalid payload rejection", () => {
+  test("ONBOARDING_STAGE_DETECTED with unknown stage → { ok: false, invalid_payload }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_STAGE_DETECTED", stage: "nowhere" })
+    ).toEqual({ ok: false, reason: "invalid_payload" });
+  });
+
+  test("ONBOARDING_STAGE_DETECTED with missing stage → { ok: false, invalid_payload }", async () => {
+    expect(await handler({ type: "ONBOARDING_STAGE_DETECTED" })).toEqual({
+      ok: false,
+      reason: "invalid_payload",
+    });
+  });
+
+  test("ONBOARDING_CREDENTIAL_ERROR with unknown culprit → { ok: false, invalid_payload }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_CREDENTIAL_ERROR", culprit: "pin" })
+    ).toEqual({ ok: false, reason: "invalid_payload" });
+  });
+
+  test("ONBOARDING_OVERLAY_COMMAND with invalid action → { ok: false, invalid_payload }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_OVERLAY_COMMAND", action: "flash" })
+    ).toEqual({ ok: false, reason: "invalid_payload" });
+  });
+
+  test("ONBOARDING_OVERLAY_COMMAND with non-string target → { ok: false, invalid_payload }", async () => {
+    expect(
+      await handler({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        target: 42,
+      })
+    ).toEqual({ ok: false, reason: "invalid_payload" });
+  });
+
+  test("ONBOARDING_VERIFY_STATUS with unknown status → { ok: false, invalid_payload }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_VERIFY_STATUS", status: "maybe" })
+    ).toEqual({ ok: false, reason: "invalid_payload" });
+  });
+
+  test("ONBOARDING_TAB_REATTACHED with missing tabId → { ok: false, invalid_payload }", async () => {
+    expect(await handler({ type: "ONBOARDING_TAB_REATTACHED" })).toEqual({
+      ok: false,
+      reason: "invalid_payload",
+    });
+  });
+
+  test("ONBOARDING_REOPEN_CUNY_TAB with non-string url → { ok: false, invalid_payload }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB", url: 123 })
+    ).toEqual({ ok: false, reason: "invalid_payload" });
+  });
+});
+
+// ──── ONBOARDING_* — storage isolation (security invariant) ──────────────────
+
+describe("ONBOARDING_* — never touches storage", () => {
+  test("invalid onboarding payload does not write to storage.session", async () => {
+    await handler({ type: "ONBOARDING_STAGE_DETECTED", stage: "nowhere" });
+    expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+  });
+
+  test("valid onboarding message does not read or write vault storage", async () => {
+    await handler({ type: "ONBOARDING_OVERLAY_COMMAND", action: "show" });
+    expect(vi.mocked(browser.storage.local.get)).not.toHaveBeenCalled();
+    expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+  });
+});
+
+// ──── default-reject behavior for unknown ONBOARDING_-prefixed types ─────────
+
+describe("unknown type rejection", () => {
+  test("ONBOARDING_ prefix with unregistered type → undefined (unrouted)", () => {
+    // An unregistered ONBOARDING_-prefixed type is treated like any unknown
+    // message: the router does not invent a response for it. The service
+    // worker falls through to `undefined`, preserving the default-reject
+    // contract established by `type === "UNKNOWN"`.
+    expect(handler({ type: "ONBOARDING_NOT_A_REAL_TYPE" })).toBeUndefined();
+  });
+
+  test("totally unknown top-level type → undefined", () => {
+    expect(handler({ type: "UNRELATED_MESSAGE" })).toBeUndefined();
+  });
+
+  test("onboarding routing does not intercept AUTO_FILL_REQUEST", async () => {
+    // Regression guard: the onboarding branch must not swallow the core
+    // `AUTO_FILL_REQUEST` path. With the default happy-path fixtures, the
+    // handler should still return a success response.
+    expect(await handler({ type: "AUTO_FILL_REQUEST" })).toEqual({
+      success: true,
+      payload: PAYLOAD,
+    });
+  });
+
+  test("onboarding routing does not intercept TOTP_SECRET_FROM_PAGE", async () => {
+    expect(
+      await handler({ type: "TOTP_SECRET_FROM_PAGE", secret: "ABCDEFGHIJ" })
+    ).toEqual({ ok: true });
+  });
+});

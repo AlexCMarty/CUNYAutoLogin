@@ -19,6 +19,11 @@ import {
   isFillMessage,
   type FillMessage,
 } from "./content.utils";
+import type {
+  AutoFillRequest,
+  AutoFillResponse,
+  TotpSecretFromPage,
+} from "../onboarding/messages";
 
 const LOG_PREFIX = "[CUNYAutoLogin]";
 
@@ -109,7 +114,8 @@ async function watchTotpSecretOnEnrollPage(): Promise<void> {
     return;
   }
   try {
-    await browser.runtime.sendMessage({ type: "TOTP_SECRET_FROM_PAGE", secret });
+    const message: TotpSecretFromPage = { type: "TOTP_SECRET_FROM_PAGE", secret };
+    await browser.runtime.sendMessage(message);
     lastPostedEnrollTotpSecret = secret;
   } catch {
     // e.g. extension reloaded — ignore
@@ -183,9 +189,8 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
 
 async function autoFill(): Promise<void> {
   try {
-    const response = await browser.runtime.sendMessage({ type: "AUTO_FILL_REQUEST" }) as
-      | { success: true; payload: FillMessage["payload"] }
-      | { success: false; reason: string };
+    const request: AutoFillRequest = { type: "AUTO_FILL_REQUEST" };
+    const response = (await browser.runtime.sendMessage(request)) as AutoFillResponse;
 
     if (!response.success) {
       log("autoFill:", response.reason);
@@ -210,9 +215,8 @@ function logMfaEnrollVerify(...args: unknown[]): void {
  */
 async function tryFillMfaEnrollVerifyOtp(otpInput: HTMLInputElement): Promise<boolean> {
   try {
-    const response = await browser.runtime.sendMessage({ type: "AUTO_FILL_REQUEST" }) as
-      | { success: true; payload: FillMessage["payload"] }
-      | { success: false; reason: string };
+    const request: AutoFillRequest = { type: "AUTO_FILL_REQUEST" };
+    const response = (await browser.runtime.sendMessage(request)) as AutoFillResponse;
 
     if (!response.success) {
       if (response.reason === "no_session_master") {
