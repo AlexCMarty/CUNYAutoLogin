@@ -88,4 +88,4 @@ Copy this prompt, then set:
 - `PLAN_FILE=.plans/agents/plan-02-onboarding-architecture-skeleton.md`
 
 Then run agent execution with this instruction:
-"Use `.plans/operator-prompt.md` and execute only `$PLAN_FILE`."
+"Use `.plans/operator-prompt.md` and execute only `$PLAN_FILE`. You are encouraged to use subagents when you find tasks that can be done in parallel."
