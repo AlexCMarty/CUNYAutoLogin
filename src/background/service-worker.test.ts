@@ -3,8 +3,14 @@ import { err, ok } from "neverthrow";
 
 vi.mock("webextension-polyfill", () => ({
   default: {
+    action: {
+      onClicked: { addListener: vi.fn() },
+    },
     sidePanel: {
       setPanelBehavior: vi.fn(),
+    },
+    sidebarAction: {
+      open: vi.fn(),
     },
     runtime: {
       onInstalled: { addListener: vi.fn() },
@@ -82,6 +88,33 @@ describe("message routing", () => {
     expect(vi.mocked(sidePanelApi!.setPanelBehavior)).toHaveBeenCalledWith({
       openPanelOnActionClick: true,
     });
+  });
+
+  test("registers toolbar click listener for sidebar_action.open", async () => {
+    vi.resetModules();
+    const { default: reloadedBrowser } = await import("webextension-polyfill");
+    await import("./service-worker");
+    const actionApi = (reloadedBrowser as unknown as {
+      action?: { onClicked: { addListener: ReturnType<typeof vi.fn> } };
+    }).action;
+    expect(vi.mocked(actionApi!.onClicked.addListener)).toHaveBeenCalledTimes(1);
+  });
+
+  test("toolbar click listener opens sidebar action", async () => {
+    vi.resetModules();
+    const { default: reloadedBrowser } = await import("webextension-polyfill");
+    await import("./service-worker");
+    const actionApi = (reloadedBrowser as unknown as {
+      action?: { onClicked: { addListener: ReturnType<typeof vi.fn> } };
+    }).action;
+    const sidebarActionApi = (reloadedBrowser as unknown as {
+      sidebarAction?: { open: ReturnType<typeof vi.fn> };
+    }).sidebarAction;
+
+    const listener = vi.mocked(actionApi!.onClicked.addListener).mock.calls[0]?.[0];
+    expect(listener).toBeTypeOf("function");
+    listener?.();
+    expect(vi.mocked(sidebarActionApi!.open)).toHaveBeenCalledTimes(1);
   });
 
   test("non-object message (string) → undefined", () => {

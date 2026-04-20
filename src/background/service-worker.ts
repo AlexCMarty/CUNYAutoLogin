@@ -15,6 +15,10 @@ type SidePanelApi = {
   setPanelBehavior: (options: { openPanelOnActionClick: boolean }) => Promise<void>;
 };
 
+type SidebarActionApi = {
+  open: () => Promise<void>;
+};
+
 const maybeEnableSidePanelOnActionClick = async (): Promise<void> => {
   const sidePanelApi = (browser as unknown as { sidePanel?: SidePanelApi }).sidePanel;
   if (!sidePanelApi) {
@@ -27,7 +31,20 @@ const maybeEnableSidePanelOnActionClick = async (): Promise<void> => {
   }
 };
 
+const maybeEnableSidebarActionOnToolbarClick = (): void => {
+  const sidebarActionApi = (browser as unknown as { sidebarAction?: SidebarActionApi })
+    .sidebarAction;
+  if (!sidebarActionApi?.open) {
+    return;
+  }
+
+  browser.action.onClicked.addListener(() => {
+    void sidebarActionApi.open();
+  });
+};
+
 void maybeEnableSidePanelOnActionClick();
+maybeEnableSidebarActionOnToolbarClick();
 
 browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType) => {
   if (import.meta.env.DEV) {
