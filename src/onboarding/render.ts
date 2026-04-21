@@ -1,17 +1,30 @@
 /**
  * Onboarding render contract + mount seam.
  *
- * This is a deliberate *skeleton* — plan-02 only introduces the routing seam
- * and the screen-renderer interface. Concrete per-screen renderers and the
- * bead header land in plan-04 onwards. Mounting when the feature flag is off
- * must be a no-op; mounting when on should render a visible "skeleton online"
- * placeholder so later plans can diff against a known starting point without
- * breaking the legacy setup/locked/unlocked path.
+ * Plan-02 introduced a stub placeholder; plan-04 replaces the body of
+ * `mountOnboarding` with a real controller + bead header + Screen 1/2/3
+ * renderer. Downstream plans (05+) add more screens by registering them in the
+ * same `SCREEN_MOUNTS` table — no changes to this entry point should be needed.
  *
- * Security: this module must not touch `browser.storage.local`, `storage.session`,
- * or any credential material. It is purely a rendering shell.
+ * Security: this module holds the email/password drafts only via the
+ * controller closure. Nothing written to `browser.storage.*`. Renderer does
+ * not know anything about the vault, SSO, or CUNY URLs — those belong to
+ * later plans.
  */
 
+import { mountBeadHeader } from "./beadHeader";
+import {
+  type OnboardingController,
+  createOnboardingController,
+} from "./controller";
+import { mountEmailEntryScreen } from "./screens/emailEntry";
+import { mountPasswordEntryScreen } from "./screens/passwordEntry";
+import type {
+  OnboardingScreenContext,
+  ScreenHandle,
+  ScreenMount,
+} from "./screens/screenContext";
+import { mountWelcomeScreen } from "./screens/welcome";
 import {
   BEAD_LABELS,
   type BeadStage,
@@ -20,21 +33,12 @@ import {
 } from "./state";
 import { type OnboardingEvent } from "./transitions";
 
-/**
- * A per-screen renderer. Each concrete onboarding screen in a later plan will
- * export one of these. The skeleton in this file does not implement any.
- */
 export type ScreenRenderer = {
   readonly state: OnboardingState;
   mount: (ctx: OnboardingRenderContext) => void;
   unmount?: () => void;
 };
 
-/**
- * Runtime context passed to each screen renderer. Kept minimal on purpose:
- * the sidebar owns the root element and the event bus; screens only render
- * into `root` and dispatch events back via `dispatch`.
- */
 export type OnboardingRenderContext = {
   readonly root: HTMLElement;
   readonly currentState: OnboardingState;
@@ -42,18 +46,15 @@ export type OnboardingRenderContext = {
   readonly dispatch: (event: OnboardingEvent) => void;
 };
 
-/**
- * View-model consumed by the top-of-sidebar progress bead row. The header
- * renderer (plan-04) will subscribe to this shape so each bead knows whether
- * it's pending, active, or completed.
- */
 export type BeadViewModel = {
   readonly stage: BeadStage;
   readonly label: string;
   readonly status: "pending" | "active" | "completed";
 };
 
-export const beadViewModelForState = (state: OnboardingState): readonly BeadViewModel[] => {
+export const beadViewModelForState = (
+  state: OnboardingState
+): readonly BeadViewModel[] => {
   const active = beadForState(state);
   const stages: readonly BeadStage[] = [1, 2, 3, 4, 5];
   return stages.map((stage) => ({
@@ -63,27 +64,135 @@ export const beadViewModelForState = (state: OnboardingState): readonly BeadView
   }));
 };
 
-/**
- * Mount the onboarding shell inside `doc`. Returns an `unmount` that tears
- * down everything the skeleton created so the sidebar can swap back to the
- * legacy UI during development without a full reload.
- *
- * NOTE: This is intentionally a no-op-style placeholder in plan-02. It exists
- * so `sidebar.ts` can hold a real import target behind the feature toggle.
- * Concrete screen rendering is plan-04 onward.
- */
-export const mountOnboarding = (doc: Document): (() => void) => {
-  const host = doc.getElementById("onboarding-root") ?? doc.body;
-  if (!host) return () => undefined;
+// Registry of plan-04 screen renderers. States without a registered mount fall
+// back to the "not implemented yet" placeholder — this is deliberate so plan-05
+// (OPENING_CUNY) and later plans plug in additively without touching this file
+// except to add a new entry.
+const SCREEN_MOUNTS: Partial<Record<OnboardingState, ScreenMount>> = {
+  WELCOME: mountWelcomeScreen,
+  EMAIL_ENTRY: mountEmailEntryScreen,
+  PASSWORD_ENTRY: mountPasswordEntryScreen,
+};
 
-  const banner = doc.createElement("div");
-  banner.dataset.onboardingSkeleton = "true";
-  banner.setAttribute("role", "status");
-  banner.textContent =
-    "CUNYAutoLogin onboarding v2 skeleton is active. Screens land in later plans.";
-  host.appendChild(banner);
+export const ONBOARDING_ROOT_ID = "onboarding-root";
+export const ONBOARDING_SCREEN_HOST_SELECTOR =
+  "[data-onboarding-screen-host='true']";
+export const ONBOARDING_PLACEHOLDER_SELECTOR =
+  "[data-onboarding-placeholder='true']";
+
+const mountPlaceholderScreen = (ctx: OnboardingScreenContext): ScreenHandle => {
+  const container = ctx.doc.createElement("section");
+  container.dataset.onboardingPlaceholder = "true";
+  container.className = "onboarding-screen onboarding-screen-placeholder";
+  const msg = ctx.doc.createElement("p");
+  msg.className = "onboarding-placeholder-copy";
+  msg.textContent = `Screen ${ctx.getSnapshot().state} lands in a later plan.`;
+  container.appendChild(msg);
+  ctx.root.appendChild(container);
+  return {
+    unmount: () => {
+      container.remove();
+    },
+  };
+};
+
+const resolveScreenHost = (doc: Document): {
+  host: HTMLElement;
+  hideLegacy: () => void;
+  restoreLegacy: () => void;
+} => {
+  const configured = doc.getElementById(ONBOARDING_ROOT_ID);
+  if (configured instanceof HTMLElement) {
+    const wasHidden = configured.hidden;
+    const legacy = doc.querySelector<HTMLElement>("main.wrap");
+    const legacyWasHidden = legacy?.hidden ?? true;
+    return {
+      host: configured,
+      hideLegacy: () => {
+        configured.hidden = false;
+        if (legacy) legacy.hidden = true;
+      },
+      restoreLegacy: () => {
+        configured.hidden = wasHidden;
+        if (legacy) legacy.hidden = legacyWasHidden;
+      },
+    };
+  }
+  const fallback = doc.body;
+  return {
+    host: fallback,
+    hideLegacy: () => undefined,
+    restoreLegacy: () => undefined,
+  };
+};
+
+const renderActiveScreen = (
+  controller: OnboardingController,
+  screenHost: HTMLElement,
+  doc: Document,
+  currentHandle: ScreenHandle | null
+): ScreenHandle => {
+  currentHandle?.unmount();
+  const snapshot = controller.getSnapshot();
+  const mount = SCREEN_MOUNTS[snapshot.state] ?? mountPlaceholderScreen;
+  const ctx: OnboardingScreenContext = {
+    doc,
+    root: screenHost,
+    getSnapshot: controller.getSnapshot,
+    setEmail: controller.setEmail,
+    setPassword: controller.setPassword,
+    dispatch: controller.dispatch,
+  };
+  return mount(ctx);
+};
+
+export const mountOnboarding = (doc: Document): (() => void) => {
+  const { host, hideLegacy, restoreLegacy } = resolveScreenHost(doc);
+  hideLegacy();
+
+  const shell = doc.createElement("div");
+  shell.dataset.onboardingShell = "true";
+  shell.className = "onboarding-shell";
+  host.appendChild(shell);
+
+  const header = mountBeadHeader(doc, shell);
+
+  const screenHost = doc.createElement("div");
+  screenHost.dataset.onboardingScreenHost = "true";
+  screenHost.className = "onboarding-screen-host";
+  shell.appendChild(screenHost);
+
+  const controller = createOnboardingController();
+  let currentHandle: ScreenHandle | null = null;
+
+  const repaint = (): void => {
+    const state = controller.getSnapshot().state;
+    header.renderFor(state);
+    currentHandle = renderActiveScreen(
+      controller,
+      screenHost,
+      doc,
+      currentHandle
+    );
+  };
+
+  // Only re-mount the screen when the state actually changes. Input-only
+  // updates (setEmail, setPassword) must not rip the screen out from under the
+  // student's cursor.
+  let lastState: OnboardingState = controller.getSnapshot().state;
+  const unsubscribe = controller.subscribe((snapshot) => {
+    if (snapshot.state === lastState) return;
+    lastState = snapshot.state;
+    repaint();
+  });
+
+  repaint();
 
   return () => {
-    banner.remove();
+    unsubscribe();
+    currentHandle?.unmount();
+    header.unmount();
+    shell.remove();
+    restoreLegacy();
   };
 };

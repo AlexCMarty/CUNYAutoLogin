@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="/src/sidebar/sidebar.css" />
   </head>
   <body>
+    <!--
+      #onboarding-root hosts the plan-04 onboarding v2 shell. It stays hidden by
+      default so the legacy vault UI in <main class="wrap"> (popup.ts) renders
+      unchanged. Populated only when ONBOARDING_V2_ENABLED is true or when the
+      dev-only #onboarding=1 URL hash is present (sidebar.ts).
+    -->
+    <div id="onboarding-root" hidden></div>
     <main class="wrap">
       <h1 class="title">CUNYAutoLogin</h1>
       <p id="status" class="status" role="status" aria-live="polite"></p>

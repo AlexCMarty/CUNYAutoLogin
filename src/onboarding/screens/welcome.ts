@@ -1,0 +1,83 @@
+/**
+ * Screen 1 — Welcome.
+ *
+ * Copy locked by `overhaul-onboarding.md §Screen 1`. No back button. Single
+ * CTA "Let's go" dispatches `NEXT` which the controller routes to
+ * `EMAIL_ENTRY` via the transition table.
+ *
+ * Design notes enforced here (see spec §Design notes under Screen 1):
+ *  - The reassurance line is body weight, not subtext — it is the most
+ *    important sentence on this screen for a skeptical student.
+ *  - The reassurance line names CUNY's login page as the destination so the
+ *    claim is factually accurate ("saved only on this device" plus
+ *    "sent to CUNY's login page") instead of a blanket "never sent anywhere".
+ *  - Authorship / "not affiliated with CUNY" line sits below the CTA.
+ *  - No exclamation points in body copy.
+ */
+
+import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
+
+const SCREEN_HEADLINE =
+  "CUNYAutoLogin fills in your login and generates your verification codes for you.";
+const SCREEN_BODY = "Setup takes about 5 minutes.";
+const REASSURANCE_LINE =
+  "Your login info is saved only on this device, encrypted. The extension sends it to CUNY's login page \u2014 the same place you'd type it yourself \u2014 and nowhere else.";
+const AUTHORSHIP_LINE =
+  "An independent open-source project. Not affiliated with CUNY.";
+const CTA_LABEL = "Let's go";
+
+export const WELCOME_CTA_SELECTOR = "[data-onboarding-welcome-cta='true']";
+export const WELCOME_REASSURANCE_SELECTOR =
+  "[data-onboarding-welcome-reassurance='true']";
+
+export const mountWelcomeScreen: ScreenMount = (
+  ctx: OnboardingScreenContext
+) => {
+  const { doc, root, dispatch } = ctx;
+
+  const container = doc.createElement("section");
+  container.dataset.onboardingScreen = "WELCOME";
+  container.className = "onboarding-screen onboarding-screen-welcome";
+
+  const headline = doc.createElement("h2");
+  headline.className = "onboarding-headline";
+  headline.textContent = SCREEN_HEADLINE;
+
+  const body = doc.createElement("p");
+  body.className = "onboarding-body";
+  body.textContent = SCREEN_BODY;
+
+  const reassurance = doc.createElement("p");
+  reassurance.dataset.onboardingWelcomeReassurance = "true";
+  reassurance.className = "onboarding-reassurance";
+  reassurance.textContent = REASSURANCE_LINE;
+
+  const cta = doc.createElement("button");
+  cta.type = "button";
+  cta.dataset.onboardingWelcomeCta = "true";
+  cta.className = "onboarding-cta primary";
+  cta.textContent = CTA_LABEL;
+
+  const authorship = doc.createElement("p");
+  authorship.className = "onboarding-authorship";
+  authorship.textContent = AUTHORSHIP_LINE;
+
+  const handleClick = (): void => {
+    dispatch("NEXT");
+  };
+  cta.addEventListener("click", handleClick);
+
+  container.appendChild(headline);
+  container.appendChild(body);
+  container.appendChild(reassurance);
+  container.appendChild(cta);
+  container.appendChild(authorship);
+  root.appendChild(container);
+
+  return {
+    unmount: () => {
+      cta.removeEventListener("click", handleClick);
+      container.remove();
+    },
+  };
+};
