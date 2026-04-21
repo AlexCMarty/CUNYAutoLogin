@@ -44,9 +44,9 @@ function log(...args: unknown[]): void {
  * Plan-05 single-submit guard. Each content-script lifetime (one page load)
  * is allowed at most one auto-submit. After the submit click, Oracle either
  * navigates (new lifetime, guard resets) or re-renders with the serverError
- * element in place (this lifetime, guard still true). We also short-circuit
- * immediately if we land on `/oam/server/auth_cred_submit`, which is Oracle's
- * rejection endpoint.
+ * element in place (this lifetime, guard still true). We also set the guard
+ * when we land on `/oam/server/auth_cred_submit` (the form POST target; see
+ * `main()` for DOM-confirmed credential-error reporting).
  */
 let submitAttempted = false;
 
@@ -266,12 +266,19 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
   const url = window.location.href;
   log("main() triggered", url);
 
-  // Credential error URL: Oracle redirected us here after rejecting the
-  // submit. Hard block any refill. Report to sidebar + show banner.
+  // `/oam/server/auth_cred_submit` is the credential form's POST target, not
+  // an error-only URL. Oracle lands here on BOTH success and failure — on
+  // success the page client-side redirects away without rendering the
+  // `#serverError` marker, so URL-alone yields a spurious banner during the
+  // brief transition. Require DOM confirmation (sync now or via observer).
   if (matchesCredentialErrorUrl(url)) {
-    log("credential-error URL detected", url);
+    log("credential-error URL reached", url);
     submitAttempted = true;
-    await reportCredentialError();
+    if (hasCredentialErrorInDom(document)) {
+      await reportCredentialError();
+      return;
+    }
+    watchForPostSubmitCredentialError();
     return;
   }
 
@@ -325,7 +332,11 @@ async function autoFill(): Promise<void> {
       // still handle the credential-error page so the student sees the banner
       // + sidebar routing after a failed submit.
       const url = window.location.href;
-      if (matchesCredentialErrorUrl(url) || (matchesCredentialPage(url) && hasCredentialErrorInDom(document))) {
+      const credErrorDom = hasCredentialErrorInDom(document);
+      if (
+        credErrorDom &&
+        (matchesCredentialErrorUrl(url) || matchesCredentialPage(url))
+      ) {
         submitAttempted = true;
         await reportCredentialError();
       }

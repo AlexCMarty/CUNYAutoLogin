@@ -9,6 +9,7 @@ import {
   CREDENTIAL_FIXTURE_URL,
   CREDENTIAL_FIXTURE_WRONG_INLINE_URL,
   CREDENTIAL_FIXTURE_WRONG_REDIRECT_URL,
+  FIXTURE_ORIGIN,
   SELF_SERVICE_FIXTURE_URL,
   SELF_SERVICE_INVALID_SECRET_FIXTURE_URL,
 } from "./constants";
@@ -230,6 +231,40 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
     await expect(
       page.locator("[data-onboarding-screen='ALLOW_GATE']")
     ).toBeVisible({ timeout: 15_000 });
+
+    await cunyTab.close();
+  });
+
+  test("transient /auth_cred_submit without the error DOM does NOT show the banner", async ({
+    context,
+    extensionId,
+    page,
+  }) => {
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(
+        CREDENTIAL_FIXTURE_ADVANCE_URL
+      )}`
+    );
+    await walkToPasswordEntry(page);
+
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-password-forward='true']").click();
+    const cunyTab = await tabPromise;
+
+    // Navigate the CUNY tab directly to the success variant of /auth_cred_submit.
+    // This simulates Oracle's post-POST transient page on a valid login.
+    await cunyTab.goto(
+      `${FIXTURE_ORIGIN}/oam/server/auth_cred_submit?outcome=success`
+    );
+
+    // Banner must not appear; give the content script time to observe the DOM.
+    await cunyTab.waitForTimeout(1500);
+    await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toHaveCount(0);
+
+    // Sidebar must not have routed backward to PASSWORD_ENTRY with an error.
+    await expect(
+      page.locator("[data-onboarding-password-credential-error='true']")
+    ).toHaveCount(0);
 
     await cunyTab.close();
   });
