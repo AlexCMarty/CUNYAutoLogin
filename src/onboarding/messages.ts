@@ -46,6 +46,52 @@ export type TotpSecretFromPage = {
 
 export type TotpSecretFromPageAck = { readonly ok: boolean };
 
+/**
+ * Sidebar → service-worker: stage the in-memory onboarding credentials so the
+ * content script can auto-fill them on the CUNY tab opened by Screen 4. The
+ * service worker holds the payload in a module-level variable and NEVER writes
+ * it to `storage.*`. The payload is cleared when the sidebar tears down (or
+ * the service worker stops, which is equivalent).
+ *
+ * This is a *core* message — not an onboarding protocol message — because:
+ *   1. it carries secret material (email + password), and grouping it with
+ *      metadata-only onboarding messages would muddy plan-03's "no credential
+ *      payload in onboarding messages" contract.
+ *   2. it is consumed by the `AUTO_FILL_REQUEST` path the content script
+ *      already uses, not by the onboarding protocol default-reject router.
+ */
+export type StageOnboardingCredentials = {
+  readonly type: "STAGE_ONBOARDING_CREDENTIALS";
+  readonly email: string;
+  readonly password: string;
+};
+
+/** Sidebar → service-worker: drop any staged onboarding credentials. */
+export type ClearOnboardingCredentials = {
+  readonly type: "CLEAR_ONBOARDING_CREDENTIALS";
+};
+
+export type OnboardingCredentialsAck = { readonly ok: boolean };
+
+export const isStageOnboardingCredentials = (
+  value: unknown
+): value is StageOnboardingCredentials => {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    v.type === "STAGE_ONBOARDING_CREDENTIALS" &&
+    typeof v.email === "string" &&
+    typeof v.password === "string"
+  );
+};
+
+export const isClearOnboardingCredentials = (
+  value: unknown
+): value is ClearOnboardingCredentials => {
+  if (typeof value !== "object" || value === null) return false;
+  return (value as Record<string, unknown>).type === "CLEAR_ONBOARDING_CREDENTIALS";
+};
+
 // ──── onboarding wire values ─────────────────────────────────────────────────
 
 /** Recognised CUNY-side page stages the content script can announce. */

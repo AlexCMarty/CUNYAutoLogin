@@ -14,10 +14,12 @@ vi.mock("webextension-polyfill", () => ({
 }));
 
 import { BEAD_HEADER_SELECTOR, BEAD_ITEM_SELECTOR } from "./beadHeader";
+import { createOnboardingController } from "./controller";
 import {
   ONBOARDING_PLACEHOLDER_SELECTOR,
   ONBOARDING_ROOT_ID,
   ONBOARDING_SCREEN_HOST_SELECTOR,
+  applyOnboardingMessage,
   beadViewModelForState,
   mountOnboarding,
 } from "./render";
@@ -161,6 +163,60 @@ describe("mountOnboarding", () => {
     );
     expect(emailInputAfterBack).not.toBeNull();
     expect(emailInputAfterBack?.value).toBe("returning@login.cuny.edu");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(allow_gate) advances OPENING_CUNY → ALLOW_GATE", () => {
+    const controller = createOnboardingController({
+      initialState: "OPENING_CUNY",
+      initialEmail: "jane@login.cuny.edu",
+      initialPassword: "pw",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "allow_gate",
+    });
+    expect(controller.getSnapshot().state).toBe("ALLOW_GATE");
+  });
+
+  test("ONBOARDING_CREDENTIAL_ERROR(password) routes to PASSWORD_ENTRY and stashes the error", () => {
+    const controller = createOnboardingController({
+      initialState: "OPENING_CUNY",
+      initialEmail: "jane@login.cuny.edu",
+      initialPassword: "pw",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_CREDENTIAL_ERROR",
+      culprit: "password",
+    });
+    const snap = controller.getSnapshot();
+    expect(snap.state).toBe("PASSWORD_ENTRY");
+    expect(snap.credentialError).toEqual({ culprit: "password" });
+  });
+
+  test("ONBOARDING_CREDENTIAL_ERROR(email) routes to EMAIL_ENTRY", () => {
+    const controller = createOnboardingController({
+      initialState: "OPENING_CUNY",
+      initialEmail: "bad@login.cuny.edu",
+      initialPassword: "pw",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_CREDENTIAL_ERROR",
+      culprit: "email",
+    });
+    const snap = controller.getSnapshot();
+    expect(snap.state).toBe("EMAIL_ENTRY");
+    expect(snap.credentialError).toEqual({ culprit: "email" });
+  });
+
+  test("ONBOARDING_STAGE_DETECTED with non-allow-gate stage is ignored", () => {
+    const controller = createOnboardingController({
+      initialState: "OPENING_CUNY",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "factors_list",
+    });
+    expect(controller.getSnapshot().state).toBe("OPENING_CUNY");
   });
 
   test("password forward on empty input does not advance past screen 3", () => {

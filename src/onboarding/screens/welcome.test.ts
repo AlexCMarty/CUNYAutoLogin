@@ -24,6 +24,7 @@ const buildCtx = (root: HTMLElement): {
       getSnapshot: controller.getSnapshot,
       setEmail: controller.setEmail,
       setPassword: controller.setPassword,
+      setCredentialError: controller.setCredentialError,
     },
     dispatch,
   };

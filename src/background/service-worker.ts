@@ -6,15 +6,20 @@ import {
   isStoredVault,
 } from "../crypto/vault";
 import {
+  CUNY_LOGIN_ENTRY_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
   normalizeTotpSecretCandidate,
 } from "../cuny/ssoSite";
 import {
   hasOnboardingMessageType,
+  isClearOnboardingCredentials,
   isOnboardingMessage,
+  isOnboardingReopenCunyTab,
+  isStageOnboardingCredentials,
   type AutoFillResponse,
   type OnboardingAck,
+  type OnboardingCredentialsAck,
 } from "../onboarding/messages";
 
 type SidePanelApi = {
@@ -59,6 +64,33 @@ browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType
 });
 
 /**
+ * Plan-05 staging buffer for onboarding credentials.
+ *
+ * The sidebar sends `STAGE_ONBOARDING_CREDENTIALS { email, password }` when
+ * Screen 4 mounts. The content script's existing `AUTO_FILL_REQUEST` path
+ * falls back to this buffer when the vault isn't set up yet (onboarding runs
+ * pre-vault). The buffer lives only in this module scope — it is NEVER
+ * written to `storage.local` or `storage.session`. It is cleared on:
+ *   - explicit `CLEAR_ONBOARDING_CREDENTIALS` from the sidebar (unmount),
+ *   - service-worker termination (implicit — the SW is ephemeral).
+ *
+ * Security invariant: if a real vault is present for the session master, the
+ * AUTO_FILL handler prefers the vault. Onboarding staging is only used when
+ * the vault hasn't been saved yet, so staged credentials never override real
+ * vault contents.
+ */
+type StagedOnboardingCredentials = {
+  readonly email: string;
+  readonly password: string;
+};
+let stagedOnboardingCredentials: StagedOnboardingCredentials | null = null;
+
+/** Exported only for tests; not part of any wire contract. */
+export const __test_getStagedOnboardingCredentials = ():
+  | StagedOnboardingCredentials
+  | null => stagedOnboardingCredentials;
+
+/**
  * Narrowed onboarding handler. Validates every onboarding message against
  * the shared guards in `src/onboarding/messages.ts` before acknowledging.
  *
@@ -69,15 +101,51 @@ browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType
  * - Unknown types are handled by the outer listener, which falls through to
  *   `undefined` (default-reject).
  *
- * Concrete side-effectful behavior (forwarding overlay commands to the active
- * CUNY tab, pushing verify-status updates to the sidebar, etc.) lands in
- * plan-06 onward; today the handler only enforces the typed protocol.
+ * Plan-05 adds a side-effectful branch for `ONBOARDING_REOPEN_CUNY_TAB`:
+ * the service worker opens a tab at the provided URL (or the default CUNY
+ * entry URL) so Screen 4 can auto-open the CUNY login page. Other onboarding
+ * messages (overlay commands, verify status, tab reattach) remain
+ * acknowledge-only until plan-06+.
  */
-const handleOnboardingMessage = (message: unknown): Promise<OnboardingAck> => {
+const handleOnboardingMessage = async (
+  message: unknown
+): Promise<OnboardingAck> => {
   if (!isOnboardingMessage(message)) {
-    return Promise.resolve({ ok: false, reason: "invalid_payload" });
+    return { ok: false, reason: "invalid_payload" };
   }
-  return Promise.resolve({ ok: true });
+  if (isOnboardingReopenCunyTab(message)) {
+    const url = message.url ?? CUNY_LOGIN_ENTRY_URL;
+    try {
+      await browser.tabs.create({ url, active: true });
+      return { ok: true };
+    } catch {
+      return { ok: false, reason: "forward_failed" };
+    }
+  }
+  return { ok: true };
+};
+
+const handleStageOnboardingCredentials = (
+  message: unknown
+): OnboardingCredentialsAck => {
+  if (!isStageOnboardingCredentials(message)) {
+    return { ok: false };
+  }
+  stagedOnboardingCredentials = {
+    email: message.email,
+    password: message.password,
+  };
+  return { ok: true };
+};
+
+const handleClearOnboardingCredentials = (
+  message: unknown
+): OnboardingCredentialsAck => {
+  if (!isClearOnboardingCredentials(message)) {
+    return { ok: false };
+  }
+  stagedOnboardingCredentials = null;
+  return { ok: true };
 };
 
 browser.runtime.onMessage.addListener((message: unknown) => {
@@ -107,6 +175,14 @@ browser.runtime.onMessage.addListener((message: unknown) => {
     })();
   }
 
+  if (m.type === "STAGE_ONBOARDING_CREDENTIALS") {
+    return Promise.resolve(handleStageOnboardingCredentials(message));
+  }
+
+  if (m.type === "CLEAR_ONBOARDING_CREDENTIALS") {
+    return Promise.resolve(handleClearOnboardingCredentials(message));
+  }
+
   if (hasOnboardingMessageType(message)) {
     return handleOnboardingMessage(message);
   }
@@ -117,21 +193,41 @@ browser.runtime.onMessage.addListener((message: unknown) => {
 
   return (async (): Promise<AutoFillResponse> => {
     try {
+      // Prefer the encrypted vault when it is set up and unlocked (existing
+      // post-onboarding flow). Fall back to the plan-05 onboarding staging
+      // buffer when the vault isn't set up yet.
       const sessionResult = await browser.storage.session?.get(SESSION_MASTER_KEY);
       const masterPassword = sessionResult?.[SESSION_MASTER_KEY];
+      if (typeof masterPassword === "string") {
+        const localResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
+        const raw = localResult[VAULT_STORAGE_KEY];
+        if (isStoredVault(raw)) {
+          const decResult = await decryptVault(raw, masterPassword);
+          return decResult.match<AutoFillResponse>(
+            (payload) => ({ success: true, payload }),
+            () => ({ success: false, reason: "decrypt_error" })
+          );
+        }
+      }
+
+      if (stagedOnboardingCredentials) {
+        return {
+          success: true,
+          payload: {
+            email: stagedOnboardingCredentials.email,
+            password: stagedOnboardingCredentials.password,
+            // Onboarding is pre-TOTP-enrollment; the content script handles
+            // "no totp secret" gracefully (it only fills TOTP when a real
+            // secret is present).
+            totpSecret: "",
+          },
+        };
+      }
+
       if (typeof masterPassword !== "string") {
         return { success: false, reason: "no_session_master" };
       }
-      const localResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
-      const raw = localResult[VAULT_STORAGE_KEY];
-      if (!isStoredVault(raw)) {
-        return { success: false, reason: "no_vault" };
-      }
-      const decResult = await decryptVault(raw, masterPassword);
-      return decResult.match<AutoFillResponse>(
-        (payload) => ({ success: true, payload }),
-        () => ({ success: false, reason: "decrypt_error" })
-      );
+      return { success: false, reason: "no_vault" };
     } catch {
       return { success: false, reason: "decrypt_error" };
     }

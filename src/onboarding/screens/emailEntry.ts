@@ -26,6 +26,8 @@ const SCREEN_SUBTEXT =
   "This is usually firstname.lastname@login.cuny.edu. It is not your @baruchmail.cuny.edu or other school email.";
 const INLINE_HINT_COPY =
   "CUNY logins end in @login.cuny.edu \u2014 check your CUNYfirst welcome email if you're unsure.";
+export const CREDENTIAL_ERROR_INLINE_COPY =
+  "That email and password didn't work on CUNY. Double-check and try again.";
 const CTA_LABEL = "Continue";
 const BACK_LABEL = "Back";
 
@@ -34,15 +36,27 @@ export const EMAIL_FORWARD_SELECTOR = "[data-onboarding-email-forward='true']";
 export const EMAIL_BACK_SELECTOR = "[data-onboarding-email-back='true']";
 export const EMAIL_INLINE_HINT_SELECTOR =
   "[data-onboarding-email-hint='true']";
+export const EMAIL_CREDENTIAL_ERROR_SELECTOR =
+  "[data-onboarding-email-credential-error='true']";
 
 export const mountEmailEntryScreen: ScreenMount = (
   ctx: OnboardingScreenContext
 ) => {
-  const { doc, root, dispatch, setEmail, getSnapshot } = ctx;
+  const { doc, root, dispatch, setEmail, setCredentialError, getSnapshot } = ctx;
 
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "EMAIL_ENTRY";
   container.className = "onboarding-screen onboarding-screen-email";
+
+  // Inline credential-error banner surfaced above the input when the content
+  // script reported a wrong-credentials failure on the CUNY tab. Spec copy
+  // (`overhaul-onboarding.md §Screen 4-error`).
+  const credentialError = doc.createElement("p");
+  credentialError.dataset.onboardingEmailCredentialError = "true";
+  credentialError.className = "onboarding-credential-error";
+  credentialError.setAttribute("role", "alert");
+  credentialError.textContent = CREDENTIAL_ERROR_INLINE_COPY;
+  credentialError.hidden = getSnapshot().credentialError === null;
 
   const label = doc.createElement("label");
   label.className = "onboarding-label";
@@ -93,6 +107,7 @@ export const mountEmailEntryScreen: ScreenMount = (
   actions.appendChild(back);
   actions.appendChild(forward);
 
+  container.appendChild(credentialError);
   container.appendChild(label);
   container.appendChild(hint);
   container.appendChild(actions);
@@ -123,6 +138,12 @@ export const mountEmailEntryScreen: ScreenMount = (
     refreshForwardDisabled();
     if (!hint.hidden && validateEmail(input.value)) {
       hint.hidden = true;
+    }
+    // Per spec: once the student starts correcting the failing field, the red
+    // banner goes away — they are no longer looking at stale state.
+    if (!credentialError.hidden) {
+      credentialError.hidden = true;
+      setCredentialError(null);
     }
   };
 

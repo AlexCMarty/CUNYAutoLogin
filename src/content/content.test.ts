@@ -5,10 +5,21 @@ import {
   parseTotpSecretFromEnrollDom,
   setInputValue,
   isFillMessage,
+  hasCredentialErrorInDom,
   TOTP_SECRET_LEN_MIN,
   TOTP_SECRET_LEN_MAX,
   TOTP_SECRET_SELECTOR,
 } from "./content.utils";
+import {
+  CREDENTIAL_ERROR_ELEMENT_ID,
+  CREDENTIAL_ERROR_TEXT_MARKER,
+} from "../cuny/ssoSite";
+import {
+  CREDENTIAL_ERROR_BANNER_COPY,
+  CREDENTIAL_ERROR_BANNER_ID,
+  mountCredentialErrorBanner,
+  unmountCredentialErrorBanner,
+} from "./banner";
 
 // ─── normalizeTotpSecretCandidate ────────────────────────────────────────────
 
@@ -294,5 +305,91 @@ describe("setInputValue", () => {
     setInputValue(el, "x");
     expect(fired).toContain("input");
     expect(fired).toContain("change");
+  });
+});
+
+// ─── hasCredentialErrorInDom ─────────────────────────────────────────────────
+
+describe("hasCredentialErrorInDom", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  test("returns false when the #serverError element is absent", () => {
+    expect(hasCredentialErrorInDom(document)).toBe(false);
+  });
+
+  test("returns false when #serverError exists but doesn't contain the marker", () => {
+    const el = document.createElement("div");
+    el.id = CREDENTIAL_ERROR_ELEMENT_ID;
+    el.textContent = "Session expired. Please log in again.";
+    document.body.appendChild(el);
+    expect(hasCredentialErrorInDom(document)).toBe(false);
+  });
+
+  test("returns true when #serverError contains the Oracle marker", () => {
+    const el = document.createElement("div");
+    el.id = CREDENTIAL_ERROR_ELEMENT_ID;
+    el.textContent = CREDENTIAL_ERROR_TEXT_MARKER;
+    document.body.appendChild(el);
+    expect(hasCredentialErrorInDom(document)).toBe(true);
+  });
+
+  test("matches the marker as a substring inside longer Oracle copy", () => {
+    const el = document.createElement("div");
+    el.id = CREDENTIAL_ERROR_ELEMENT_ID;
+    el.textContent = `Error: ${CREDENTIAL_ERROR_TEXT_MARKER}. Please retry.`;
+    document.body.appendChild(el);
+    expect(hasCredentialErrorInDom(document)).toBe(true);
+  });
+});
+
+// ─── credential-error banner ─────────────────────────────────────────────────
+
+describe("mountCredentialErrorBanner", () => {
+  afterEach(() => {
+    unmountCredentialErrorBanner(document);
+    document.body.innerHTML = "";
+  });
+
+  test("inserts a single banner with the extension-branded copy", () => {
+    mountCredentialErrorBanner(document);
+    const banner = document.getElementById(CREDENTIAL_ERROR_BANNER_ID);
+    expect(banner).not.toBeNull();
+    expect(banner?.textContent).toContain(CREDENTIAL_ERROR_BANNER_COPY);
+    // Extension-author mark: a visible "CUNYAutoLogin" badge distinct from
+    // CUNY's own error alerts.
+    expect(banner?.textContent).toContain("CUNYAutoLogin");
+  });
+
+  test("is idempotent — calling twice leaves exactly one banner", () => {
+    mountCredentialErrorBanner(document);
+    mountCredentialErrorBanner(document);
+    const banners = document.querySelectorAll(`#${CREDENTIAL_ERROR_BANNER_ID}`);
+    expect(banners.length).toBe(1);
+  });
+
+  test("banner carries role=status and aria-live=polite", () => {
+    mountCredentialErrorBanner(document);
+    const banner = document.getElementById(CREDENTIAL_ERROR_BANNER_ID);
+    expect(banner?.getAttribute("role")).toBe("status");
+    expect(banner?.getAttribute("aria-live")).toBe("polite");
+  });
+
+  test("unmountCredentialErrorBanner removes the banner", () => {
+    mountCredentialErrorBanner(document);
+    expect(
+      document.getElementById(CREDENTIAL_ERROR_BANNER_ID)
+    ).not.toBeNull();
+    unmountCredentialErrorBanner(document);
+    expect(
+      document.getElementById(CREDENTIAL_ERROR_BANNER_ID)
+    ).toBeNull();
+  });
+
+  test("banner is appended to documentElement so it survives body mutations", () => {
+    mountCredentialErrorBanner(document);
+    const banner = document.getElementById(CREDENTIAL_ERROR_BANNER_ID);
+    expect(banner?.parentElement).toBe(document.documentElement);
   });
 });

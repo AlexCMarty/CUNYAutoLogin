@@ -28,8 +28,39 @@ export const CREDENTIAL_PAGE_PATH_MARKERS = [
 /** Path substring for the second-factor TOTP entry page. */
 export const TOTP_PAGE_PATH_MARKER = "/oaa-totp-factor/" as const;
 
+/**
+ * Entry point the onboarding Screen 4 opens in a new tab. Hitting this URL
+ * unauthenticated redirects through CUNY's SSO flow to the credential page,
+ * which is exactly the starting point the content script expects.
+ */
+export const CUNY_LOGIN_ENTRY_URL =
+  `${SSO_LOGIN_ORIGIN}/oaa/rui` as const;
+
+/**
+ * Path CUNY redirects to when username/password submission is rejected. Having
+ * the browser end up here — while still on the SSO origin — is our primary
+ * signal for wrong-credential detection. Secondary signal is the
+ * `#serverError` alert element (which also appears on re-renders without a
+ * full navigation).
+ */
+export const CREDENTIAL_ERROR_URL_PATH = "/oam/server/auth_cred_submit" as const;
+
+/** Oracle's error-message container on the credential page (role=alert). */
+export const CREDENTIAL_ERROR_ELEMENT_ID = "serverError" as const;
+
+/**
+ * Substring (case-insensitive) that appears in the Oracle wrong-credential
+ * alert. Used alongside the element id so ephemeral error elements added for
+ * non-credential reasons don't trigger the CREDENTIAL_ERROR branch.
+ */
+export const CREDENTIAL_ERROR_TEXT_MARKER =
+  "Incorrect Username or Password" as const;
+
 export const matchesCredentialPage = (url: string): boolean =>
   CREDENTIAL_PAGE_PATH_MARKERS.some((marker) => url.includes(marker));
+
+export const matchesCredentialErrorUrl = (url: string): boolean =>
+  url.includes(CREDENTIAL_ERROR_URL_PATH);
 
 export const matchesTotpPage = (url: string): boolean =>
   url.includes(TOTP_PAGE_PATH_MARKER);

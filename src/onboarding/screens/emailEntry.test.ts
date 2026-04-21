@@ -53,6 +53,7 @@ const buildCtx = (
       getSnapshot: controller.getSnapshot,
       setEmail: controller.setEmail,
       setPassword: controller.setPassword,
+      setCredentialError: controller.setCredentialError,
     },
     dispatch,
     getSnapshot: controller.getSnapshot,

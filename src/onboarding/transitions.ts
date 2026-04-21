@@ -25,6 +25,7 @@ export const ONBOARDING_EVENTS = [
   "NEXT",
   "BACK",
   "CREDENTIAL_ERROR_DETECTED",
+  "CREDENTIAL_ERROR_ROUTE_TO_EMAIL",
   "CREDENTIALS_ACCEPTED",
   "ALLOW_CLICKED",
   "GUIDED_STEP_DONE",
@@ -71,8 +72,11 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
   CREDENTIAL_ERROR: Object.freeze({
     // Per spec (`overhaul-onboarding.md §Screen 4-error`) the sidebar lands on
     // Screen 3 (PASSWORD_ENTRY) with the input pre-filled. We do NOT auto-retry.
+    // The bridge picks between PASSWORD_ENTRY (password/unknown culprit) and
+    // EMAIL_ENTRY (email culprit) by dispatching NEXT or CREDENTIAL_ERROR_ROUTE_TO_EMAIL.
     NEXT: "PASSWORD_ENTRY",
     BACK: "PASSWORD_ENTRY",
+    CREDENTIAL_ERROR_ROUTE_TO_EMAIL: "EMAIL_ENTRY",
   }),
   ALLOW_GATE: Object.freeze({
     BACK: "PASSWORD_ENTRY",

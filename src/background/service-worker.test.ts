@@ -25,6 +25,9 @@ vi.mock("webextension-polyfill", () => ({
         get: vi.fn(),
       },
     },
+    tabs: {
+      create: vi.fn(),
+    },
   },
 }));
 
@@ -73,6 +76,12 @@ beforeEach(() => {
   });
   vi.mocked(isStoredVault).mockReturnValue(true);
   vi.mocked(decryptVault).mockResolvedValue(ok(PAYLOAD));
+  const tabsApi = (browser as unknown as {
+    tabs?: { create: ReturnType<typeof vi.fn> };
+  }).tabs;
+  if (tabsApi?.create) {
+    vi.mocked(tabsApi.create).mockResolvedValue({ id: 1 } as never);
+  }
 });
 
 // ──── message routing ─────────────────────────────────────────────────────────
@@ -516,5 +525,144 @@ describe("unknown type rejection", () => {
     expect(
       await handler({ type: "TOTP_SECRET_FROM_PAGE", secret: "ABCDEFGHIJ" })
     ).toEqual({ ok: true });
+  });
+});
+
+// ──── plan-05: onboarding credential staging ─────────────────────────────────
+
+describe("plan-05 — STAGE_ONBOARDING_CREDENTIALS", () => {
+  test("valid payload → { ok: true }", async () => {
+    expect(
+      await handler({
+        type: "STAGE_ONBOARDING_CREDENTIALS",
+        email: "student@login.cuny.edu",
+        password: "hunter2",
+      })
+    ).toEqual({ ok: true });
+    // Behavior: the staged payload becomes the fallback when the vault is not
+    // set up yet. Asserted in the AUTO_FILL_REQUEST fallback suite below.
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" });
+  });
+
+  test("missing email → { ok: false } and nothing is staged", async () => {
+    expect(
+      await handler({
+        type: "STAGE_ONBOARDING_CREDENTIALS",
+        password: "hunter2",
+      })
+    ).toEqual({ ok: false });
+    // Verify via AUTO_FILL: with no vault and no staged creds, we get
+    // no_session_master (session master fixture exists) → no_vault path.
+    vi.mocked(isStoredVault).mockReturnValue(false);
+    expect(await handler({ type: "AUTO_FILL_REQUEST" })).toEqual({
+      success: false,
+      reason: "no_vault",
+    });
+  });
+
+  test("missing password → { ok: false }", async () => {
+    expect(
+      await handler({
+        type: "STAGE_ONBOARDING_CREDENTIALS",
+        email: "a@login.cuny.edu",
+      })
+    ).toEqual({ ok: false });
+  });
+
+  test("CLEAR_ONBOARDING_CREDENTIALS is idempotent and acks { ok: true }", async () => {
+    expect(
+      await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" })
+    ).toEqual({ ok: true });
+    expect(
+      await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" })
+    ).toEqual({ ok: true });
+  });
+});
+
+// ──── plan-05: AUTO_FILL_REQUEST fallback to staged onboarding creds ────────
+
+describe("plan-05 — AUTO_FILL_REQUEST onboarding fallback", () => {
+  test("no vault + staged onboarding credentials → success with staged email+password and empty totpSecret", async () => {
+    // Vault is absent (onboarding is pre-vault).
+    vi.mocked(isStoredVault).mockReturnValue(false);
+    await handler({
+      type: "STAGE_ONBOARDING_CREDENTIALS",
+      email: "onboard@login.cuny.edu",
+      password: "pending",
+    });
+    expect(await handler({ type: "AUTO_FILL_REQUEST" })).toEqual({
+      success: true,
+      payload: {
+        email: "onboard@login.cuny.edu",
+        password: "pending",
+        totpSecret: "",
+      },
+    });
+    // Clean up shared module-level state so later tests don't see stale creds.
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" });
+  });
+
+  test("vault present + staged onboarding credentials → vault wins (security invariant)", async () => {
+    await handler({
+      type: "STAGE_ONBOARDING_CREDENTIALS",
+      email: "onboard@login.cuny.edu",
+      password: "pending",
+    });
+    expect(await handler({ type: "AUTO_FILL_REQUEST" })).toEqual({
+      success: true,
+      payload: PAYLOAD,
+    });
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" });
+  });
+
+  test("no vault, no staged credentials, no session master → no_session_master", async () => {
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({});
+    vi.mocked(isStoredVault).mockReturnValue(false);
+    expect(await handler({ type: "AUTO_FILL_REQUEST" })).toEqual({
+      success: false,
+      reason: "no_session_master",
+    });
+  });
+});
+
+// ──── plan-05: ONBOARDING_REOPEN_CUNY_TAB tab creation ───────────────────────
+
+describe("plan-05 — ONBOARDING_REOPEN_CUNY_TAB", () => {
+  test("with url → opens tab at that url and acks { ok: true }", async () => {
+    const url = "https://example.test/cuny-fixture";
+    expect(
+      await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB", url })
+    ).toEqual({ ok: true });
+    const tabsApi = (browser as unknown as {
+      tabs: { create: ReturnType<typeof vi.fn> };
+    }).tabs;
+    expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({
+      url,
+      active: true,
+    });
+  });
+
+  test("without url → falls back to CUNY_LOGIN_ENTRY_URL", async () => {
+    const { CUNY_LOGIN_ENTRY_URL } = await import("../cuny/ssoSite");
+    expect(
+      await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" })
+    ).toEqual({ ok: true });
+    const tabsApi = (browser as unknown as {
+      tabs: { create: ReturnType<typeof vi.fn> };
+    }).tabs;
+    expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({
+      url: CUNY_LOGIN_ENTRY_URL,
+      active: true,
+    });
+  });
+
+  test("tabs.create throws → { ok: false, reason: 'forward_failed' }", async () => {
+    const tabsApi = (browser as unknown as {
+      tabs: { create: ReturnType<typeof vi.fn> };
+    }).tabs;
+    vi.mocked(tabsApi.create).mockRejectedValueOnce(new Error("perm denied"));
+    expect(
+      await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" })
+    ).toEqual({ ok: false, reason: "forward_failed" });
   });
 });

@@ -1,26 +1,36 @@
 /**
  * Onboarding controller — holds the current screen state plus in-memory-only
- * credential drafts for Screens 2 and 3.
+ * credential drafts for Screens 2 and 3, plus (plan-05) the last-known
+ * credential-error info for inline surfacing on Screen 2/3 when CUNY rejects.
  *
  * Security invariant (enforced by absence): this module NEVER writes the email
  * or password to `browser.storage.local` or `storage.session`. Credentials
- * captured here live in closure memory until plan-05 opens the CUNY tab and
- * plan-09 seals them into the encrypted vault.
+ * captured here live in closure memory until plan-05 opens the CUNY tab (the
+ * sidebar stages them into the service worker's in-memory cache via
+ * `STAGE_ONBOARDING_CREDENTIALS`) and plan-09 seals them into the encrypted
+ * vault. The sidebar's unmount path clears that staging.
  *
- * Plan-04 scope: Screens 1–3 only. The controller accepts `NEXT`/`BACK` via
- * the existing `advance(...)` transition table and broadcasts snapshot updates
- * to subscribed renderers. Later plans extend the controller with richer
- * events (CREDENTIALS_ACCEPTED, ALLOW_CLICKED, etc.) — no changes to this
- * module are needed for those; they already resolve via the transition table.
+ * Plan-04 added Screens 1–3 support (dispatch / setEmail / setPassword /
+ * subscribe). Plan-05 adds:
+ *   - `setCredentialError(...)` so the bridge can surface wrong-credential
+ *     hints coming back from the content script.
+ *   - `credentialError` in the snapshot so the EMAIL_ENTRY / PASSWORD_ENTRY
+ *     renderers can paint the inline red banner above the affected input.
  */
 
+import type { CredentialCulprit } from "./messages";
 import type { OnboardingState } from "./state";
 import { type OnboardingEvent, advance } from "./transitions";
+
+export type OnboardingCredentialErrorInfo = {
+  readonly culprit: CredentialCulprit;
+};
 
 export type OnboardingSnapshot = {
   readonly state: OnboardingState;
   readonly email: string;
   readonly password: string;
+  readonly credentialError: OnboardingCredentialErrorInfo | null;
 };
 
 export type OnboardingSnapshotListener = (snapshot: OnboardingSnapshot) => void;
@@ -30,6 +40,7 @@ export type OnboardingController = {
   readonly dispatch: (event: OnboardingEvent) => void;
   readonly setEmail: (value: string) => void;
   readonly setPassword: (value: string) => void;
+  readonly setCredentialError: (error: OnboardingCredentialErrorInfo | null) => void;
   readonly subscribe: (listener: OnboardingSnapshotListener) => () => void;
 };
 
@@ -37,6 +48,7 @@ export type OnboardingControllerInit = {
   readonly initialState?: OnboardingState;
   readonly initialEmail?: string;
   readonly initialPassword?: string;
+  readonly initialCredentialError?: OnboardingCredentialErrorInfo | null;
 };
 
 export const createOnboardingController = (
@@ -45,9 +57,16 @@ export const createOnboardingController = (
   let state: OnboardingState = init.initialState ?? "WELCOME";
   let email = init.initialEmail ?? "";
   let password = init.initialPassword ?? "";
+  let credentialError: OnboardingCredentialErrorInfo | null =
+    init.initialCredentialError ?? null;
   const listeners = new Set<OnboardingSnapshotListener>();
 
-  const snapshot = (): OnboardingSnapshot => ({ state, email, password });
+  const snapshot = (): OnboardingSnapshot => ({
+    state,
+    email,
+    password,
+    credentialError,
+  });
 
   const notify = (): void => {
     const current = snapshot();
@@ -71,6 +90,20 @@ export const createOnboardingController = (
     setPassword: (value) => {
       if (password === value) return;
       password = value;
+      notify();
+    },
+    setCredentialError: (error) => {
+      if (credentialError === error) return;
+      // Value equality short-circuit: avoid redundant notifies when the bridge
+      // re-stages the same culprit.
+      if (
+        credentialError &&
+        error &&
+        credentialError.culprit === error.culprit
+      ) {
+        return;
+      }
+      credentialError = error;
       notify();
     },
     subscribe: (listener) => {

@@ -11,7 +11,10 @@
  * hashing, no storage. Setters update only the in-memory controller snapshot.
  */
 
-import type { OnboardingSnapshot } from "../controller";
+import type {
+  OnboardingCredentialErrorInfo,
+  OnboardingSnapshot,
+} from "../controller";
 import type { OnboardingEvent } from "../transitions";
 
 export type OnboardingScreenContext = {
@@ -20,6 +23,9 @@ export type OnboardingScreenContext = {
   readonly getSnapshot: () => OnboardingSnapshot;
   readonly setEmail: (value: string) => void;
   readonly setPassword: (value: string) => void;
+  readonly setCredentialError: (
+    error: OnboardingCredentialErrorInfo | null
+  ) => void;
   readonly dispatch: (event: OnboardingEvent) => void;
 };
 

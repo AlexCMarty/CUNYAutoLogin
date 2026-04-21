@@ -4,12 +4,18 @@ import {
   TOTP_GENERATION_OPTIONS,
 } from "../src/cuny/ssoSite";
 import {
+  CREDENTIAL_ERROR_FIXTURE_URL,
+  CREDENTIAL_FIXTURE_ADVANCE_URL,
+  CREDENTIAL_FIXTURE_URL,
+  CREDENTIAL_FIXTURE_WRONG_INLINE_URL,
+  CREDENTIAL_FIXTURE_WRONG_REDIRECT_URL,
   SELF_SERVICE_FIXTURE_URL,
   SELF_SERVICE_INVALID_SECRET_FIXTURE_URL,
 } from "./constants";
 import { expect, test } from "./extension-fixture";
 import { clearVaultIfPossible, gotoPrimarySurface, setupVault } from "./helpers";
 import { E2E_TOTP_SECRET } from "./test-credentials";
+import { CREDENTIAL_ERROR_BANNER_ID } from "../src/content/banner";
 
 const FIXTURE_SECRET = "UU7UV2G7UCS5LETS";
 
@@ -132,6 +138,235 @@ test.describe("onboarding screens 1-3", () => {
     await expect(
       page.locator("[data-onboarding-screen='WELCOME']")
     ).toBeVisible();
+  });
+});
+
+// ─── Plan-05: Screen 4, wrong credentials, allow gate ────────────────────────
+//
+// These specs exercise the Opening-CUNY flow end-to-end against the fixture
+// server instead of live CUNY SSO. The dev-hash `cuny=<url>` param on the
+// sidebar swaps the entry URL for the fixture. The content script loads into
+// the fixture tab because `src/manifest.e2e.json` matches
+// `http://127.0.0.1:4173/*`.
+//
+// Validation gate:
+//   - screen 4: sidebar mounts OPENING_CUNY, a new tab opens at the fixture.
+//   - wrong credentials: content script detects the failure, inserts the
+//     extension banner, and the sidebar routes to PASSWORD_ENTRY without any
+//     automatic retry (single submit only).
+//   - allow gate: successful credential submission advances the sidebar to
+//     ALLOW_GATE once the fixture redirects to /oaa-totp-factor/.
+
+const EMAIL = "e2e.student@login.cuny.edu";
+const PASSWORD = "hunter2-e2e";
+
+const onboardingHashWith = (cunyUrl: string): string =>
+  `#onboarding=1&cuny=${encodeURIComponent(cunyUrl)}`;
+
+const walkToPasswordEntry = async (page: import("@playwright/test").Page) => {
+  await page.locator("[data-onboarding-welcome-cta='true']").click();
+  await page.locator("[data-onboarding-email-input='true']").fill(EMAIL);
+  await page.locator("[data-onboarding-email-forward='true']").click();
+  await page.locator("[data-onboarding-password-input='true']").fill(PASSWORD);
+};
+
+test.describe("onboarding screen 4 — opening CUNY", () => {
+  test("advancing to screen 4 opens the CUNY fixture tab and shows the waiting copy", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    // Use the non-advancing fixture so we can assert on OPENING_CUNY + the
+    // fixture URL before anything navigates away.
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(
+        CREDENTIAL_FIXTURE_URL
+      )}`
+    );
+    await walkToPasswordEntry(page);
+
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-password-forward='true']").click();
+    const cunyTab = await tabPromise;
+    await cunyTab.waitForLoadState("domcontentloaded");
+
+    // Sidebar is on Screen 4 with the spec-mandated copy.
+    await expect(
+      page.locator("[data-onboarding-screen='OPENING_CUNY']")
+    ).toBeVisible();
+    await expect(
+      page.locator("[data-onboarding-opening-waiting='true']")
+    ).toContainText("Nothing to do yet");
+    await expect(
+      page.locator("[data-onboarding-opening-back='true']")
+    ).toBeVisible();
+
+    // The CUNY-tab URL is our fixture.
+    expect(cunyTab.url()).toContain("/oam/server/obrareq.cgi");
+
+    await cunyTab.close();
+  });
+
+  test("screen 4 → ALLOW_GATE once the fixture advances to /oaa-totp-factor/", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    // `?advance=1` makes the credential fixture navigate to /oaa-totp-factor/
+    // on submit — the content script's signal that CUNY accepted the creds.
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(
+        CREDENTIAL_FIXTURE_ADVANCE_URL
+      )}`
+    );
+    await walkToPasswordEntry(page);
+
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-password-forward='true']").click();
+    const cunyTab = await tabPromise;
+    await cunyTab.waitForLoadState("domcontentloaded");
+
+    await expect(cunyTab).toHaveURL(/\/oaa-totp-factor\//, { timeout: 15_000 });
+    await expect(
+      page.locator("[data-onboarding-screen='ALLOW_GATE']")
+    ).toBeVisible({ timeout: 15_000 });
+
+    await cunyTab.close();
+  });
+});
+
+test.describe("onboarding — wrong credentials", () => {
+  test("inline #serverError render: sidebar routes to PASSWORD_ENTRY with the inline banner; no auto-retry", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(
+        CREDENTIAL_FIXTURE_WRONG_INLINE_URL
+      )}`
+    );
+    await walkToPasswordEntry(page);
+
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-password-forward='true']").click();
+    const cunyTab = await tabPromise;
+    await cunyTab.waitForLoadState("domcontentloaded");
+
+    // Sidebar lands on PASSWORD_ENTRY with the inline credential-error banner.
+    await expect(
+      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator("[data-onboarding-password-credential-error='true']")
+    ).toBeVisible();
+    await expect(
+      page.locator("[data-onboarding-password-credential-error='true']")
+    ).toContainText("didn't work");
+
+    // Pre-filled credentials survive the round-trip.
+    await expect(
+      page.locator("[data-onboarding-password-input='true']")
+    ).toHaveValue(PASSWORD);
+
+    // Extension-branded banner is mounted in the CUNY tab.
+    await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toBeVisible();
+    await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toContainText(
+      "CUNYAutoLogin"
+    );
+
+    // Hard block on auto-retry: the content-script's single-shot guard means
+    // exactly one submit happened even though the fixture stayed on the same
+    // URL with the #serverError alert present.
+    const submitCount = await cunyTab.evaluate(
+      () =>
+        (window as unknown as { __e2eCredentialSubmitCount: number })
+          .__e2eCredentialSubmitCount
+    );
+    expect(submitCount).toBe(1);
+
+    await cunyTab.close();
+  });
+
+  test("redirect to /auth_cred_submit: sidebar routes back to PASSWORD_ENTRY with banner", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(
+        CREDENTIAL_FIXTURE_WRONG_REDIRECT_URL
+      )}`
+    );
+    await walkToPasswordEntry(page);
+
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-password-forward='true']").click();
+    const cunyTab = await tabPromise;
+    await cunyTab.waitForLoadState("domcontentloaded");
+
+    // Fixture redirects to /auth_cred_submit.
+    await expect(cunyTab).toHaveURL(/\/oam\/server\/auth_cred_submit/, {
+      timeout: 15_000,
+    });
+
+    // Sidebar routes back to PASSWORD_ENTRY with the banner visible.
+    await expect(
+      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator("[data-onboarding-password-credential-error='true']")
+    ).toBeVisible();
+
+    // Banner on the CUNY tab proves the extension is the author of the
+    // error surface — not CUNY's own alert.
+    await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toBeVisible();
+
+    await cunyTab.close();
+  });
+
+  test("typing in the password field after a credential error clears the inline banner", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(
+        CREDENTIAL_FIXTURE_WRONG_INLINE_URL
+      )}`
+    );
+    await walkToPasswordEntry(page);
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-password-forward='true']").click();
+    const cunyTab = await tabPromise;
+    await cunyTab.waitForLoadState("domcontentloaded");
+
+    const banner = page.locator(
+      "[data-onboarding-password-credential-error='true']"
+    );
+    await expect(banner).toBeVisible({ timeout: 15_000 });
+
+    // Per spec, once the student edits the password the red banner hides.
+    await page
+      .locator("[data-onboarding-password-input='true']")
+      .fill(`${PASSWORD}-edit`);
+    await expect(banner).toBeHidden();
+
+    await cunyTab.close();
+  });
+
+  test("direct visit to /auth_cred_submit shows the extension banner without refill", async ({
+    context,
+  }) => {
+    // No sidebar interaction — simulates a user hitting the rejection URL
+    // directly (e.g. after restoring a tab). The content script must still
+    // mount the banner and NOT attempt a fill.
+    const cunyTab = await context.newPage();
+    await cunyTab.goto(CREDENTIAL_ERROR_FIXTURE_URL);
+    await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toBeVisible({
+      timeout: 10_000,
+    });
+    await cunyTab.close();
   });
 });
 

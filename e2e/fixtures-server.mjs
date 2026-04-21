@@ -12,6 +12,12 @@ const PORT = Number(process.env.FIXTURE_PORT || 4173);
 const fixturesDir = path.join(__dirname, "fixtures");
 
 function mapPathToFile(pathname) {
+  if (pathname.startsWith("/oam/server/auth_cred_submit")) {
+    // Plan-05: Oracle redirects here on failed credential submission. The
+    // fixture keeps the #serverError alert so both the URL match and the
+    // DOM match in content.ts detect the wrong-credential state.
+    return "credential-error.html";
+  }
   if (pathname.startsWith("/oam/server/obrareq.cgi")) {
     return "credential.html";
   }

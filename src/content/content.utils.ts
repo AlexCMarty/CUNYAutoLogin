@@ -1,4 +1,6 @@
 import {
+  CREDENTIAL_ERROR_ELEMENT_ID,
+  CREDENTIAL_ERROR_TEXT_MARKER,
   TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY,
   TOTP_SECRET_LEN_MIN,
   TOTP_SECRET_LEN_MAX,
@@ -6,6 +8,27 @@ import {
 } from "../cuny/ssoSite";
 
 export { TOTP_SECRET_LEN_MIN, TOTP_SECRET_LEN_MAX, normalizeTotpSecretCandidate };
+
+/**
+ * How long to watch the DOM for a post-submit `serverError` alert before
+ * giving up. Oracle usually renders the alert within ~300ms after POST; 8s
+ * is generous but still bounded so we never leak an observer across a real
+ * navigation.
+ */
+export const POST_SUBMIT_ERROR_OBSERVE_MS = 8000;
+
+/**
+ * True if the credential-page `#serverError` alert element is present AND
+ * its text still contains the Oracle-produced "Incorrect Username or
+ * Password" marker. We check the text because Oracle re-uses the same
+ * element ID for other transient server messages.
+ */
+export function hasCredentialErrorInDom(doc: Document = document): boolean {
+  const el = doc.getElementById(CREDENTIAL_ERROR_ELEMENT_ID);
+  if (!el) return false;
+  const text = (el.textContent ?? "").trim();
+  return text.includes(CREDENTIAL_ERROR_TEXT_MARKER);
+}
 
 export const TOTP_SECRET_SELECTOR = `[aria-labelledby="${TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY}"]`;
 

@@ -2,7 +2,10 @@ import browser from "webextension-polyfill";
 import { TOTP } from "totp-generator";
 import { ok, err, Result } from "neverthrow";
 import {
+  CREDENTIAL_ERROR_ELEMENT_ID,
+  CREDENTIAL_ERROR_TEXT_MARKER,
   CREDENTIAL_INPUT_IDS,
+  matchesCredentialErrorUrl,
   matchesCredentialPage,
   matchesRuiMfaEnrollVerifyPage,
   RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID,
@@ -18,10 +21,15 @@ import {
   setInputValue,
   isFillMessage,
   type FillMessage,
+  hasCredentialErrorInDom,
+  POST_SUBMIT_ERROR_OBSERVE_MS,
 } from "./content.utils";
+import { mountCredentialErrorBanner } from "./banner";
 import type {
   AutoFillRequest,
   AutoFillResponse,
+  OnboardingCredentialError,
+  OnboardingStageDetected,
   TotpSecretFromPage,
 } from "../onboarding/messages";
 
@@ -31,6 +39,16 @@ function log(...args: unknown[]): void {
   if (!import.meta.env.DEV) return;
   console.log(LOG_PREFIX, ...args);
 }
+
+/**
+ * Plan-05 single-submit guard. Each content-script lifetime (one page load)
+ * is allowed at most one auto-submit. After the submit click, Oracle either
+ * navigates (new lifetime, guard resets) or re-renders with the serverError
+ * element in place (this lifetime, guard still true). We also short-circuit
+ * immediately if we land on `/oam/server/auth_cred_submit`, which is Oracle's
+ * rejection endpoint.
+ */
+let submitAttempted = false;
 
 /**
  * Waits for a DOM element to appear by repeatedly calling `find()` on every
@@ -167,24 +185,133 @@ async function fillTotp(totpSecret: string): Promise<Result<true, string>> {
   return ok(true);
 }
 
+/**
+ * Plan-05 hook: tell the sidebar that we just detected a wrong-credential
+ * state on the CUNY page AND show the extension-branded banner so the student
+ * notices even without looking at the sidebar.
+ *
+ * Culprit is always "password" per spec (`§Screen 4-error` design note): by
+ * the time we get here the student has already passed the `@login.cuny.edu`
+ * validation on Screen 2, so wrong-password is the more likely culprit.
+ */
+async function reportCredentialError(): Promise<void> {
+  mountCredentialErrorBanner();
+  const message: OnboardingCredentialError = {
+    type: "ONBOARDING_CREDENTIAL_ERROR",
+    culprit: "password",
+  };
+  try {
+    await browser.runtime.sendMessage(message);
+  } catch {
+    // Extension reloaded or messaging unavailable — banner still tells the
+    // student to look at the sidebar.
+  }
+}
+
+/**
+ * Plan-05 hook: tell the sidebar we advanced past the credential page so it
+ * can move OPENING_CUNY → ALLOW_GATE. We fire this from the TOTP page (the
+ * first post-credential page returning users see) and from any other
+ * non-credential SSO page the content script lands on. Plan-06 will refine
+ * with a proper Allow/Deny detection step.
+ */
+async function announceCredentialsAccepted(): Promise<void> {
+  const message: OnboardingStageDetected = {
+    type: "ONBOARDING_STAGE_DETECTED",
+    stage: "allow_gate",
+  };
+  try {
+    await browser.runtime.sendMessage(message);
+  } catch {
+    // Extension reloaded — sidebar will miss this transition; UI remains
+    // navigable via Back.
+  }
+}
+
+/**
+ * After a submit click Oracle sometimes re-renders the same URL with the
+ * `#serverError` alert inserted instead of navigating to
+ * `/oam/server/auth_cred_submit`. Watch the DOM for that element — bounded by
+ * POST_SUBMIT_ERROR_OBSERVE_MS so we don't leak an observer.
+ *
+ * Observer is started BEFORE the submit click by the caller, because the
+ * fixture (and Oracle, under some branches) inserts `#serverError`
+ * synchronously during the click handler — a post-click observer would miss
+ * the mutation. If the element is already present when this function runs
+ * (an Oracle edge case or a late mount on the error URL), the check fires
+ * immediately via the initial `hasCredentialErrorInDom` probe.
+ */
+function watchForPostSubmitCredentialError(): void {
+  if (hasCredentialErrorInDom(document)) {
+    void reportCredentialError();
+    return;
+  }
+  let reported = false;
+  const tearDown = (): void => {
+    observer.disconnect();
+    clearTimeout(timer);
+  };
+  const observer = new MutationObserver(() => {
+    if (reported) return;
+    if (!hasCredentialErrorInDom(document)) return;
+    reported = true;
+    tearDown();
+    void reportCredentialError();
+  });
+  const timer = setTimeout(tearDown, POST_SUBMIT_ERROR_OBSERVE_MS);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+}
 
 async function main(payload: FillMessage["payload"]): Promise<void> {
   const url = window.location.href;
   log("main() triggered", url);
 
-  let result: Result<true, string>;
-  if (matchesCredentialPage(url)) {
-    result = await fillCredentials(payload.email, payload.password);
-  } else if (matchesTotpPage(url)) {
-    result = await fillTotp(payload.totpSecret);
-  } else {
-    log("unrecognised page, doing nothing");
+  // Credential error URL: Oracle redirected us here after rejecting the
+  // submit. Hard block any refill. Report to sidebar + show banner.
+  if (matchesCredentialErrorUrl(url)) {
+    log("credential-error URL detected", url);
+    submitAttempted = true;
+    await reportCredentialError();
     return;
   }
 
-  if (result.isErr()) {
-    log("error:", result.error);
+  if (matchesCredentialPage(url)) {
+    // Oracle sometimes renders the alert inline on the same URL; treat that
+    // identically to the redirect path. Still do NOT refill.
+    if (hasCredentialErrorInDom(document)) {
+      log("credential-error DOM alert detected on credential URL", url);
+      submitAttempted = true;
+      await reportCredentialError();
+      return;
+    }
+    if (submitAttempted) {
+      log("skipping refill — submit already attempted on this lifetime");
+      return;
+    }
+    submitAttempted = true;
+    // IMPORTANT: install the mutation observer BEFORE clicking submit. The
+    // inline error re-render path (fixture ?wrong=1 and Oracle's own client-
+    // side branch) inserts `#serverError` synchronously during the click
+    // handler. An observer installed after the click would miss the mutation
+    // and the sidebar would never leave OPENING_CUNY.
+    watchForPostSubmitCredentialError();
+    const result = await fillCredentials(payload.email, payload.password);
+    if (result.isErr()) log("error:", result.error);
+    return;
   }
+
+  if (matchesTotpPage(url)) {
+    // We only reach the TOTP page (or the Allow page post-TOTP) after CUNY
+    // accepted the credentials. Tell the sidebar to advance Screen 4 → 5.
+    await announceCredentialsAccepted();
+    if (payload.totpSecret.length > 0) {
+      const result = await fillTotp(payload.totpSecret);
+      if (result.isErr()) log("error:", result.error);
+    }
+    return;
+  }
+
+  log("unrecognised page, doing nothing");
 }
 
 async function autoFill(): Promise<void> {
@@ -194,6 +321,14 @@ async function autoFill(): Promise<void> {
 
     if (!response.success) {
       log("autoFill:", response.reason);
+      // Even when there are no credentials to fill (e.g. vault locked), we
+      // still handle the credential-error page so the student sees the banner
+      // + sidebar routing after a failed submit.
+      const url = window.location.href;
+      if (matchesCredentialErrorUrl(url) || (matchesCredentialPage(url) && hasCredentialErrorInDom(document))) {
+        submitAttempted = true;
+        await reportCredentialError();
+      }
       return;
     }
     log("autoFill: credentials received, triggering main()");
@@ -229,6 +364,10 @@ async function tryFillMfaEnrollVerifyOtp(otpInput: HTMLInputElement): Promise<bo
       return false;
     }
 
+    if (response.payload.totpSecret.length === 0) {
+      logMfaEnrollVerify("no TOTP secret available yet — still in onboarding");
+      return false;
+    }
     const otp = await getOtp(response.payload.totpSecret);
     setInputValue(otpInput, otp);
     logMfaEnrollVerify("filled 6-digit code");
@@ -292,6 +431,11 @@ if (matchesRuiMfaEnrollVerifyPage(window.location.href)) {
 if (matchesTotpEnrollPage(window.location.href)) {
   void watchTotpSecretOnEnrollPage();
 }
+
+// Re-export selected helpers for other content-module imports. `CREDENTIAL_ERROR_ELEMENT_ID`
+// and `CREDENTIAL_ERROR_TEXT_MARKER` live on `ssoSite` — keep them transitively reachable via
+// this module for anyone browsing the content script namespace.
+export { CREDENTIAL_ERROR_ELEMENT_ID, CREDENTIAL_ERROR_TEXT_MARKER };
 
 // isFillMessage is only called in the DEV block below; Vite tree-shakes it from
 // the production IIFE because import.meta.env.DEV evaluates to false at build time.

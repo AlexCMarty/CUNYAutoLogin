@@ -22,6 +22,8 @@ const SCREEN_LABEL = "What's your Brightspace password?";
 const SCREEN_SUBTEXT = "The password you use to log in to Brightspace.";
 const REASSURANCE_COPY =
   "We'll save these on your device, encrypted, and use them right now to log you in so you can watch it work.";
+export const CREDENTIAL_ERROR_INLINE_COPY =
+  "That email and password didn't work on CUNY. Double-check and try again.";
 const CTA_LABEL = "Continue";
 const BACK_LABEL = "Back";
 const SHOW_LABEL = "Show password";
@@ -35,15 +37,27 @@ export const PASSWORD_BACK_SELECTOR =
   "[data-onboarding-password-back='true']";
 export const PASSWORD_TOGGLE_SELECTOR =
   "[data-onboarding-password-toggle='true']";
+export const PASSWORD_CREDENTIAL_ERROR_SELECTOR =
+  "[data-onboarding-password-credential-error='true']";
 
 export const mountPasswordEntryScreen: ScreenMount = (
   ctx: OnboardingScreenContext
 ) => {
-  const { doc, root, dispatch, setPassword, getSnapshot } = ctx;
+  const { doc, root, dispatch, setPassword, setCredentialError, getSnapshot } = ctx;
 
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "PASSWORD_ENTRY";
   container.className = "onboarding-screen onboarding-screen-password";
+
+  // Inline credential-error banner surfaced above the input when the content
+  // script reported wrong-credentials on the CUNY tab. Spec copy
+  // (`overhaul-onboarding.md §Screen 4-error`).
+  const credentialError = doc.createElement("p");
+  credentialError.dataset.onboardingPasswordCredentialError = "true";
+  credentialError.className = "onboarding-credential-error";
+  credentialError.setAttribute("role", "alert");
+  credentialError.textContent = CREDENTIAL_ERROR_INLINE_COPY;
+  credentialError.hidden = getSnapshot().credentialError === null;
 
   const label = doc.createElement("label");
   label.className = "onboarding-label";
@@ -98,6 +112,7 @@ export const mountPasswordEntryScreen: ScreenMount = (
   actions.appendChild(back);
   actions.appendChild(forward);
 
+  container.appendChild(credentialError);
   container.appendChild(label);
   container.appendChild(reassurance);
   container.appendChild(actions);
@@ -111,6 +126,11 @@ export const mountPasswordEntryScreen: ScreenMount = (
   const handleInput = (): void => {
     setPassword(input.value);
     refreshForwardDisabled();
+    // Per spec: once the student starts correcting, drop the stale red banner.
+    if (!credentialError.hidden) {
+      credentialError.hidden = true;
+      setCredentialError(null);
+    }
   };
 
   const handleToggle = (): void => {

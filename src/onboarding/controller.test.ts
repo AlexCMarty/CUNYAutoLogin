@@ -2,12 +2,13 @@ import { describe, expect, test, vi } from "vitest";
 import { createOnboardingController } from "./controller";
 
 describe("createOnboardingController", () => {
-  test("defaults to WELCOME with empty email and password", () => {
+  test("defaults to WELCOME with empty email and password and no credential error", () => {
     const controller = createOnboardingController();
     expect(controller.getSnapshot()).toEqual({
       state: "WELCOME",
       email: "",
       password: "",
+      credentialError: null,
     });
   });
 
@@ -47,7 +48,29 @@ describe("createOnboardingController", () => {
       state: "WELCOME",
       email: "jane.doe@login.cuny.edu",
       password: "s3cret",
+      credentialError: null,
     });
+  });
+
+  test("setCredentialError stores the culprit in the snapshot", () => {
+    const controller = createOnboardingController();
+    controller.setCredentialError({ culprit: "password" });
+    expect(controller.getSnapshot().credentialError).toEqual({
+      culprit: "password",
+    });
+    controller.setCredentialError(null);
+    expect(controller.getSnapshot().credentialError).toBeNull();
+  });
+
+  test("setCredentialError notifies subscribers and short-circuits identical values", () => {
+    const controller = createOnboardingController();
+    const listener = vi.fn();
+    controller.subscribe(listener);
+    controller.setCredentialError({ culprit: "password" });
+    controller.setCredentialError({ culprit: "password" });
+    expect(listener).toHaveBeenCalledTimes(1);
+    controller.setCredentialError({ culprit: "email" });
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   test("subscribe fires on every state, email, and password change", () => {

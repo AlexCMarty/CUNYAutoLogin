@@ -1,23 +1,37 @@
 /**
  * Onboarding render contract + mount seam.
  *
- * Plan-02 introduced a stub placeholder; plan-04 replaces the body of
- * `mountOnboarding` with a real controller + bead header + Screen 1/2/3
- * renderer. Downstream plans (05+) add more screens by registering them in the
- * same `SCREEN_MOUNTS` table — no changes to this entry point should be needed.
+ * Plan-02 introduced a stub placeholder; plan-04 replaced the body with a real
+ * controller + bead header + Screens 1–3 renderer. Plan-05 registers Screen 4
+ * (OPENING_CUNY) and a Screen 5 stub (ALLOW_GATE) and wires the message-bus
+ * bridge that lets the content script / service worker steer the sidebar:
+ *
+ *   - `ONBOARDING_CREDENTIAL_ERROR { culprit }` → route to EMAIL_ENTRY (if
+ *     the email is the likely culprit) or PASSWORD_ENTRY (default), with a
+ *     red inline banner surfaced above the affected input.
+ *   - `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advance from
+ *     OPENING_CUNY to ALLOW_GATE.
  *
  * Security: this module holds the email/password drafts only via the
- * controller closure. Nothing written to `browser.storage.*`. Renderer does
- * not know anything about the vault, SSO, or CUNY URLs — those belong to
- * later plans.
+ * controller closure. Nothing written to `browser.storage.*`. The sidebar
+ * unmount path fires `CLEAR_ONBOARDING_CREDENTIALS` so the service worker
+ * also drops its in-memory copy.
  */
 
+import browser from "webextension-polyfill";
 import { mountBeadHeader } from "./beadHeader";
 import {
   type OnboardingController,
   createOnboardingController,
 } from "./controller";
+import {
+  type ClearOnboardingCredentials,
+  type OnboardingMessage,
+  isOnboardingMessage,
+} from "./messages";
+import { mountAllowGateScreen } from "./screens/allowGate";
 import { mountEmailEntryScreen } from "./screens/emailEntry";
+import { mountOpeningCunyScreen } from "./screens/openingCuny";
 import { mountPasswordEntryScreen } from "./screens/passwordEntry";
 import type {
   OnboardingScreenContext,
@@ -64,14 +78,15 @@ export const beadViewModelForState = (
   }));
 };
 
-// Registry of plan-04 screen renderers. States without a registered mount fall
-// back to the "not implemented yet" placeholder — this is deliberate so plan-05
-// (OPENING_CUNY) and later plans plug in additively without touching this file
+// Plan-04 registered Screens 1–3; plan-05 adds OPENING_CUNY and a stub
+// ALLOW_GATE. Later plans plug in additively without touching this file
 // except to add a new entry.
 const SCREEN_MOUNTS: Partial<Record<OnboardingState, ScreenMount>> = {
   WELCOME: mountWelcomeScreen,
   EMAIL_ENTRY: mountEmailEntryScreen,
   PASSWORD_ENTRY: mountPasswordEntryScreen,
+  OPENING_CUNY: mountOpeningCunyScreen,
+  ALLOW_GATE: mountAllowGateScreen,
 };
 
 export const ONBOARDING_ROOT_ID = "onboarding-root";
@@ -141,9 +156,77 @@ const renderActiveScreen = (
     getSnapshot: controller.getSnapshot,
     setEmail: controller.setEmail,
     setPassword: controller.setPassword,
+    setCredentialError: controller.setCredentialError,
     dispatch: controller.dispatch,
   };
   return mount(ctx);
+};
+
+/**
+ * Applies an onboarding wire message to the controller. Exported for unit
+ * tests so we can exercise the routing logic without standing up a full
+ * runtime.onMessage stub. Plan-05 recognises two messages:
+ *   - CREDENTIAL_ERROR → route to the culprit-specific correction screen,
+ *     stash the `credentialError` info so the renderer can show the banner.
+ *   - STAGE_DETECTED(allow_gate) → advance past OPENING_CUNY.
+ * Others are ignored (plan-06+ will wire overlay commands, verify status,
+ * tab reattach, etc.).
+ */
+export const applyOnboardingMessage = (
+  controller: OnboardingController,
+  message: OnboardingMessage
+): void => {
+  if (message.type === "ONBOARDING_CREDENTIAL_ERROR") {
+    controller.setCredentialError({ culprit: message.culprit });
+    controller.dispatch("CREDENTIAL_ERROR_DETECTED");
+    if (message.culprit === "email") {
+      controller.dispatch("CREDENTIAL_ERROR_ROUTE_TO_EMAIL");
+    } else {
+      controller.dispatch("NEXT");
+    }
+    return;
+  }
+  if (message.type === "ONBOARDING_STAGE_DETECTED") {
+    if (message.stage === "allow_gate") {
+      controller.dispatch("CREDENTIALS_ACCEPTED");
+    }
+    return;
+  }
+  // ONBOARDING_OVERLAY_COMMAND / VERIFY_STATUS / REOPEN_CUNY_TAB /
+  // TAB_REATTACHED land in plan-06+.
+};
+
+const installRuntimeMessageBridge = (
+  controller: OnboardingController
+): (() => void) => {
+  const listener = (message: unknown): void => {
+    if (!isOnboardingMessage(message)) return;
+    applyOnboardingMessage(controller, message);
+  };
+  try {
+    browser.runtime.onMessage.addListener(listener);
+  } catch {
+    // Non-extension context (jsdom without mock) — bridge is a no-op.
+    return () => undefined;
+  }
+  return () => {
+    try {
+      browser.runtime.onMessage.removeListener(listener);
+    } catch {
+      // Ignore; listener registration may have failed silently.
+    }
+  };
+};
+
+const clearStagedOnboardingCredentials = (): void => {
+  const message: ClearOnboardingCredentials = {
+    type: "CLEAR_ONBOARDING_CREDENTIALS",
+  };
+  try {
+    void browser.runtime.sendMessage(message);
+  } catch {
+    // Extension reloaded — SW memory is already gone.
+  }
 };
 
 export const mountOnboarding = (doc: Document): (() => void) => {
@@ -177,8 +260,8 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   };
 
   // Only re-mount the screen when the state actually changes. Input-only
-  // updates (setEmail, setPassword) must not rip the screen out from under the
-  // student's cursor.
+  // updates (setEmail, setPassword, setCredentialError on the active screen)
+  // must not rip the screen out from under the student's cursor.
   let lastState: OnboardingState = controller.getSnapshot().state;
   const unsubscribe = controller.subscribe((snapshot) => {
     if (snapshot.state === lastState) return;
@@ -186,10 +269,14 @@ export const mountOnboarding = (doc: Document): (() => void) => {
     repaint();
   });
 
+  const uninstallBridge = installRuntimeMessageBridge(controller);
+
   repaint();
 
   return () => {
     unsubscribe();
+    uninstallBridge();
+    clearStagedOnboardingCredentials();
     currentHandle?.unmount();
     header.unmount();
     shell.remove();
