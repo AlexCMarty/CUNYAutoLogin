@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "kwin-mcp": {
+      "command": "uvx",
+      "args": ["kwin-mcp"]
+    },
+    "firefox-devtools": {
+      "command": "npx",
+      "args": ["-y", "firefox-devtools-mcp@latest"]
+    },
+    "chrome-extension-tester": {
+      "command": "npx",
+      "args": ["chrome-extension-tester-mcp"]
+    }
+  }
+}
