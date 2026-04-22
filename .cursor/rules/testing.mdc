@@ -14,7 +14,7 @@ Always run `npm run build:e2e` before `npm run test:e2e`. The Playwright specs l
 
 ## How the test infrastructure works
 
-- **Fixture server** (`e2e/fixtures-server.mjs`): A local HTTP server on `FIXTURE_PORT` (see `e2e/constants.ts`) serving static HTML pages from `e2e/fixtures/`. These pages mimic specific CUNY SSO screens.
+- **Fixture server** (`e2e/fixtures-server.mjs`): A local HTTP server on `FIXTURE_PORT` (see `e2e/constants.ts`) serving static HTML pages from `e2e/fixtures/`. These pages mimic specific CUNY SSO screens: `credential.html`, `credential-error.html`, `credential-success-transient.html`, `totp.html`, `self-service.html`. The server also maps `/oam/server/auth_cred_submit?outcome=success` to the success-transient fixture so the plan-05 regression (transient `/auth_cred_submit` without `#serverError` must not show the credential-error banner) can be exercised.
 - **Extension loader** (`e2e/extension-fixture.ts`): Extends Playwright's `test` with a `context` fixture that launches Chromium via `chromium.launchPersistentContext` with `--load-extension=dist/`. Also provides the `extensionId` fixture (parsed from the service worker URL).
 - **Firefox is not supported** in E2E — Firefox does not allow loading temporary extensions via CLI flags in the same way. Test manually via `about:debugging`.
 

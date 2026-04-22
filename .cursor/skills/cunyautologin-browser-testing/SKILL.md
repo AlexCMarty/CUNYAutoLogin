@@ -46,8 +46,8 @@ description: >-
 
 ## What to automate vs. eyeball
 
-- **Sidebar:** Fully automatable via Playwright or MCP (`navigate_page`, `take_snapshot`, `fill`, etc.) on `chrome-extension://` pages.
-- **CUNY SSO (`https://ssologin.cuny.edu/*`):** Content script runs there; vault must be **unlocked** (session in `storage.session`). Test flow mirrors e2e: save vault in the sidebar, open an ssologin tab, wait for async Oracle/JET UI and autofill.
+- **Sidebar:** Fully automatable via Playwright or MCP (`navigate_page`, `take_snapshot`, `fill`, etc.) on `chrome-extension://` pages. The sidebar renders either the legacy vault UI (`<main class="wrap">`) or the onboarding v2 shell (`#onboarding-root`) — see `src/sidebar/sidebar.ts`. In dev/e2e builds, append `#onboarding=1` to the sidebar URL to force-boot the onboarding renderer without flipping `ONBOARDING_V2_ENABLED`.
+- **CUNY SSO (`https://ssologin.cuny.edu/*`):** Content script runs there; the vault must be **unlocked** (session in `storage.session`) OR onboarding must be staging credentials via `STAGE_ONBOARDING_CREDENTIALS`. Test flow mirrors e2e: save vault in the sidebar, open an ssologin tab, wait for async Oracle/JET UI and autofill.
 
 ## Secrets
 

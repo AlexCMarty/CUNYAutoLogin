@@ -12,10 +12,14 @@ Your job: perform a full, anal-retentive security audit. Assume the worst. Be ni
 
 Read every file that touches `email`, `password`, `totpSecret`, or `masterPassword`. Trace the full lifecycle: input → storage → retrieval → use. Ask at every step: could this value escape to an unintended location?
 
-- **`src/sidebar/sidebar.ts`** (and delegated controller modules) — how are credentials read from the form? Where do they go after unlock/setup?
-- **`src/sidebar/sidebar.utils.ts` / `src/popup/popup.utils.ts`** — `saveDraft`, `clearDraft`, `coerceDraft`: what storage API do they use? Is it `browser.storage.session` (in-memory, acceptable) or `localStorage`/`storage.local` (on-disk, **not acceptable** for plaintext)?
-- **`src/background/service-worker.ts`** — does the decrypted vault payload (`{ email, password, totpSecret }`) get logged, stored, or forwarded anywhere other than back to the requesting content script?
+- **`src/sidebar/sidebar.ts`** — the sidebar entrypoint dynamic-imports either `popup/popup.ts` (legacy vault UI) or `onboarding/render.ts` (onboarding v2, gated by `ONBOARDING_V2_ENABLED` or, in dev/e2e builds only, `#onboarding=1`). Confirm the dev-hash branch is behind an `import.meta.env.MODE` check that folds to `false` in production.
+- **`src/popup/popup.ts` / `src/popup/popup.utils.ts`** — `saveDraft`, `clearDraft`, `coerceDraft`: what storage API do they use? Is it `browser.storage.session` (in-memory, acceptable) or `localStorage`/`storage.local` (on-disk, **not acceptable** for plaintext)? Is `saveDraft` still gated to `currentMode === "setup"`?
+- **`src/onboarding/controller.ts`** — email/password drafts must live in closure memory only. Confirm there is no `storage.local` or `storage.session` write in this module.
+- **`src/onboarding/render.ts`** — the sidebar unmount path must send `CLEAR_ONBOARDING_CREDENTIALS` so the service-worker staging buffer is dropped.
+- **`src/background/service-worker.ts`** — does the decrypted vault payload (`{ email, password, totpSecret }`) get logged, stored, or forwarded anywhere other than back to the requesting content script? The onboarding staging buffer (`stagedOnboardingCredentials`) must be a module-level variable only — never written to `storage.local` or `storage.session`. The `STAGE_ONBOARDING_CREDENTIALS` / `CLEAR_ONBOARDING_CREDENTIALS` handlers must touch only that variable. The `AUTO_FILL_REQUEST` path must prefer the real vault; staging is only a fallback when no vault exists.
+- **`src/onboarding/messages.ts`** — onboarding-protocol messages (`ONBOARDING_*`) must be metadata-only. A credential payload on an onboarding message type is a finding.
 - **`src/content/content.ts`** — does it log credential values? Does it post them anywhere? Does it write them to the DOM in a way the page's JS could read?
+- **`src/content/banner.ts`** — the credential-error banner is user-facing copy only (no credential values embedded). Confirm no credential leakage via `dataset`, attributes, or text nodes.
 
 ### 2. Plaintext storage — is anything sensitive on disk?
 
@@ -24,7 +28,7 @@ The only thing permitted in `browser.storage.local` is the encrypted vault blob 
 Check:
 - `browser.storage.local.set(...)` callsites — what is being stored? Is it only `{ cunyVault: StoredVault }`?
 - `localStorage.setItem(...)` — **any use of `localStorage` for sensitive data is a critical finding**. Extension `localStorage` persists to disk as LevelDB files readable by anyone with filesystem access.
-- `browser.storage.session.set(...)` callsites — what is stored? Is it scoped to in-memory only sensitive values (master password, draft, pending TOTP)?
+- `browser.storage.session.set(...)` callsites — what is stored? Is it scoped to in-memory only sensitive values (master password, setup draft, pending TOTP)? The onboarding `stagedOnboardingCredentials` in `service-worker.ts` must **not** appear here — it is a module-level JS variable only.
 
 ### 3. Credential logging — do secrets appear in the console?
 

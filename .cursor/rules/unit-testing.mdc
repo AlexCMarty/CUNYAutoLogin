@@ -22,16 +22,24 @@ npm run test:unit   # vitest run
 |------|-------------------|
 | `src/crypto/vault.test.ts` | Encrypt/decrypt, `isStoredVault`, tamper / malformed blob branches |
 | `src/cuny/ssoSite.test.ts` | URL matchers + pinned SSO constants |
-| `src/popup/popup.test.ts` | `sidebar.utils.ts` / `popup.utils.ts` — validation, drafts, status strings, TOTP hint helpers |
+| `src/popup/popup.test.ts` | `popup.utils.ts` — validation, drafts, status strings, TOTP hint helpers |
 | `src/content/content.test.ts` | `content.utils.ts` — TOTP normalization, enroll scrape, `setInputValue`, `isFillMessage` |
-| `src/background/service-worker.test.ts` | Message routing, `AUTO_FILL_REQUEST` outcomes, `TOTP_SECRET_FROM_PAGE` staging |
+| `src/background/service-worker.test.ts` | Message routing, `AUTO_FILL_REQUEST` outcomes (vault + onboarding-staging fallback), `TOTP_SECRET_FROM_PAGE` staging, STAGE/CLEAR_ONBOARDING_CREDENTIALS, ONBOARDING_REOPEN_CUNY_TAB |
+| `src/vaultSession/snapshot.test.ts` | `loadVaultSessionSnapshot` — setup/locked/unlocked branching (injected storage mocks) |
+| `src/onboarding/state.test.ts` | 17-state enum + bead mapping exhaustiveness |
+| `src/onboarding/transitions.test.ts` | `TRANSITION_TABLE` reachability + back/forward contracts |
+| `src/onboarding/controller.test.ts` | Subscribe/dispatch semantics, dedup, credentialError snapshot |
+| `src/onboarding/messages.test.ts` | Per-type guards + default-reject envelope |
+| `src/onboarding/beadHeader.test.ts` | Bead rendering for each state (jsdom) |
+| `src/onboarding/render.test.ts` | Shell mount/unmount, `applyOnboardingMessage`, bridge registration |
+| `src/onboarding/screens/{welcome,emailEntry,passwordEntry,openingCuny}.test.ts` | Per-screen mount/interaction (jsdom) |
 
-Prefer colocated `*.utils.ts` for testable logic when the main file is an IIFE or otherwise hard to import (`sidebar.utils.ts`, `content.utils.ts`).
+Prefer colocated `*.utils.ts` for testable logic when the main file is an IIFE or otherwise hard to import (`popup.utils.ts`, `content.utils.ts`).
 
 ## Vitest environment
 
-- **Node (default):** `vault.test.ts`, `ssoSite.test.ts`, and `service-worker.test.ts` — Node provides `globalThis.crypto.subtle` on supported versions.
-- **jsdom:** Add `// @vitest-environment jsdom` as the **first line** of any file that needs `document` / DOM APIs (`popup.test.ts`, `content.test.ts`).
+- **Node (default):** `vault.test.ts`, `ssoSite.test.ts`, `service-worker.test.ts`, `vaultSession/snapshot.test.ts`, and the pure-logic onboarding suites (`state`, `transitions`, `messages`) — Node provides `globalThis.crypto.subtle` on supported versions.
+- **jsdom:** Add `// @vitest-environment jsdom` as the **first line** of any file that needs `document` / DOM APIs (`popup.test.ts`, `content.test.ts`, `onboarding/controller.test.ts`, `onboarding/beadHeader.test.ts`, `onboarding/render.test.ts`, and every file under `onboarding/screens/`).
 
 ## Mocking `webextension-polyfill`
 

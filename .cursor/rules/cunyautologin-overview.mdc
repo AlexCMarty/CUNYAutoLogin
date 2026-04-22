@@ -22,54 +22,100 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
 2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
 3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and also responds to manual `FILL_CREDENTIALS` messages from the dev side panel.
+4. Guides a first-time student through a 13-screen onboarding flow (see `.plans/overhaul-onboarding.md` — plans 1–5 merged; plans 6–12 in progress).
 
-Master-password handling, `storage.local` vs `storage.session`, and related security rules are defined only in the **Security, crypto, and gotchas** project rule—do not contradict that rule.
+Master-password handling, `storage.local` vs `storage.session`, onboarding credential staging, and related security rules are defined only in the **Security, crypto, and gotchas** project rule — do not contradict that rule.
 
-Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts`).
+Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `popup.utils.ts`).
 
 The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
+
+There is **no popup surface** in this extension. The `src/popup/` directory is a historical name — its module is the legacy vault controller, rendered inside the sidebar. All user-facing UI lives in `sidebar.html`.
 
 ## Project layout
 
 ```
-sidebar.html                    Vite entry point for side panel/sidebar UI
+sidebar.html                    Vite entry point. Hosts the legacy vault UI (<main class="wrap">,
+                                driven by popup/popup.ts) AND the onboarding v2 shell
+                                (#onboarding-root, hidden until mountOnboarding populates it).
 src/
-  vaultSession/snapshot.ts      `loadVaultSessionSnapshot` — shared setup / locked / unlocked from storage (sidebar init)
-  sidebar/sidebar.ts            Side panel entrypoint (delegates to shared controller)
-  popup/popup.ts                Modes setup / locked / unlocked; encrypt/save; session unlock; master rotation;
-                                draft autosave; dynamic-import debug panel when MODE=development
-  sidebar/sidebar.utils.ts      Side panel utility export surface (re-exported from `popup/popup.utils.ts`)
-  popup/popup.test.ts           Unit tests: popup.utils (jsdom; mocked webextension-polyfill)
-  sidebar/debugPanel.ts         Side panel debug panel export surface (re-exported from `popup/debugPanel.ts`)
-  sidebar/sidebar.css           Side panel stylesheet entrypoint
+  vaultSession/snapshot.ts      `loadVaultSessionSnapshot` — setup / locked / unlocked snapshot
+  vaultSession/snapshot.test.ts Unit tests
+  sidebar/sidebar.ts            Sidebar entrypoint. Boots onboarding v2 when ONBOARDING_V2_ENABLED
+                                (or, in dev/e2e builds only, `#onboarding=1` in the URL hash);
+                                otherwise dynamic-imports popup/popup.ts.
+  sidebar/{sidebar.utils,debugPanel,sidebar.css}.ts  Re-export surfaces from popup/* (historical layout).
+  popup/popup.ts                Legacy vault controller — setup / locked / unlocked, encrypt/save,
+                                session unlock, master rotation, draft autosave. Dev-only debug panel.
+  popup/popup.utils.ts          Pure helpers (email validation, draft parse, status strings,
+                                MIN_MASTER_PASSWORD_LENGTH = 12, TOTP source hint helpers)
+  popup/popup.test.ts           Unit tests (jsdom; mocked webextension-polyfill)
+  popup/debugPanel.ts           Dev-only debug panel (FILL_CREDENTIALS tester + clear-vault button)
+  popup/popup.css               Base vault UI styles
+  onboarding/state.ts           17-state enum, bead mapping, ONBOARDING_V2_ENABLED flag (false in main)
+  onboarding/transitions.ts     Declarative TRANSITION_TABLE + `advance` / `backStateFor`
+  onboarding/controller.ts      `createOnboardingController` — closure-only email/password/
+                                credentialError state; subscribe/dispatch API
+  onboarding/messages.ts        Wire contract + is* guards:
+                                  - core: AUTO_FILL_REQUEST, TOTP_SECRET_FROM_PAGE,
+                                    STAGE/CLEAR_ONBOARDING_CREDENTIALS (carry secrets)
+                                  - onboarding: STAGE_DETECTED, CREDENTIAL_ERROR,
+                                    OVERLAY_COMMAND, VERIFY_STATUS, REOPEN_CUNY_TAB,
+                                    TAB_REATTACHED (metadata-only; default-reject contract)
+  onboarding/beadHeader.ts      Five-bead progress header at the top of the sidebar
+  onboarding/render.ts          `mountOnboarding` — mounts shell + screen + runtime.onMessage
+                                bridge; fires CLEAR_ONBOARDING_CREDENTIALS on unmount
+  onboarding/screens/           welcome, emailEntry, passwordEntry, openingCuny, allowGate (stub),
+                                screenContext. Plans 06+ add overlay screens 6–13.
+  onboarding/*.test.ts          Vitest suites (jsdom) alongside each module
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; `VAULT_STORAGE_KEY`, payload types
-  crypto/vault.test.ts          Unit tests: encrypt/decrypt round-trips, tamper detection, isStoredVault guard
-  cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs, and TOTP
-                                constants — never hardcode these in content scripts or the service worker
-  cuny/ssoSite.test.ts          Unit tests: all URL matcher functions and critical constants
-  content/content.ts            IIFE bundle: MutationObserver waits for JET inputs; fill login + TOTP;
-                                enroll-page secret scraping; MFA self-service verify OTP polling;
-                                `AUTO_FILL_REQUEST` + `FILL_CREDENTIALS` handling
-  content/content.utils.ts      Pure helpers for content script (TOTP normalization, enroll scrape, KO-aware input setter, message guards)
-  content/content.test.ts       Unit tests: content.utils (jsdom)
-  background/service-worker.ts  onInstalled log; `AUTO_FILL_REQUEST` → decrypt vault via session master;
-                                `TOTP_SECRET_FROM_PAGE` → validate + stage in session storage
-  background/service-worker.test.ts  Unit tests: message routing, AUTO_FILL, TOTP staging (mocked polyfill + vault)
-  manifest.json                 Source manifest; Vite writes dist/manifest.json with side panel keys
-  manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host permissions and
+  crypto/vault.test.ts          Unit tests: round-trips, tamper detection, isStoredVault guard
+  cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs,
+                                TOTP constants, CUNY_LOGIN_ENTRY_URL, session key names
+  cuny/ssoSite.test.ts          Unit tests
+  content/content.ts            IIFE bundle: MutationObserver waits for JET inputs; fill login +
+                                TOTP; enroll-page secret scraping; MFA self-service verify OTP
+                                polling; `AUTO_FILL_REQUEST` + dev-gated `FILL_CREDENTIALS`.
+                                Emits ONBOARDING_STAGE_DETECTED / ONBOARDING_CREDENTIAL_ERROR.
+                                /auth_cred_submit credential-error detection requires the
+                                `#serverError` DOM marker (prevents false positives on transient
+                                redirects — see plan-05 fix in commit 0525eed).
+  content/banner.ts             Extension-branded credential-error banner on the CUNY tab.
+                                Inline styles + INT_MAX z-index; idempotent mount/unmount.
+  content/content.utils.ts      Pure helpers (TOTP normalization, enroll scrape, KO-aware input setter, message guards)
+  content/content.test.ts       Unit tests (jsdom)
+  background/service-worker.ts  Opens the side panel on toolbar click (Chromium sidePanel /
+                                Firefox sidebarAction). AUTO_FILL_REQUEST prefers the decrypted
+                                vault and falls back to the in-memory onboarding staging buffer
+                                when the vault isn't set up yet; STAGE/CLEAR_ONBOARDING_CREDENTIALS
+                                only ever touch a module-level variable (never storage);
+                                TOTP_SECRET_FROM_PAGE → validate + stage in session storage;
+                                ONBOARDING_REOPEN_CUNY_TAB opens CUNY_LOGIN_ENTRY_URL (or a
+                                provided URL); other onboarding messages are validated and ack-only.
+  background/service-worker.test.ts  Unit tests
+  manifest.json                 Source manifest; Vite writes dist/manifest.json with
+                                side_panel + sidebar_action + action + gecko block
+  manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host_permissions and
                                 content_scripts matches for the Playwright fixture server
 vite.config.ts                  Builds sidebar + background and emits manifest
 vite.content.config.ts          Builds `content.ts` as a single IIFE (`dist/content.js`, inline deps)
 e2e/
-  onboarding.spec.ts            Playwright: first-run / setup flow
+  onboarding.spec.ts            Playwright: first-run / setup flow + onboarding v2 screens 1–4 +
+                                credential-error regressions (transient /auth_cred_submit must
+                                not show the banner without a #serverError marker)
   locked.spec.ts                Playwright: vault locked behavior
   unlocked.spec.ts              Playwright: unlocked vault + autofill
   helpers.ts                    Shared side panel / vault setup for specs
   extension-fixture.ts          Loads the built extension into Chromium via --load-extension
-  fixtures-server.mjs           Local HTTP server serving e2e/fixtures/*.html pages
-  fixtures/                     HTML pages that mimic CUNY SSO screens (credential, totp, self-service)
-  constants.ts                  Shared constants (FIXTURE_PORT, etc.)
-  test-credentials.ts           Plaintext test credentials used only by E2E tests
+  fixtures-server.mjs           Local HTTP server for e2e/fixtures/*.html; also maps
+                                /oam/server/auth_cred_submit?outcome=success to the
+                                success-transient fixture for credential-error regression specs
+  fixtures/                     credential, credential-error, credential-success-transient,
+                                totp, self-service
+  constants.ts                  Shared constants (FIXTURE_PORT, fixture URLs)
+  test-credentials.ts           Fabricated test credentials used only by E2E tests
+.plans/                         Engineering plan documents (overhaul-onboarding.md, agents/,
+                                roles, handoff notes). Not part of the extension build.
 dist/                           Built extension — load this folder in the browser
 ```
 
@@ -78,8 +124,8 @@ dist/                           Built extension — load this folder in the brow
 ```bash
 npm install
 npm run build          # production: tsc --noEmit → vite build → vite content
-npm run build:dev      # development mode on both Vite steps; sidebar includes test fill + clear vault
-npm run build:e2e      # dev build with manifest.e2e.json (required before running E2E tests)
+npm run build:dev      # development mode on both Vite steps; sidebar includes debug panel
+npm run build:e2e      # dev build with manifest.e2e.json (required before E2E tests)
 npm run build:content  # rebuild only the content script
 npm run watch          # vite build --watch --mode development (sidebar/bg; rerun build:content when content changes)
 npm run typecheck      # tsc --noEmit only
@@ -105,4 +151,4 @@ Rebuild and reload the extension after any source change.
 
 ## Documentation
 
-README.md should be oriented to less technically inclined college students. It's the first thing they see on Github. Prefer to put technical documentation elsewhere, such as CONTRIBUTING.md
+README.md should be oriented to less technically inclined college students. It's the first thing they see on Github. Prefer to put technical documentation elsewhere, such as CONTRIBUTING.md.

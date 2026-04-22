@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Session unlock and auto-fill flows
 
-## Session unlock (`sidebar.ts`)
+## Session unlock (legacy vault controller — `popup/popup.ts` mounted inside the sidebar)
 
-The side panel has three modes: `setup`, `locked`, and `unlocked`.
+The side panel has three modes: `setup`, `locked`, and `unlocked`. These are owned by the legacy vault controller (`src/popup/popup.ts`, named "popup" for historical reasons — there is no popup surface). The sidebar entrypoint (`src/sidebar/sidebar.ts`) dynamic-imports that controller unless `ONBOARDING_V2_ENABLED` is true (or `#onboarding=1` is present in dev/e2e builds), in which case it mounts `onboarding/render.ts` instead.
 
 On every side panel open, `init()` checks `browser.storage.session` for a saved master password (`SESSION_MASTER_KEY = "cunySessionMaster"`). If found, it runs PBKDF2 + AES-GCM decrypt automatically and opens directly in `unlocked` mode. If decryption fails (e.g. vault was re-keyed), the session entry is purged and the side panel falls back to `locked`.
 
@@ -20,7 +20,7 @@ In **unlocked** mode, users can optionally set a new master password (both "new"
 ## Auto-fill flow
 
 1. **On each ssologin.cuny.edu tab load** (`content.ts`): `autoFill()` sends `{ type: "AUTO_FILL_REQUEST" }` to the service worker.
-2. **Service worker** (`service-worker.ts`): Reads session master + encrypted vault from storage, decrypts, returns `{ success: true, payload }` or a failure reason (`no_session_master`, `no_vault`, `decrypt_error`). If the user never unlocked this session, auto-fill does nothing.
+2. **Service worker** (`service-worker.ts`): Reads session master + encrypted vault from storage, decrypts, returns `{ success: true, payload }` or a failure reason (`no_session_master`, `no_vault`, `decrypt_error`). **Onboarding fallback:** when no vault is set up yet and the sidebar has staged onboarding credentials via `STAGE_ONBOARDING_CREDENTIALS`, the SW returns those (with `totpSecret: ""`) so Screen 4 can log the student in. The staging buffer is module-scope memory only — see the security rule. If the user never unlocked this session and onboarding isn't running, auto-fill does nothing.
 3. **Content script** (`main()`): Chooses behaviour by URL using helpers from `src/cuny/ssoSite.ts` (`matchesCredentialPage`, `matchesTotpPage`). `fillCredentials` / `fillTotp` wait for Oracle JET–rendered controls, set values in a Knockout-aware way, then click submit / Verify.
 
 Oracle JET renders inputs after `document_idle`, so the content script uses a `MutationObserver` + timeouts instead of assuming immediate DOM.
@@ -45,6 +45,21 @@ After the user enrolls a new TOTP factor via the Oracle self-service portal, the
 2. When the field appears (the user clicked **Verify Now**), the script sends `AUTO_FILL_REQUEST` to the service worker, generates a fresh TOTP code from the vault secret, and fills the field. The interval clears itself after a successful fill.
 
 Polling is used here instead of `MutationObserver` because the Oracle SPA re-renders the form in ways that made observers flaky — see the comment in `startMfaEnrollVerifyOtpPolling`.
+
+## Onboarding message bridge
+
+When `mountOnboarding` is active (sidebar), `onboarding/render.ts` registers a `runtime.onMessage` listener that routes known `ONBOARDING_*` messages through `applyOnboardingMessage(controller, message)`:
+
+- `ONBOARDING_CREDENTIAL_ERROR { culprit }` → stashes the culprit on the controller and routes the sidebar to `EMAIL_ENTRY` (culprit === "email") or `PASSWORD_ENTRY` (default), with an inline red banner above the affected input. The content script emits this only after seeing the `#serverError` DOM marker on `/auth_cred_submit` — URL alone is insufficient (plan-05, commit `0525eed`).
+- `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advances `OPENING_CUNY` to `ALLOW_GATE`.
+- `ONBOARDING_REOPEN_CUNY_TAB` is handled by the service worker: it opens `CUNY_LOGIN_ENTRY_URL` (or the provided `url`) in a new tab. Used by Screen 4–10a when the student closed the CUNY tab mid-flow.
+- `ONBOARDING_OVERLAY_COMMAND` / `ONBOARDING_VERIFY_STATUS` / `ONBOARDING_TAB_REATTACHED` are validated and acknowledged by the service worker today; plans 06+ wire their sidebar-side handlers.
+
+On sidebar unmount, `mountOnboarding` fires `CLEAR_ONBOARDING_CREDENTIALS` so the service worker drops its staged credentials.
+
+## Extension banner on the CUNY tab
+
+`src/content/banner.ts` mounts an extension-branded credential-error banner on the CUNY page when the content script detects wrong credentials (`mountCredentialErrorBanner`). Styles are inlined with INT_MAX z-index so CUNY's CSS can't hide it, and the element is attached to `document.documentElement` to survive late JET mutations. Mount/unmount are idempotent.
 
 ## SSO site constants
 
