@@ -1,0 +1,156 @@
+transitions:
+  # --- Credential entry ---
+  - from: credential-entry
+    event: correct_credentials_submitted
+    to: totp
+    notes: >
+      POSTs to /oam/server/auth_cred_submit; on success OAM redirects to the TOTP
+      challenge at /oaa-totp-factor/rui/index.html?cid=<uuid>&nonce=<uuid>.
+
+  - from: credential-entry
+    event: wrong_credentials_submitted
+    to: credential-error
+    notes: >
+      Full-page reload to /oam/server/auth_cred_submit with #serverError in DOM.
+      No inline re-render observed — redirect path only.
+
+  # --- Credential error ---
+  - from: credential-error
+    event: page_loaded
+    to: credential-entry
+    notes: >
+      The credential-error page IS the auth_cred_submit response page; it re-renders
+      the login form. The user stays on this URL until they submit again or navigate away.
+
+  - from: credential-error
+    event: correct_credentials_submitted
+    to: totp
+
+  - from: credential-error
+    event: wrong_credentials_submitted
+    to: credential-error
+    notes: Another full-page reload; the #serverError div is present again.
+
+  # --- TOTP challenge (existing factor) ---
+  - from: totp
+    event: correct_totp_submitted
+    to: allow-gate
+    notes: >
+      Navigates to /cunylogin/pages/mfaConsent.jsp?state=<token>&scopes=openid
+      &client_id=CUNYMFAClient&domain=CUNYMFADomain&nbcheck=false.
+
+  - from: totp
+    event: wrong_totp_submitted
+    to: totp
+    notes: >
+      Full URL reload with ?emsg=Entered+TOTP+is+incorrect. appended. Nonce param
+      also changes. Error displayed as red div (style="color:#C54A39;") via KO binding.
+      Detection: URLSearchParams(location.search).get('emsg') !== null.
+      otpValue|input is cleared after wrong submission.
+
+  - from: totp
+    event: return_to_all_options_clicked
+    to: factor-selection
+    notes: Navigates to factor selection page (not fully mapped).
+
+  # --- Allow gate (OAuth consent) ---
+  - from: allow-gate
+    event: allow_clicked
+    to: oaa-spa-home
+    notes: >
+      Calls allow() JS → sets #act to "allow" → POSTs consent_frm to /oauth2/rest/approval
+      → redirects to /oaa/rui/index.html?h_ra=1. Lands on oaa-spa-home view (not
+      factors-list directly). User must click oj-button#createNewCategory to reach factors-list.
+      The allow-gate appears on EVERY successful TOTP login, not just the first consent.
+
+  - from: allow-gate
+    event: deny_clicked
+    to: oidc-access-denied
+    notes: >
+      Confirmed: redirects to /oaa/rui/oidc/redirect?error=access_denied&state=...
+      showing raw JSON {"error":"access_denied","error_description":"..."}. OAM session
+      remains valid but OAuth token is invalidated. Full re-login required to obtain a
+      new token. No user-friendly error page.
+
+  # --- Factors list ---
+  - from: factors-list
+    event: add_authentication_factor_totp_selected
+    to: totp-enroll-secret
+    notes: >
+      Clicking ChallengeOMATOTP option inside <oj-menu id="myMenu"> triggers SPA
+      view transition on the same URL. No separate add-factor or factor-type-select
+      page exists — the dropdown selection jumps directly to totp-enroll-secret.
+
+  - from: factors-list
+    event: per_factor_menu_set_as_default_clicked
+    to: factors-list
+    notes: >
+      Same SPA view; factorIsPreferred flips on the target factor. Default badge
+      (Oval.png img + "Default" span) moves to the new preferred panel.
+      Poll factorIsPreferred in factor attribute JSON to detect completion.
+
+  - from: factors-list
+    event: per_factor_menu_delete_clicked
+    to: factors-list
+    notes: Same SPA view; the deleted factor-panel element is removed from DOM.
+
+  - from: factors-list
+    event: per_factor_menu_verify_clicked
+    to: totp-enroll-verify
+    notes: >
+      Navigates to the totp-enroll-verify SPA view (same URL).
+      Used when a factor was enrolled with "Verify Later" (factorIsValidated: false).
+
+  - from: factors-list
+    event: per_factor_menu_disable_clicked
+    to: factors-list
+    notes: Same SPA view; factor status changes to Disabled.
+
+  - from: factors-list
+    event: per_factor_menu_enable_clicked
+    to: factors-list
+    notes: Same SPA view; factor status changes to Enabled.
+
+  # --- TOTP enrollment: secret view ---
+  - from: totp-enroll-secret
+    event: verify_now_clicked
+    to: totp-enroll-verify
+    notes: >
+      SPA view transition on same URL (/oaa/rui/index.html?h_ra=1).
+      otp|input appears after the transition (~500ms polling interval).
+
+  - from: totp-enroll-secret
+    event: verify_later_clicked
+    to: factors-list
+    notes: Factor saved as Unverified (factorIsValidated: false).
+
+  - from: totp-enroll-secret
+    event: cancel_clicked
+    to: factors-list
+    notes: No factor saved.
+
+  # --- TOTP enrollment: verify view ---
+  - from: totp-enroll-verify
+    event: correct_otp_submitted
+    to: factors-list
+    notes: >
+      SPA transitions back to factors-list. Newly enrolled factor appears in list
+      with factorIsEnabled: true, factorIsValidated: true, factorIsPreferred: false.
+
+  - from: totp-enroll-verify
+    event: wrong_otp_submitted
+    to: totp-enroll-verify
+    notes: >
+      Same SPA view. "Incorrect code" appears in div.oj-messaging-inline-container.
+      First and second wrong-code failures produce IDENTICAL CUNY DOM — no page-level
+      distinction between failure 1 and failure 2. Any multi-attempt UX logic lives
+      in the extension sidebar, not on the CUNY page.
+
+  - from: totp-enroll-verify
+    event: cancel_clicked
+    to: factors-list
+    notes: >
+      Confirmed: factor IS saved as Unverified (factorIsValidated: false) — not
+      discarded. The factor slot is consumed. Status shown as "Unverified" with
+      unverified-s.png icon. Verify and Delete are the only menu options available.
+    notes: Observed to return to factors-list (not back to totp-enroll-secret).
