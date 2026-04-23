@@ -11,6 +11,9 @@
       window.__e2eTotpVerified = false;
       document.getElementById("verifyBtn").addEventListener("click", function () {
         window.__e2eTotpVerified = true;
+        // Optional: redirect to ?next= URL after verification (used by plan-06+ fixture chains).
+        const next = new URLSearchParams(window.location.search).get("next");
+        if (next) window.location.href = next;
       });
     </script>
   </body>

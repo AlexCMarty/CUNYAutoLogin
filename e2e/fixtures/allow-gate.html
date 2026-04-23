@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Allow/Deny consent fixture</title>
+  </head>
+  <body>
+    <!-- Simulates /cunylogin/pages/mfaConsent.jsp -->
+    <h1 id="logout-title">Allow CUNY Login to access MFA Self-service?</h1>
+    <p>
+      To set up or manage your CUNY Login MFA authentication factor(s), you must
+      allow CUNY Login to access to the MFA self-service application.
+    </p>
+    <form id="consent_frm">
+      <input type="hidden" id="state" value="test-oauth-state" />
+      <input type="hidden" id="act" value="" />
+      <button type="button" onclick="allow()">Allow</button>
+      <button type="button" onclick="deny()">Deny</button>
+    </form>
+    <script>
+      window.__e2eAllowClicked = false;
+      window.__e2eDenyClicked = false;
+
+      window.allow = function () {
+        window.__e2eAllowClicked = true;
+        document.getElementById("act").value = "allow";
+        // ?next= controls where to redirect after Allow (used by test fixture chains).
+        const next = new URLSearchParams(window.location.search).get("next");
+        if (next) window.location.href = next;
+      };
+
+      window.deny = function () {
+        window.__e2eDenyClicked = true;
+        document.getElementById("act").value = "deny";
+        window.location.href = "/oaa/rui/oidc/redirect?error=access_denied";
+      };
+    </script>
+  </body>
+</html>

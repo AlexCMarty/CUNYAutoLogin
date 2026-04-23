@@ -5,27 +5,236 @@
     <title>Self-service TOTP onboarding fixture</title>
   </head>
   <body>
-    <!-- Relevant elements are added *long* after the URL matches.
-         Staggered delays simulates the user clicking through.
-         Delays shortened in the interest of time. -->
     <script>
       const params = new URLSearchParams(window.location.search);
+      const view = params.get("view");
       const secret = params.get("secret") ?? "UU7UV2G7UCS5LETS";
-      const secretDelayMs = Number(params.get("secretDelayMs") ?? 1_000);
-      const otpDelayMs = Number(params.get("otpDelayMs") ?? 2_000);
 
-      setTimeout(() => {
-        const totpBox = document.createElement("div");
-        totpBox.setAttribute("aria-labelledby", "key-labelled-by|label");
-        totpBox.innerHTML = secret;
-        document.body.appendChild(totpBox);
-      }, secretDelayMs);
+      // ── Legacy behaviour (no ?view=) ─────────────────────────────────────────
+      // Existing tests (18, 19) use this path. Staggered delays simulate the
+      // user clicking through the real Oracle SPA.
+      if (!view) {
+        const secretDelayMs = Number(params.get("secretDelayMs") ?? 1_000);
+        const otpDelayMs = Number(params.get("otpDelayMs") ?? 2_000);
 
-      setTimeout(() => {
-        const inputBox = document.createElement("input");
-        inputBox.setAttribute("id", "otp|input");
-        document.body.appendChild(inputBox);
-      }, otpDelayMs);
+        setTimeout(() => {
+          const totpBox = document.createElement("div");
+          totpBox.setAttribute("aria-labelledby", "key-labelled-by|label");
+          totpBox.innerHTML = secret;
+          document.body.appendChild(totpBox);
+        }, secretDelayMs);
+
+        setTimeout(() => {
+          const inputBox = document.createElement("input");
+          inputBox.setAttribute("id", "otp|input");
+          document.body.appendChild(inputBox);
+        }, otpDelayMs);
+      }
+
+      // ── ?view=home — oaa-spa-home ─────────────────────────────────────────────
+      // Detection: id="categoryActionheader" (no factor-panel, no otp|input)
+      else if (view === "home") {
+        document.body.innerHTML = `
+          <div id="categoryActionheader">My Authentication Factors</div>
+          <oj-button id="createNewCategory">
+            <button class="oj-button-button" type="button">Manage</button>
+          </oj-button>
+          <oj-button id="manageDevices">
+            <button class="oj-button-button" type="button">Manage Devices</button>
+          </oj-button>
+        `;
+        window.__e2eManageClicked = false;
+        document.querySelector("oj-button#createNewCategory button").addEventListener("click", () => {
+          window.__e2eManageClicked = true;
+          // Redirect to ?view=factors after click (300ms simulates SPA transition).
+          const next = params.get("next");
+          const target = next ?? (window.location.href.replace(/&?view=[^&]*/, "") + "&view=factors");
+          setTimeout(() => { window.location.href = target; }, 300);
+        });
+      }
+
+      // ── ?view=factors — factors-list ─────────────────────────────────────────
+      // Detection: factor-panel elements present.
+      // ?full=1 → 5 factors + ChallengeOMATOTP oj-disabled (five-factor limit).
+      else if (view === "factors") {
+        const isFull = params.get("full") === "1";
+        const existingFactors = isFull ? 5 : 1;
+
+        let factorPanelsHtml = "";
+        for (let i = 0; i < existingFactors; i++) {
+          factorPanelsHtml += `
+            <factor-panel
+              factor='{"factorName":"Mobile Authenticator","factorKey":"ChallengeOMATOTP","factorAlias":"My Phone ${i + 1}","factorIsPreferred":${i === 0},"factorIsEnabled":true,"factorIsValidated":true}'
+              index="${i}">
+            </factor-panel>
+          `;
+        }
+
+        document.body.innerHTML = `
+          ${factorPanelsHtml}
+          <oj-menu-button class="menu-button" id="menuButton">
+            <button class="oj-button-button" type="button">Add Authentication Factor</button>
+            <oj-menu slot="menu" id="addFactorMenu">
+              <oj-option id="ChallengeOMATOTP" index="0" class="${isFull ? "oj-disabled" : ""}">
+                Mobile Authenticator - TOTP
+              </oj-option>
+              <oj-option id="ChallengeEmail" index="1">Email</oj-option>
+            </oj-menu>
+          </oj-menu-button>
+        `;
+
+        window.__e2eAddFactorClicked = false;
+        window.__e2eTotpTypeSelected = false;
+
+        document.querySelector("oj-menu-button button").addEventListener("click", () => {
+          window.__e2eAddFactorClicked = true;
+          // Make the menu visible so the overlay can highlight options.
+          document.getElementById("addFactorMenu").style.display = "block";
+        });
+
+        document.getElementById("ChallengeOMATOTP").addEventListener("click", () => {
+          if (document.getElementById("ChallengeOMATOTP").classList.contains("oj-disabled")) return;
+          window.__e2eTotpTypeSelected = true;
+          const next = params.get("next");
+          const target = next ?? (window.location.href.replace(/&?view=[^&]*/, "") + "&view=secret");
+          setTimeout(() => { window.location.href = target; }, 200);
+        });
+      }
+
+      // ── ?view=secret — totp-enroll-secret ────────────────────────────────────
+      // Detection: aria-labelledby="key-labelled-by|label" present, no otp|input.
+      else if (view === "secret") {
+        document.body.innerHTML = `
+          <span id="key-labelled-by|label">Setup Key</span>
+          <div aria-labelledby="key-labelled-by|label">${secret}</div>
+          <input id="name|input" type="text" placeholder="Friendly name" />
+          <canvas id="qr-code" width="200" height="200"></canvas>
+          <button id="verify-now-btn" type="button">Verify Now</button>
+          <button id="verify-later-btn" type="button">Verify Later</button>
+          <button id="cancel-enroll-btn" type="button">Cancel</button>
+        `;
+
+        window.__e2eVerifyNowClicked = false;
+        window.__e2eVerifyLaterClicked = false;
+
+        document.getElementById("verify-now-btn").addEventListener("click", () => {
+          window.__e2eVerifyNowClicked = true;
+          const next = params.get("next");
+          const target = next ?? (window.location.href.replace(/&?view=[^&]*/, "") + "&view=verify");
+          window.location.href = target;
+        });
+
+        document.getElementById("verify-later-btn").addEventListener("click", () => {
+          window.__e2eVerifyLaterClicked = true;
+          const target = window.location.href.replace(/&?view=[^&]*/, "") + "&view=post-enroll-unverified";
+          window.location.href = target;
+        });
+      }
+
+      // ── ?view=verify — totp-enroll-verify ────────────────────────────────────
+      // Detection: otp|input present (most specific — checked first in SPA detector).
+      // ?wrongCode=1 → "Incorrect code" server-side error on Verify and Save click.
+      else if (view === "verify") {
+        const wrongCode = params.get("wrongCode") === "1";
+        const friendlyName = params.get("name") ?? "CUNYAutoLogin";
+
+        document.body.innerHTML = `
+          <span id="key-labelled-by|label">Setup Key</span>
+          <div aria-labelledby="key-labelled-by|label">${secret}</div>
+          <input id="name|input" type="text" readonly value="${friendlyName}" />
+          <input id="otp|input" type="text" maxlength="6" inputmode="numeric" />
+          <button id="verify-save-btn" type="button">Verify and Save</button>
+          <button id="cancel-verify-btn" type="button">Cancel</button>
+          <div class="oj-messaging-inline-container" style="display:none">
+            <div class="oj-message-detail"></div>
+          </div>
+        `;
+
+        window.__e2eVerifyAndSaveClicked = false;
+        window.__e2eCancelVerifyClicked = false;
+
+        document.getElementById("verify-save-btn").addEventListener("click", () => {
+          const otpValue = document.getElementById("otp|input").value;
+          const errorContainer = document.querySelector(".oj-messaging-inline-container");
+          const errorDetail = document.querySelector(".oj-message-detail");
+
+          if (!otpValue) {
+            // Client-side error: JET model empty (setInputValue would produce this).
+            errorContainer.style.display = "block";
+            errorDetail.textContent = "Enter a OTP code";
+            return;
+          }
+          if (wrongCode) {
+            // Server-side error: code delivered but rejected.
+            errorContainer.style.display = "block";
+            errorDetail.textContent = "Incorrect code";
+            return;
+          }
+          window.__e2eVerifyAndSaveClicked = true;
+          const next = params.get("next");
+          const target = next ?? (window.location.href.replace(/&?(view|wrongCode)=[^&]*/g, "") + "&view=post-enroll");
+          window.location.href = target;
+        });
+
+        document.getElementById("cancel-verify-btn").addEventListener("click", () => {
+          window.__e2eCancelVerifyClicked = true;
+          // Cancel saves factor as Unverified per site map.
+          const target = window.location.href.replace(/&?(view|wrongCode)=[^&]*/g, "") + "&view=post-enroll-unverified";
+          window.location.href = target;
+        });
+      }
+
+      // ── ?view=post-enroll — factors-list after successful enroll ──────────────
+      // CUNYAutoLogin is enrolled and validated but not yet default.
+      // Clicking Set as Default updates factorIsPreferred to true after ~1.2s.
+      else if (view === "post-enroll" || view === "post-enroll-unverified") {
+        const isUnverified = view === "post-enroll-unverified";
+        const cunyFactor = {
+          factorName: "Mobile Authenticator",
+          factorKey: "ChallengeOMATOTP",
+          factorAlias: "CUNYAutoLogin",
+          factorIsPreferred: false,
+          factorIsEnabled: true,
+          factorIsValidated: !isUnverified,
+        };
+
+        document.body.innerHTML = `
+          <factor-panel
+            factor='{"factorName":"Mobile Authenticator","factorKey":"ChallengeOMATOTP","factorAlias":"My Phone","factorIsPreferred":true,"factorIsEnabled":true,"factorIsValidated":true}'
+            id="existing-factor"
+            index="0">
+          </factor-panel>
+          <factor-panel
+            factor='${JSON.stringify(cunyFactor)}'
+            id="cuny-autologin-factor"
+            index="1">
+            <oj-menu-button class="oj-button-sm cuny-kebab">
+              <button class="oj-button-button" type="button" aria-label="Actions for CUNYAutoLogin">⋮</button>
+              <oj-menu slot="menu" id="cunyActionMenu">
+                <oj-option id="set-default-option" role="menuitem">Set as Default</oj-option>
+                <oj-option id="delete-option" role="menuitem">Delete</oj-option>
+              </oj-menu>
+            </oj-menu-button>
+          </factor-panel>
+        `;
+
+        window.__e2eSetAsDefaultClicked = false;
+
+        document.querySelector(".cuny-kebab button").addEventListener("click", () => {
+          document.getElementById("cunyActionMenu").style.display = "block";
+        });
+
+        document.getElementById("set-default-option").addEventListener("click", () => {
+          window.__e2eSetAsDefaultClicked = true;
+          // Simulate the ~1.2s propagation the real site takes.
+          setTimeout(() => {
+            const panel = document.getElementById("cuny-autologin-factor");
+            const data = JSON.parse(panel.getAttribute("factor"));
+            data.factorIsPreferred = true;
+            panel.setAttribute("factor", JSON.stringify(data));
+          }, 1200);
+        });
+      }
     </script>
   </body>
 </html>

@@ -34,7 +34,10 @@ function mapPathToFile(url) {
     return "totp.html";
   }
   if (pathname.startsWith('/oaa/rui/index.html')) {
-    return "self-service.html"
+    return "self-service.html";
+  }
+  if (pathname.startsWith('/cunylogin/pages/mfaConsent.jsp')) {
+    return "allow-gate.html";
   }
   return null;
 }
