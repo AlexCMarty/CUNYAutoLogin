@@ -120,6 +120,18 @@ e2e/
 .plans/                         Engineering plan documents (overhaul-onboarding.md, agents/plan-NN-*.md,
                                 handoff notes, roles, operator prompts). Consulted by implementation
                                 agents but not shipped in the extension build.
+.map/                           Versioned, AI-optimized reference for the live CUNY SSO login flow
+                                at https://ssologin.cuny.edu/*. Produced by navigating the live site
+                                with a real account. Use to write Playwright fixtures, integration
+                                tests, and onboarding automation without opening a browser.
+                                  pages/         — per-page markdown: selectors, timing, transitions,
+                                                   HTML skeleton (credential-entry, totp, allow-gate,
+                                                   oaa-spa-home, factors-list, totp-enroll-*)
+                                  graph.yaml     — full transition state machine
+                                  conventions.md — cross-cutting rules: selector patterns, Oracle JET
+                                                   async timing, setInputValue vs keystroke simulation
+                                Four Oracle RUI views share one URL (/oaa/rui/index.html?h_ra=1) —
+                                differentiate by DOM content only (see .map/README.md).
 dist/                           Built extension — load this folder in the browser
 ```
 

@@ -64,3 +64,5 @@ On sidebar unmount, `mountOnboarding` fires `CLEAR_ONBOARDING_CREDENTIALS` so th
 ## SSO site constants
 
 All URL path markers, DOM element IDs, and timing constants are defined in `src/cuny/ssoSite.ts`. Never hardcode paths, input IDs, or TOTP parameters in `content.ts` or `service-worker.ts` — always import from `ssoSite.ts`. This is the single place to update if CUNY changes their pages.
+
+For live page structure — selectors, timing, DOM skeletons, and the full transition graph — consult `.map/`. It is the canonical reference for writing Playwright fixtures and onboarding automation against the real CUNY SSO site without opening a browser. Start with `.map/README.md`, then the relevant `pages/*.md` file and `conventions.md` for cross-cutting rules (Oracle JET async behaviour, `setInputValue` vs keystroke simulation per input, etc.).
