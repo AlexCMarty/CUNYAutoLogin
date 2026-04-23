@@ -197,11 +197,23 @@ export const applyOnboardingMessage = (
 };
 
 const installRuntimeMessageBridge = (
-  controller: OnboardingController
+  controller: OnboardingController,
+  screenHost: HTMLElement
 ): (() => void) => {
   const listener = (message: unknown): void => {
     if (!isOnboardingMessage(message)) return;
     applyOnboardingMessage(controller, message);
+    // Plan-06: surface recovery message when content script reports the target
+    // could not be found on the CUNY tab.
+    if (
+      message.type === "ONBOARDING_STAGE_DETECTED" &&
+      message.stage === "target_not_found"
+    ) {
+      const el = screenHost.querySelector<HTMLElement>(
+        "[data-onboarding-recovery-message='true']"
+      );
+      if (el) el.hidden = false;
+    }
   };
   try {
     browser.runtime.onMessage.addListener(listener);
@@ -269,7 +281,7 @@ export const mountOnboarding = (doc: Document): (() => void) => {
     repaint();
   });
 
-  const uninstallBridge = installRuntimeMessageBridge(controller);
+  const uninstallBridge = installRuntimeMessageBridge(controller, screenHost);
 
   repaint();
 

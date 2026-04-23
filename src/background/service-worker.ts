@@ -15,11 +15,13 @@ import {
   hasOnboardingMessageType,
   isClearOnboardingCredentials,
   isOnboardingMessage,
+  isOnboardingOverlayCommand,
   isOnboardingReopenCunyTab,
   isStageOnboardingCredentials,
   type AutoFillResponse,
   type OnboardingAck,
   type OnboardingCredentialsAck,
+  type OnboardingOverlayCommand,
 } from "../onboarding/messages";
 
 type SidePanelApi = {
@@ -85,6 +87,18 @@ type StagedOnboardingCredentials = {
 };
 let stagedOnboardingCredentials: StagedOnboardingCredentials | null = null;
 
+/**
+ * Plan-06: current pending overlay command. Stored when the sidebar sends
+ * ONBOARDING_OVERLAY_COMMAND{action:"show"} and cleared on
+ * ONBOARDING_OVERLAY_COMMAND{action:"hide"}. Content scripts pull this via
+ * ONBOARDING_CONTENT_SCRIPT_READY when they load on a new CUNY page.
+ */
+let stagedOverlayCommand: OnboardingOverlayCommand | null = null;
+
+/** Exported only for tests; not part of any wire contract. */
+export const __test_getStagedOverlayCommand = (): OnboardingOverlayCommand | null =>
+  stagedOverlayCommand;
+
 /** Exported only for tests; not part of any wire contract. */
 export const __test_getStagedOnboardingCredentials = ():
   | StagedOnboardingCredentials
@@ -120,6 +134,15 @@ const handleOnboardingMessage = async (
       return { ok: true };
     } catch {
       return { ok: false, reason: "forward_failed" };
+    }
+  }
+  // Plan-06: persist show commands so content scripts can pull them on load;
+  // clear on hide so stale overlays don't appear after the student advances.
+  if (isOnboardingOverlayCommand(message)) {
+    if (message.action === "show") {
+      stagedOverlayCommand = message;
+    } else {
+      stagedOverlayCommand = null;
     }
   }
   return { ok: true };
@@ -173,6 +196,13 @@ browser.runtime.onMessage.addListener((message: unknown) => {
         return { ok: false as const };
       }
     })();
+  }
+
+  if (m.type === "ONBOARDING_CONTENT_SCRIPT_READY") {
+    // Plan-06: content script polls for the current overlay command when it
+    // loads on a new CUNY page. Return the stored command (or null) so the
+    // content script can render the overlay without a separate push mechanism.
+    return Promise.resolve({ overlayCommand: stagedOverlayCommand ?? null });
   }
 
   if (m.type === "STAGE_ONBOARDING_CREDENTIALS") {

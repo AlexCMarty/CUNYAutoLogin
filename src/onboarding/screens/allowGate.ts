@@ -1,18 +1,17 @@
 /**
- * Screen 5 — "Click Allow" gate (plan-05 detection-only stub).
+ * Screen 5 — "Click Allow" gate.
  *
- * Spec reference: `overhaul-onboarding.md §Screen 5`.
- *
- * Plan-05 delivers the transition *into* this screen (the service-worker
- * bridge dispatches `CREDENTIALS_ACCEPTED` when the content script reports the
- * first post-credential page). The on-CUNY-tab highlight + tooltip overlay,
- * and auto-advance on the real `Allow` click, land in plan-06. Until then we
- * render copy from the spec and a static "look at the CUNY tab" prompt.
+ * Plan-05 delivered the transition into this screen. Plan-06 adds:
+ *   - ONBOARDING_OVERLAY_COMMAND { action: "show" } sent on mount so the
+ *     content script highlights the Allow button on the CUNY tab.
+ *   - Recovery message div shown when TARGET_NOT_FOUND is reported back.
  *
  * Back button returns to Screen 3 per spec. No forward button — auto-advance
- * happens via `ALLOW_CLICKED` in a later plan.
+ * happens via ALLOW_CLICKED in a later plan.
  */
 
+import browser from "webextension-polyfill";
+import type { OnboardingOverlayCommand } from "../messages";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const SCREEN_HEADLINE = "One tap on the CUNY tab, then we keep going.";
@@ -20,7 +19,38 @@ const SCREEN_BODY =
   "CUNY is confirming it's really you before showing your account settings. Look for the prompt on the tab and click Allow.";
 const WAITING_LABEL =
   "Waiting for you to click Allow on the CUNY tab\u2026";
+const RECOVERY_COPY =
+  "We couldn\u2019t find the Allow button. Please check the CUNY tab and click Allow manually, or go back and try again.";
 const BACK_LABEL = "Back";
+
+/** CSS selector for the CUNY allow-gate Allow button (.map/pages/allow-gate.md). */
+const ALLOW_BTN_SELECTOR = 'button[onclick="allow()"]';
+const ALLOW_TOOLTIP = "Click Allow to continue";
+const ALLOW_STEP_INDEX = 1;
+const ALLOW_STEP_TOTAL = 1;
+
+const sendShowOverlayCommand = (): void => {
+  const command: OnboardingOverlayCommand = {
+    type: "ONBOARDING_OVERLAY_COMMAND",
+    action: "show",
+    targetSpec: { type: "css", selector: ALLOW_BTN_SELECTOR },
+    tooltipText: ALLOW_TOOLTIP,
+    stepIndex: ALLOW_STEP_INDEX,
+    stepTotal: ALLOW_STEP_TOTAL,
+  };
+  void browser.runtime.sendMessage(command).catch(() => {
+    // Service worker may be inactive \u2014 overlay will appear when content script
+    // polls on next page load.
+  });
+};
+
+const sendHideOverlayCommand = (): void => {
+  const command: OnboardingOverlayCommand = {
+    type: "ONBOARDING_OVERLAY_COMMAND",
+    action: "hide",
+  };
+  void browser.runtime.sendMessage(command).catch(() => undefined);
+};
 
 export const ALLOW_GATE_SCREEN_SELECTOR =
   "[data-onboarding-screen='ALLOW_GATE']";
@@ -48,6 +78,14 @@ export const mountAllowGateScreen: ScreenMount = (
   waiting.className = "onboarding-waiting-label";
   waiting.textContent = WAITING_LABEL;
 
+  // Recovery message — hidden until TARGET_NOT_FOUND is received from the
+  // content script. render.ts un-hides it via [data-onboarding-recovery-message].
+  const recovery = doc.createElement("p");
+  recovery.dataset.onboardingRecoveryMessage = "true";
+  recovery.className = "onboarding-recovery-message";
+  recovery.textContent = RECOVERY_COPY;
+  recovery.hidden = true;
+
   const back = doc.createElement("button");
   back.type = "button";
   back.dataset.onboardingAllowBack = "true";
@@ -61,8 +99,12 @@ export const mountAllowGateScreen: ScreenMount = (
   container.appendChild(headline);
   container.appendChild(body);
   container.appendChild(waiting);
+  container.appendChild(recovery);
   container.appendChild(actions);
   root.appendChild(container);
+
+  // Tell the content script to highlight the Allow button on the CUNY tab.
+  sendShowOverlayCommand();
 
   const handleBack = (): void => {
     dispatch("BACK");
@@ -72,6 +114,7 @@ export const mountAllowGateScreen: ScreenMount = (
   return {
     unmount: () => {
       back.removeEventListener("click", handleBack);
+      sendHideOverlayCommand();
       container.remove();
     },
   };

@@ -26,10 +26,12 @@ import {
   POST_SUBMIT_ERROR_OBSERVE_MS,
 } from "./content.utils";
 import { mountCredentialErrorBanner } from "./banner";
+import { showOverlay, hideOverlay } from "./overlay";
 import type {
   AutoFillRequest,
   AutoFillResponse,
   OnboardingCredentialError,
+  OnboardingOverlayCommand,
   OnboardingStageDetected,
   TotpSecretFromPage,
 } from "../onboarding/messages";
@@ -443,6 +445,51 @@ if (matchesRuiMfaEnrollVerifyPage(window.location.href)) {
 if (matchesTotpEnrollPage(window.location.href)) {
   void watchTotpSecretOnEnrollPage();
 }
+
+/**
+ * Plan-06: execute an overlay command received from the service worker.
+ * Called both from the ONBOARDING_CONTENT_SCRIPT_READY response (pull on
+ * page load) and from the runtime.onMessage listener (push mid-session).
+ */
+function executeOverlayCommand(cmd: OnboardingOverlayCommand): void {
+  if (cmd.action === "hide") {
+    hideOverlay();
+    return;
+  }
+  if (cmd.action === "show") {
+    const spec = cmd.targetSpec ?? (cmd.target ? { type: "css" as const, selector: cmd.target } : null);
+    if (!spec) return;
+    void (async () => {
+      const stageMsg: OnboardingStageDetected = {
+        type: "ONBOARDING_STAGE_DETECTED",
+        stage: "target_not_found",
+      };
+      showOverlay(spec, cmd.tooltipText ?? "", cmd.stepIndex ?? 1, cmd.stepTotal ?? 1, () => {
+        void browser.runtime.sendMessage(stageMsg).catch(() => undefined);
+      });
+    })();
+  }
+}
+
+/**
+ * Plan-06: pull the current overlay command from the service worker when the
+ * content script first loads. This handles the case where the sidebar entered
+ * ALLOW_GATE before the CUNY tab navigated to the current page.
+ */
+async function requestAndExecuteOverlayCommand(): Promise<void> {
+  try {
+    const response = (await browser.runtime.sendMessage({
+      type: "ONBOARDING_CONTENT_SCRIPT_READY",
+    })) as { overlayCommand: OnboardingOverlayCommand | null } | undefined;
+    if (response?.overlayCommand) {
+      executeOverlayCommand(response.overlayCommand);
+    }
+  } catch {
+    // Extension not ready or messaging failed — overlay remains hidden.
+  }
+}
+
+void requestAndExecuteOverlayCommand();
 
 // Re-export selected helpers for other content-module imports. `CREDENTIAL_ERROR_ELEMENT_ID`
 // and `CREDENTIAL_ERROR_TEXT_MARKER` live on `ssoSite` — keep them transitively reachable via

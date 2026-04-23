@@ -92,6 +92,21 @@ export const isClearOnboardingCredentials = (
   return (value as Record<string, unknown>).type === "CLEAR_ONBOARDING_CREDENTIALS";
 };
 
+// ──── plan-06: target spec types (shared with content/overlay.ts) ────────────
+
+/** Click a CUNY element via CSS selector (works for most elements). */
+export type CssTarget = { readonly type: "css"; readonly selector: string };
+
+/**
+ * Click a CUNY element via accessibility-tree text match. Required for
+ * oj-option items inside Oracle JET menus, which have display:none even when
+ * the menu is visually open — they cannot be clicked via CSS selector.
+ */
+export type A11yTarget = { readonly type: "a11y"; readonly text: string };
+
+/** Union of the two click patterns the overlay engine supports. */
+export type TargetSpec = CssTarget | A11yTarget;
+
 // ──── onboarding wire values ─────────────────────────────────────────────────
 
 /** Recognised CUNY-side page stages the content script can announce. */
@@ -104,6 +119,7 @@ export const ONBOARDING_PAGE_STAGES = [
   "totp_enroll_secret",
   "totp_enroll_verify",
   "factors_list_after_enroll",
+  "target_not_found",
 ] as const;
 export type OnboardingPageStage = (typeof ONBOARDING_PAGE_STAGES)[number];
 
@@ -137,8 +153,10 @@ export type OnboardingCredentialError = {
 export type OnboardingOverlayCommand = {
   readonly type: "ONBOARDING_OVERLAY_COMMAND";
   readonly action: OverlayAction;
-  /** CSS selector / stable hint for the overlay target element. */
+  /** CSS selector hint (legacy; prefer targetSpec for new commands). */
   readonly target?: string;
+  /** Typed target spec — supports css and a11y click patterns (plan-06). */
+  readonly targetSpec?: TargetSpec;
   readonly tooltipText?: string;
   readonly stepIndex?: number;
   readonly stepTotal?: number;
@@ -193,6 +211,13 @@ export type OnboardingAck =
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
+const isTargetSpec = (value: unknown): boolean => {
+  if (!isRecord(value)) return false;
+  if (value.type === "css") return typeof value.selector === "string";
+  if (value.type === "a11y") return typeof value.text === "string";
+  return false;
+};
+
 const isOneOf = <T extends readonly string[]>(
   value: unknown,
   allowed: T
@@ -231,6 +256,7 @@ export const isOnboardingOverlayCommand = (
   if (value.type !== "ONBOARDING_OVERLAY_COMMAND") return false;
   if (!isOneOf(value.action, OVERLAY_ACTIONS)) return false;
   if (!isOptionalString(value.target)) return false;
+  if (value.targetSpec !== undefined && !isTargetSpec(value.targetSpec)) return false;
   if (!isOptionalString(value.tooltipText)) return false;
   if (!isOptionalNonNegativeInt(value.stepIndex)) return false;
   if (!isOptionalNonNegativeInt(value.stepTotal)) return false;

@@ -44,3 +44,15 @@ const bootSidebar = async (): Promise<void> => {
 };
 
 void bootSidebar();
+
+/**
+ * Dev/e2e escape hatch: if the URL hash changes after initial boot (e.g. the
+ * sidebar was opened via toolbar action, then a test navigates it to
+ * `#onboarding=1`), reload the page so `bootSidebar()` re-runs and the
+ * onboarding shell mounts. Folds away in production via the MODE check.
+ */
+if ((DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE)) {
+  window.addEventListener("hashchange", () => {
+    window.location.reload();
+  });
+}
