@@ -37,8 +37,8 @@ The Oracle Universal Authenticator SPA (`/oaa/rui/index.html?h_ra=1`) and the TO
 |------|-----------|
 | `credential-entry` | ~275ms (standard HTML) |
 | `credential-error` | ~275ms (standard HTML) |
-| `allow-gate` | ~706ms (standard JSP) |
-| `totp` | ~15 seconds (Oracle JET SPA) |
+| `allow-gate` | ~479ms (standard JSP) |
+| `totp` | ~417ms (Oracle JET; corrected from prior ~15s assumption) |
 | `factors-list` | ~20–25 seconds (Oracle JET SPA) |
 | `totp-enroll-secret` | ~5 seconds (SPA view transition) |
 | `totp-enroll-verify` | ~500ms–1s (SPA view transition from enroll-secret) |
