@@ -300,17 +300,53 @@ describe("tampered StoredVault → decrypt_failed", () => {
 - Always run `npm run build:e2e` before `npm run test:e2e`. Stale artifacts cause false failures.
 - `workers: 1`, `fullyParallel: false` — extension storage is global to the browser context.
 - Each spec's `beforeEach` clears vault state via `#clear-vault-debug-btn` (only present in dev/e2e builds). Never assume clean state without this reset.
-- Use shared helpers from `e2e/helpers.ts` (`gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault`).
+- Use shared helpers from `e2e/helpers.ts` (`gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault`, `walkToPasswordEntry`, `onboardingHashWith`, `describePlan`).
 - Firefox is not supported in E2E — test Firefox manually via `about:debugging`.
+
+### Plan-gated tests
+
+Tests for unimplemented plans are skipped by default via the `PLAN_GATE` environment variable:
+
+```bash
+PLAN_GATE=5 npm run test:e2e   # default — 22 pass, future tests skip
+PLAN_GATE=6 npm run test:e2e   # adds plan-06 overlay tests
+PLAN_GATE=7 npm run test:e2e   # adds plan-07 guided-step tests
+PLAN_GATE=12 npm run test:e2e  # full suite
+```
+
+Spec files by plan range:
+- `e2e/onboarding.spec.ts` — plans 01–05 (no gate; always run)
+- `e2e/onboarding-guided.spec.ts` — plans 06–08
+- `e2e/onboarding-completion.spec.ts` — plans 09–12
+
+Use `describePlan(N, "title", () => { ... })` from `e2e/helpers.ts` to gate any new describe block. Never use raw `test.describe` for plan-gated tests.
 
 ### Fixture URLs
 
 All fixture URLs are named constants in `e2e/constants.ts`. Never construct or hardcode fixture URLs inside specs.
 
-```typescript
-// Good
-await fixturePage.goto(CREDENTIAL_FIXTURE_URL);
-```
+The `self-service.html` fixture supports a `?view=` parameter to simulate different SPA views at the same `/oaa/rui/index.html?h_ra=1` URL:
+
+| `?view=` | Simulates | Key DOM marker |
+|---|---|---|
+| (none) | legacy enroll flow (secret + otp\|input with delays) | — |
+| `home` | oaa-spa-home | `id="categoryActionheader"` |
+| `factors` | factors-list (1 factor) | `factor-panel` elements |
+| `factors&full=1` | factors-list at 5-factor limit | `#ChallengeOMATOTP.oj-disabled` |
+| `secret` | totp-enroll-secret | `[aria-labelledby="key-labelled-by\|label"]`, no `otp\|input` |
+| `verify` | totp-enroll-verify | `id="otp\|input"` |
+| `verify&wrongCode=1` | totp-enroll-verify, server error | same + "Incorrect code" on submit |
+| `post-enroll` | factors-list after enrollment | CUNYAutoLogin factor, kebab menu |
+| `post-enroll-unverified` | same, factor unverified | `factorIsValidated: false` |
+
+### Fixture globals for proof of extension behavior
+
+Fixture pages set `window.__e2e*` flags on key events. Assert via `page.evaluate()`:
+- `__e2eAllowClicked`, `__e2eDenyClicked` — allow-gate.html
+- `__e2eManageClicked` — self-service.html `?view=home`
+- `__e2eVerifyNowClicked`, `__e2eVerifyLaterClicked` — `?view=secret`
+- `__e2eVerifyAndSaveClicked` — `?view=verify`
+- `__e2eSetAsDefaultClicked` — `?view=post-enroll`
 
 ### Test naming
 

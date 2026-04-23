@@ -100,19 +100,26 @@ src/
 vite.config.ts                  Builds sidebar + background and emits manifest
 vite.content.config.ts          Builds `content.ts` as a single IIFE (`dist/content.js`, inline deps)
 e2e/
-  onboarding.spec.ts            Playwright: first-run / setup flow + onboarding v2 screens 1–4 +
-                                credential-error regressions (transient /auth_cred_submit must
-                                not show the banner without a #serverError marker)
+  onboarding.spec.ts            Playwright: plans 01–05 — first-run / setup flow + onboarding v2
+                                screens 1–4 + credential-error regressions. Always runs (no gate).
+  onboarding-guided.spec.ts     Plans 06–08: overlay engine, guided CUNY steps (allow→secret),
+                                OTP verify failure handling, set-as-default polling.
+                                Gated: PLAN_GATE=6/7/8 to activate respective describe blocks.
+  onboarding-completion.spec.ts Plans 09–12: extension password, biometrics, completion demo,
+                                interruption/resume, full smoke test Screen 1→13.
+                                Gated: PLAN_GATE=9/10/11/12 to activate respective blocks.
   locked.spec.ts                Playwright: vault locked behavior
   unlocked.spec.ts              Playwright: unlocked vault + autofill
-  helpers.ts                    Shared side panel / vault setup for specs
+  helpers.ts                    Shared helpers: gotoPrimarySurface, clearVaultIfPossible,
+                                setupVault, lockVault, walkToPasswordEntry, onboardingHashWith,
+                                describePlan (PLAN_GATE gating wrapper)
   extension-fixture.ts          Loads the built extension into Chromium via --load-extension
-  fixtures-server.mjs           Local HTTP server for e2e/fixtures/*.html; also maps
-                                /oam/server/auth_cred_submit?outcome=success to the
-                                success-transient fixture for credential-error regression specs
-  fixtures/                     credential, credential-error, credential-success-transient,
-                                totp, self-service
-  constants.ts                  Shared constants (FIXTURE_PORT, fixture URLs)
+  fixtures-server.mjs           Local HTTP server for e2e/fixtures/*.html
+  fixtures/                     credential (multi-variant), credential-error,
+                                credential-success-transient, totp (?next= redirect support),
+                                self-service (?view= multi-view SPA simulator),
+                                allow-gate (?next= redirect support)
+  constants.ts                  Shared constants (FIXTURE_PORT, PLAN_GATE, all fixture URLs)
   test-credentials.ts           Fabricated test credentials used only by E2E tests
 .plans/                         Engineering plan documents (overhaul-onboarding.md, agents/,
                                 roles, handoff notes). Not part of the extension build.
