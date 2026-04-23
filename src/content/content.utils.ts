@@ -45,6 +45,9 @@ export function parseTotpSecretFromEnrollDom(): string | null {
  * A plain `.value =` assignment bypasses the framework's change detection, so we
  * use the native HTMLInputElement prototype setter and then dispatch the events
  * that KO listens for.
+ *
+ * Works for most JET inputs. Does NOT work for otp|input on totp-enroll-verify —
+ * use simulateKeystrokes for that specific input instead.
  */
 export function setInputValue(el: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -54,6 +57,30 @@ export function setInputValue(el: HTMLInputElement, value: string): void {
     el.value = value;
   }
   el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/**
+ * Fills an input by dispatching per-character keyboard and input events, then
+ * updating the value one character at a time. Required for otp|input on the
+ * totp-enroll-verify SPA view, where JET's Knockout.js observable does not
+ * respond to the bulk native-setter approach used by setInputValue — the model
+ * stays empty and Oracle returns a client-side "Enter a OTP code" error.
+ */
+export function simulateKeystrokes(el: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  el.focus();
+  for (const char of value) {
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: char, bubbles: true, cancelable: true }));
+    el.dispatchEvent(new InputEvent("beforeinput", { data: char, inputType: "insertText", bubbles: true, cancelable: true }));
+    if (setter) {
+      setter.call(el, el.value + char);
+    } else {
+      el.value += char;
+    }
+    el.dispatchEvent(new InputEvent("input", { data: char, inputType: "insertText", bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent("keyup", { key: char, bubbles: true }));
+  }
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 

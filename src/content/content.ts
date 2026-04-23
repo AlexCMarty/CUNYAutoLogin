@@ -19,6 +19,7 @@ import {
 import {
   parseTotpSecretFromEnrollDom,
   setInputValue,
+  simulateKeystrokes,
   isFillMessage,
   type FillMessage,
   hasCredentialErrorInDom,
@@ -380,7 +381,7 @@ async function tryFillMfaEnrollVerifyOtp(otpInput: HTMLInputElement): Promise<bo
       return false;
     }
     const otp = await getOtp(response.payload.totpSecret);
-    setInputValue(otpInput, otp);
+    simulateKeystrokes(otpInput, otp);
     logMfaEnrollVerify("filled 6-digit code");
     return true;
   } catch (e) {

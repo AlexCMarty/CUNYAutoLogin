@@ -4,6 +4,7 @@ import {
   normalizeTotpSecretCandidate,
   parseTotpSecretFromEnrollDom,
   setInputValue,
+  simulateKeystrokes,
   isFillMessage,
   hasCredentialErrorInDom,
   TOTP_SECRET_LEN_MIN,
@@ -305,6 +306,97 @@ describe("setInputValue", () => {
     setInputValue(el, "x");
     expect(fired).toContain("input");
     expect(fired).toContain("change");
+  });
+});
+
+// ─── simulateKeystrokes ──────────────────────────────────────────────────────
+
+describe("simulateKeystrokes", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
+  function createInput(): HTMLInputElement {
+    const el = document.createElement("input");
+    document.body.appendChild(el);
+    return el;
+  }
+
+  test("sets the full value correctly", () => {
+    const el = createInput();
+    simulateKeystrokes(el, "123456");
+    expect(el.value).toBe("123456");
+  });
+
+  test("empty string leaves value empty and does not throw", () => {
+    const el = createInput();
+    expect(() => simulateKeystrokes(el, "")).not.toThrow();
+    expect(el.value).toBe("");
+  });
+
+  test("dispatches one keydown per character", () => {
+    const el = createInput();
+    const keys: string[] = [];
+    el.addEventListener("keydown", (e) => keys.push((e as KeyboardEvent).key));
+    simulateKeystrokes(el, "42");
+    expect(keys).toEqual(["4", "2"]);
+  });
+
+  test("dispatches one keyup per character", () => {
+    const el = createInput();
+    const keys: string[] = [];
+    el.addEventListener("keyup", (e) => keys.push((e as KeyboardEvent).key));
+    simulateKeystrokes(el, "42");
+    expect(keys).toEqual(["4", "2"]);
+  });
+
+  test("dispatches beforeinput with insertText type and correct data per character", () => {
+    const el = createInput();
+    const entries: { type: string; data: string | null }[] = [];
+    el.addEventListener("beforeinput", (e) => {
+      entries.push({ type: (e as InputEvent).inputType, data: (e as InputEvent).data });
+    });
+    simulateKeystrokes(el, "12");
+    expect(entries).toEqual([
+      { type: "insertText", data: "1" },
+      { type: "insertText", data: "2" },
+    ]);
+  });
+
+  test("dispatches input with insertText type per character", () => {
+    const el = createInput();
+    const types: string[] = [];
+    el.addEventListener("input", (e) => types.push((e as InputEvent).inputType));
+    simulateKeystrokes(el, "12");
+    expect(types).toEqual(["insertText", "insertText"]);
+  });
+
+  test("dispatches a single change event at the end", () => {
+    const el = createInput();
+    let count = 0;
+    el.addEventListener("change", () => count++);
+    simulateKeystrokes(el, "123");
+    expect(count).toBe(1);
+  });
+
+  test("keydown and input events bubble", () => {
+    const el = createInput();
+    let keydownBubbled = false;
+    let inputBubbled = false;
+    document.body.addEventListener("keydown", () => { keydownBubbled = true; });
+    document.body.addEventListener("input", () => { inputBubbled = true; });
+    simulateKeystrokes(el, "x");
+    expect(keydownBubbled).toBe(true);
+    expect(inputBubbled).toBe(true);
+  });
+
+  test("builds value incrementally — each input event sees one more character", () => {
+    const el = createInput();
+    const snapshots: string[] = [];
+    el.addEventListener("input", () => snapshots.push(el.value));
+    simulateKeystrokes(el, "abc");
+    expect(snapshots).toEqual(["a", "ab", "abc"]);
   });
 });
 
