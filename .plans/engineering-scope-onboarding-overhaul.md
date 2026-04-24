@@ -114,14 +114,14 @@ Create explicit state machine (source of truth in side panel controller), e.g.:
 Live-site observation shows the transition after allow-gate is **not** `allow-gate → factors-list` directly. The real sequence is:
 
 ```
-ALLOW_GATE → [student clicks Allow] → oaa-spa-home SPA view → [extension auto-clicks Manage] → GUIDED_MANAGE (factors-list loading)
+ALLOW_GATE → [student clicks Allow] → oaa-spa-home SPA view → [student clicks Manage] → GUIDED_MANAGE (factors-list loading)
 ```
 
 **Detection**: content script emits `STAGE_DETECTED` with `oaa-spa-home` when `document.getElementById('categoryActionheader')` is non-null at `/oaa/rui/index.html?h_ra=1`.
 
-**Enter action**: extension auto-clicks the Manage button — `querySelector('oj-button#createNewCategory button')` — immediately on entering this state. No student action needed.
+**Enter action**: extension highlights the Manage button — `querySelector('oj-button#createNewCategory button')` — and waits for the student to click it.
 
-**Sidebar message while in this state**: "Opening your login settings…" (loading indicator, no user action prompt).
+**Sidebar message while in this state**: prompt the student to click Manage (with a loading indicator while factors load).
 
 **Advance trigger**: content script emits `STAGE_DETECTED` with `factors-list` when `factor-panel` elements appear (19–25 seconds after the Manage click).
 

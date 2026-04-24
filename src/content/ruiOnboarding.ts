@@ -1,5 +1,5 @@
 /**
- * Plan-07: Oracle RUI (`/oaa/rui/*`) onboarding — stage posts, Manage auto-click,
+ * Plan-07: Oracle RUI (`/oaa/rui/*`) onboarding — stage posts,
  * friendly-name fill, and edge-case signals for the sidebar.
  */
 
@@ -48,7 +48,6 @@ const totpOptionIsDisabled = (doc: Document): boolean => {
   return opt?.classList.contains("oj-disabled") ?? false;
 };
 
-let manageAutoClicked = false;
 let pollId: number | null = null;
 
 const installMenuProgressClickReporters = (): void => {
@@ -95,20 +94,6 @@ export const startRuiOnboardingObservers = (): void => {
 
     if (view === "oaa_spa_home") {
       postStage("oaa_spa_home");
-      if (!manageAutoClicked) {
-        manageAutoClicked = true;
-        const btn = document.querySelector(
-          "oj-button#createNewCategory button.oj-button-button"
-        ) as HTMLElement | null;
-        if (!btn) {
-          const legacy = document.querySelector(
-            "oj-button#createNewCategory button"
-          ) as HTMLElement | null;
-          legacy?.click();
-        } else {
-          btn.click();
-        }
-      }
       return;
     }
 

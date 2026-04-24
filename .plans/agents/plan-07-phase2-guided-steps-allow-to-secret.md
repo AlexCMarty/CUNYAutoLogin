@@ -10,7 +10,7 @@ Implement guided flow from Allow gate through secret capture with synchronized s
 
 ## In Scope
 - Screen 5 Allow gate guidance.
-- `oaa-spa-home` intermediate state: auto-click Manage, then wait for factors-list to load.
+- `oaa-spa-home` intermediate state: highlight Manage, then wait for factors-list to load after the user clicks it.
 - Screens 6-9 sequence: Manage -> Add factor -> Mobile Authenticator -> Verify Now context.
 - Sidebar step-specific context copy updates.
 - Secret capture confirmation update in sidebar.
@@ -25,12 +25,12 @@ Implement guided flow from Allow gate through secret capture with synchronized s
 The old assumption was `allow-gate → factors-list` directly. The live site shows:
 
 ```
-allow-gate → [allow click] → oaa-spa-home → [auto-click Manage] → factors-list
+allow-gate → [allow click] → oaa-spa-home → [student clicks Manage] → factors-list
 ```
 
-`oaa-spa-home` detects via `document.getElementById('categoryActionheader') !== null`. The extension must auto-click the Manage button (`getElementById('createNewCategory')` inner button — use `querySelector('oj-button#createNewCategory button')`) and wait 19–25 seconds for `factor-panel` elements to appear.
+`oaa-spa-home` detects via `document.getElementById('categoryActionheader') !== null`. The extension should highlight the Manage button (`getElementById('createNewCategory')` inner button — use `querySelector('oj-button#createNewCategory button')`) and wait for `factor-panel` elements to appear after the user clicks it.
 
-The state machine in `onboarding/state.ts` needs a new state between `ALLOW_GATE` and `GUIDED_STEP_1` to represent this. The sidebar shows a loading message ("Opening your login settings…") while waiting — no user action needed.
+The state machine in `onboarding/state.ts` needs a new state between `ALLOW_GATE` and `GUIDED_STEP_1` to represent this. The sidebar should prompt the student to click Manage, with an overlay on that control.
 
 ## Confirmed selectors (from `.map/` live observation)
 
@@ -58,7 +58,7 @@ Handling required: when the extension returns to `factors-list` after a Verify L
 
 ## Implementation Tasks
 1. Add `ONBOARDING_OAA_SPA_HOME` state to `onboarding/state.ts` + transitions table; update bead mapping.
-2. Implement content script detector for `oaa-spa-home` view; auto-click Manage and emit stage event when `factor-panel` elements appear.
+2. Implement content script detector for `oaa-spa-home` view; emit stage event when `factor-panel` elements appear after user-driven Manage click.
 3. Implement selectors and detectors for each guided sub-step (Allow → Add → TOTP type → Verify Now).
 4. Bind overlay commands to detected step transitions (CSS pattern for most; A11y UID for TOTP menu item).
 5. Implement sidebar copy updates for each guided step.

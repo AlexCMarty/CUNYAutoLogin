@@ -60,7 +60,7 @@ async function setupToExtPasswordSetup(
 ): Promise<Page> {
   const cunyTab = await setupToAllowGate(page, context, extensionId);
 
-  // Allow → oaa-spa-home → (extension auto-clicks Manage) → factors
+  // Allow → oaa-spa-home → (student clicks Manage with overlay guidance) → factors
   await cunyTab.goto(ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL);
   await cunyTab.getByRole("button", { name: "Allow" }).click({ timeout: 5_000 });
   await expect(cunyTab).toHaveURL(/view=factors/, { timeout: 15_000 });

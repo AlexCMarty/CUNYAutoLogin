@@ -1,5 +1,5 @@
 /**
- * First guided step on factors list — Manage was auto-opened; student adds a factor next.
+ * First guided step on factors list — student adds a factor next.
  */
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
@@ -7,7 +7,7 @@ import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
 const HEADLINE = "Add a login code on the CUNY tab";
 const BODY =
-  "We opened your authentication settings. On the CUNY tab, click **Add Authentication Factor** to continue.";
+  "On the CUNY tab, click Add Authentication Factor to continue.";
 
 /** Add control on factors list — highlight the `oj-menu-button` (e2e asserts on host). */
 const ADD_MENU_SELECTOR = "oj-menu-button.menu-button";

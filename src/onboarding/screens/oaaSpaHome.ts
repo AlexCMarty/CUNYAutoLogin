@@ -1,12 +1,14 @@
 /**
- * SPA home view after Allow — waiting for Manage auto-click and factor panels.
+ * SPA home view after Allow — guide student to click Manage.
  */
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
+import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
-const HEADLINE = "Opening your login settings\u2026";
+const HEADLINE = "Open your login settings on the CUNY tab";
 const BODY =
-  "Hang on while we open the CUNY page where you add login codes. You do not need to click anything yet.";
+  "On the CUNY tab, click Manage under My Authentication Factors to continue.";
+const MANAGE_SELECTOR = "oj-button#createNewCategory";
 
 export const mountOaaSpaHomeScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root } = ctx;
@@ -33,8 +35,16 @@ export const mountOaaSpaHomeScreen: ScreenMount = (ctx: OnboardingScreenContext)
   container.appendChild(loading);
   root.appendChild(container);
 
+  sendShowOverlayCommand({
+    targetSpec: { type: "css", selector: MANAGE_SELECTOR },
+    tooltipText: "Click Manage",
+    stepIndex: 1,
+    stepTotal: 5,
+  });
+
   return {
     unmount: () => {
+      sendHideOverlayCommand();
       container.remove();
     },
   };

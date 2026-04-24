@@ -228,16 +228,11 @@ describePlan(7, "plan-07 — guided: oaa-spa-home", () => {
     await cunyTab.close().catch(() => {});
   });
 
-  test("extension auto-clicks Manage button on oaa-spa-home fixture", async () => {
-    // Allow-gate fixture's Allow button should be clicked by overlay, redirecting to oaa-spa-home.
-    // Plan-07 content script then auto-clicks Manage. Fixture redirects to ?view=factors.
+  test("Manage button is highlighted on oaa-spa-home fixture", async () => {
     await cunyTab.getByRole("button", { name: "Allow" }).click({ timeout: 5_000 });
-    await expect(cunyTab).toHaveURL(/view=factors/, { timeout: 15_000 });
-    expect(
-      await cunyTab.evaluate(
-        () => (window as unknown as { __e2eManageClicked?: boolean }).__e2eManageClicked
-      )
-    ).toBe(true);
+    await expect(
+      cunyTab.locator("oj-button#createNewCategory[data-cuny-autologin-highlight='true']")
+    ).toBeVisible({ timeout: 5_000 });
   });
 
   test("sidebar shows loading message while waiting for factor panels", async ({ page }) => {
@@ -250,6 +245,7 @@ describePlan(7, "plan-07 — guided: oaa-spa-home", () => {
 
   test("sidebar advances to GUIDED_MANAGE state when factor-panel elements appear", async ({ page }) => {
     await cunyTab.getByRole("button", { name: "Allow" }).click({ timeout: 5_000 });
+    await cunyTab.locator("oj-button#createNewCategory button").click({ timeout: 5_000 });
     // After factors load (CUNY tab at ?view=factors), sidebar should enter the guided step state.
     await expect(cunyTab).toHaveURL(/view=factors/, { timeout: 15_000 });
     await expect(

@@ -217,11 +217,7 @@ export const applyOnboardingMessage = (
       return;
     }
     if (stage === "add_factor") {
-      const s0 = controller.getSnapshot().state;
-      if (s0 === "GUIDED_MANAGE") {
-        controller.dispatch("GUIDED_STEP_DONE");
-      }
-      if (controller.getSnapshot().state === "GUIDED_ADD_FACTOR") {
+      if (controller.getSnapshot().state === "GUIDED_MANAGE") {
         controller.dispatch("GUIDED_STEP_DONE");
       }
       return;

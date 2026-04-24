@@ -71,9 +71,9 @@ Already sends show-overlay for `button[onclick="allow()"]` on mount and hide on 
 The recovery `<p data-onboarding-recovery-message='true'>` is already in the DOM, hidden until `target_not_found`. Plan-07's Deny handling should reuse this same element.
 
 ### `src/content/content.ts`
-Already wires `ONBOARDING_CONTENT_SCRIPT_READY` on load and `executeOverlayCommand`. Plan-07 adds **page-specific content-script behaviors** (auto-click Manage on `oaa-spa-home`, fill `name|input`, scrape secret) but must leave the overlay pull-on-ready path alone.
+Already wires `ONBOARDING_CONTENT_SCRIPT_READY` on load and `executeOverlayCommand`. Plan-07 adds **page-specific content-script behaviors** (stage detection on `oaa-spa-home`, fill `name|input`, scrape secret) but must leave the overlay pull-on-ready path alone.
 
-Auto-click of Manage etc. should be triggered by the incoming overlay command's targetSpec OR by a new dedicated mechanism — pick one and justify it; do not duplicate the existing show pipeline with a parallel "click on behalf of student" pipeline unless plan-07 explicitly requires it (the plan only says the extension auto-clicks Manage; everything else is student-driven, overlay-highlighted).
+Keep guided actions student-driven: use overlay target specs to highlight the Manage control and wait for the student's click, rather than clicking account-management controls on their behalf.
 
 ### `src/sidebar/sidebar.ts`
 Plan-06 added a **dev/e2e-only `hashchange` → `location.reload()` listener**. This fixes the test pattern where `setupToAllowGate` navigates no-hash first (for `setupVault`) then to `#onboarding=1` — Chromium does not reload on hash-only changes, so `bootSidebar()` would otherwise have already committed to the legacy vault path. The listener folds away in production via the existing `DEV_MODE_NAMES` guard. **Do not remove it.**
