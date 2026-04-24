@@ -31,8 +31,14 @@ import {
 } from "./messages";
 import { mountAllowGateScreen } from "./screens/allowGate";
 import { mountEmailEntryScreen } from "./screens/emailEntry";
+import { mountGuidedAddFactorScreen } from "./screens/guidedAddFactor";
+import { mountGuidedFactorTypeScreen } from "./screens/guidedFactorType";
+import { mountGuidedManageScreen } from "./screens/guidedManage";
+import { mountGuidedSecretCaptureScreen } from "./screens/guidedSecretCapture";
+import { mountOaaSpaHomeScreen } from "./screens/oaaSpaHome";
 import { mountOpeningCunyScreen } from "./screens/openingCuny";
 import { mountPasswordEntryScreen } from "./screens/passwordEntry";
+import { mountVerifyLoginCodeStubScreen } from "./screens/verifyLoginCodeStub";
 import type {
   OnboardingScreenContext,
   ScreenHandle,
@@ -87,6 +93,12 @@ const SCREEN_MOUNTS: Partial<Record<OnboardingState, ScreenMount>> = {
   PASSWORD_ENTRY: mountPasswordEntryScreen,
   OPENING_CUNY: mountOpeningCunyScreen,
   ALLOW_GATE: mountAllowGateScreen,
+  OAA_SPA_HOME: mountOaaSpaHomeScreen,
+  GUIDED_MANAGE: mountGuidedManageScreen,
+  GUIDED_ADD_FACTOR: mountGuidedAddFactorScreen,
+  GUIDED_FACTOR_TYPE: mountGuidedFactorTypeScreen,
+  GUIDED_SECRET_CAPTURE: mountGuidedSecretCaptureScreen,
+  VERIFY_LOGIN_CODE: mountVerifyLoginCodeStubScreen,
 };
 
 export const ONBOARDING_ROOT_ID = "onboarding-root";
@@ -187,13 +199,96 @@ export const applyOnboardingMessage = (
     return;
   }
   if (message.type === "ONBOARDING_STAGE_DETECTED") {
-    if (message.stage === "allow_gate") {
+    const stage = message.stage;
+    if (stage === "allow_gate") {
       controller.dispatch("CREDENTIALS_ACCEPTED");
+      return;
+    }
+    if (stage === "allow_button_clicked") {
+      if (controller.getSnapshot().state === "ALLOW_GATE") {
+        controller.dispatch("ALLOW_CLICKED");
+      }
+      return;
+    }
+    if (stage === "oaa_spa_home") {
+      if (controller.getSnapshot().state === "ALLOW_GATE") {
+        controller.dispatch("ALLOW_CLICKED");
+      }
+      return;
+    }
+    if (stage === "add_factor") {
+      const s0 = controller.getSnapshot().state;
+      if (s0 === "GUIDED_MANAGE") {
+        controller.dispatch("GUIDED_STEP_DONE");
+      }
+      if (controller.getSnapshot().state === "GUIDED_ADD_FACTOR") {
+        controller.dispatch("GUIDED_STEP_DONE");
+      }
+      return;
+    }
+    if (stage === "factor_type_select") {
+      if (controller.getSnapshot().state === "GUIDED_ADD_FACTOR") {
+        controller.dispatch("GUIDED_STEP_DONE");
+      }
+      return;
+    }
+    if (stage === "factors_list") {
+      const s = controller.getSnapshot().state;
+      if (s === "ALLOW_GATE") {
+        controller.dispatch("ALLOW_CLICKED");
+        controller.dispatch("FACTORS_LIST_READY");
+        controller.dispatch("GUIDED_STEP_DONE");
+      } else if (s === "OAA_SPA_HOME") {
+        controller.dispatch("FACTORS_LIST_READY");
+      }
+      return;
+    }
+    if (stage === "totp_enroll_secret") {
+      let s = controller.getSnapshot().state;
+      if (s === "ALLOW_GATE") {
+        controller.dispatch("ALLOW_CLICKED");
+        controller.dispatch("FACTORS_LIST_READY");
+        controller.dispatch("GUIDED_STEP_DONE");
+        controller.dispatch("GUIDED_STEP_DONE");
+        controller.dispatch("GUIDED_STEP_DONE");
+        return;
+      }
+      if (s === "GUIDED_ADD_FACTOR") {
+        controller.dispatch("GUIDED_STEP_DONE");
+        s = controller.getSnapshot().state;
+      }
+      if (s === "GUIDED_FACTOR_TYPE") {
+        controller.dispatch("GUIDED_STEP_DONE");
+      }
+      return;
+    }
+    if (stage === "totp_enroll_verify") {
+      if (controller.getSnapshot().state === "GUIDED_SECRET_CAPTURE") {
+        controller.dispatch("SECRET_CAPTURED");
+      }
+      return;
+    }
+    if (stage === "unverified_cunyautologin") {
+      return;
+    }
+    if (stage === "totp_factor_limit") {
+      return;
+    }
+    if (stage === "access_denied") {
+      return;
     }
     return;
   }
   // ONBOARDING_OVERLAY_COMMAND / VERIFY_STATUS / REOPEN_CUNY_TAB /
   // TAB_REATTACHED land in plan-06+.
+};
+
+const showFirstVisible = (
+  screenHost: HTMLElement,
+  selector: string
+): void => {
+  const el = screenHost.querySelector<HTMLElement>(selector);
+  if (el) el.hidden = false;
 };
 
 const installRuntimeMessageBridge = (
@@ -213,6 +308,24 @@ const installRuntimeMessageBridge = (
         "[data-onboarding-recovery-message='true']"
       );
       if (el) el.hidden = false;
+    }
+    if (
+      message.type === "ONBOARDING_STAGE_DETECTED" &&
+      message.stage === "access_denied"
+    ) {
+      showFirstVisible(screenHost, "[data-onboarding-recovery-message='true']");
+    }
+    if (
+      message.type === "ONBOARDING_STAGE_DETECTED" &&
+      message.stage === "totp_factor_limit"
+    ) {
+      showFirstVisible(screenHost, "[data-onboarding-five-factor-limit='true']");
+    }
+    if (
+      message.type === "ONBOARDING_STAGE_DETECTED" &&
+      message.stage === "unverified_cunyautologin"
+    ) {
+      showFirstVisible(screenHost, "[data-onboarding-verify-later-recovery='true']");
     }
   };
   try {

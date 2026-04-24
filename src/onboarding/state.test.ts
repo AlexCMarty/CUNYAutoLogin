@@ -15,8 +15,8 @@ import {
 // ──── constants (pinned) ──────────────────────────────────────────────────────
 
 describe("constants", () => {
-  test("17 onboarding states declared, matching engineering-scope §5.1", () => {
-    expect(ONBOARDING_STATES.length).toBe(17);
+  test("18 onboarding states declared (includes OAA_SPA_HOME for plan-07)", () => {
+    expect(ONBOARDING_STATES.length).toBe(18);
   });
 
   test("ONBOARDING_STATES values are unique", () => {
@@ -71,6 +71,7 @@ describe("STATE_TO_BEAD", () => {
   });
 
   test("bead 3 covers all guided CUNY self-service screens", () => {
+    expect(beadForState("OAA_SPA_HOME")).toBe(3);
     expect(beadForState("GUIDED_MANAGE")).toBe(3);
     expect(beadForState("GUIDED_ADD_FACTOR")).toBe(3);
     expect(beadForState("GUIDED_FACTOR_TYPE")).toBe(3);

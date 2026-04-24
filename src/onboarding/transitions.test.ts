@@ -58,6 +58,7 @@ describe("forward chain", () => {
       { from: "PASSWORD_ENTRY", event: "NEXT" },
       { from: "OPENING_CUNY", event: "CREDENTIALS_ACCEPTED" },
       { from: "ALLOW_GATE", event: "ALLOW_CLICKED" },
+      { from: "OAA_SPA_HOME", event: "FACTORS_LIST_READY" },
       { from: "GUIDED_MANAGE", event: "GUIDED_STEP_DONE" },
       { from: "GUIDED_ADD_FACTOR", event: "GUIDED_STEP_DONE" },
       { from: "GUIDED_FACTOR_TYPE", event: "GUIDED_STEP_DONE" },
@@ -110,13 +111,15 @@ describe("back-button contract", () => {
     expect(backStateFor("PASSWORD_ENTRY")).toBe("EMAIL_ENTRY");
   });
 
-  test("OPENING_CUNY + ALLOW_GATE return to PASSWORD_ENTRY (spec Screen 4/5)", () => {
+  test("OPENING_CUNY + ALLOW_GATE + OAA_SPA_HOME return to PASSWORD_ENTRY (spec Screen 4/5)", () => {
     expect(backStateFor("OPENING_CUNY")).toBe("PASSWORD_ENTRY");
     expect(backStateFor("ALLOW_GATE")).toBe("PASSWORD_ENTRY");
+    expect(backStateFor("OAA_SPA_HOME")).toBe("PASSWORD_ENTRY");
   });
 
   test("guided CUNY states all restart from PASSWORD_ENTRY on back (spec Screens 6–9)", () => {
     for (const state of [
+      "OAA_SPA_HOME",
       "GUIDED_MANAGE",
       "GUIDED_ADD_FACTOR",
       "GUIDED_FACTOR_TYPE",

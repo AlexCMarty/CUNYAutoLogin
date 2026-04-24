@@ -27,6 +27,7 @@ import {
 } from "./content.utils";
 import { mountCredentialErrorBanner } from "./banner";
 import { showOverlay, hideOverlay } from "./overlay";
+import { startRuiOnboardingObservers } from "./ruiOnboarding";
 import type {
   AutoFillRequest,
   AutoFillResponse,
@@ -442,10 +443,6 @@ if (matchesRuiMfaEnrollVerifyPage(window.location.href)) {
   startMfaEnrollVerifyOtpPolling();
 }
 
-if (matchesTotpEnrollPage(window.location.href)) {
-  void watchTotpSecretOnEnrollPage();
-}
-
 /**
  * Plan-06: execute an overlay command received from the service worker.
  * Called both from the ONBOARDING_CONTENT_SCRIPT_READY response (pull on
@@ -490,6 +487,38 @@ async function requestAndExecuteOverlayCommand(): Promise<void> {
 }
 
 void requestAndExecuteOverlayCommand();
+
+/**
+ * OAuth consent (Allow) — report click so the sidebar can leave ALLOW_GATE even
+ * when the fixture does not navigate (no `?next=`).
+ */
+const installAllowConsentClickReporter = (): void => {
+  const href = window.location.href;
+  if (!href.includes("mfaConsent")) return;
+  document.addEventListener(
+    "click",
+    (ev) => {
+      const t = ev.target;
+      if (!(t instanceof Element)) return;
+      if (!t.closest('button[onclick="allow()"]')) return;
+      const msg: OnboardingStageDetected = {
+        type: "ONBOARDING_STAGE_DETECTED",
+        stage: "allow_button_clicked",
+      };
+      void browser.runtime.sendMessage(msg).catch(() => undefined);
+    },
+    true
+  );
+};
+installAllowConsentClickReporter();
+
+if (matchesTotpEnrollPage(window.location.href)) {
+  startRuiOnboardingObservers();
+  void watchTotpSecretOnEnrollPage();
+  window.setInterval(() => {
+    void requestAndExecuteOverlayCommand();
+  }, 600);
+}
 
 // Re-export selected helpers for other content-module imports. `CREDENTIAL_ERROR_ELEMENT_ID`
 // and `CREDENTIAL_ERROR_TEXT_MARKER` live on `ssoSite` — keep them transitively reachable via

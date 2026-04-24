@@ -166,6 +166,39 @@ describe("A11y target — role=menuitem text match", () => {
     vi.advanceTimersByTime(OVERLAY_TARGET_TIMEOUT_MS);
     expect(onNotFound).toHaveBeenCalledTimes(1);
   });
+
+  test("does not highlight menuitem with oj-disabled (waits then onNotFound)", () => {
+    const item = addMenuitem("Mobile Authenticator - TOTP");
+    item.classList.add("oj-disabled");
+    const onNotFound = vi.fn();
+    showOverlay(
+      { type: "a11y", text: "Mobile Authenticator - TOTP" },
+      "text",
+      1,
+      1,
+      onNotFound
+    );
+    vi.advanceTimersByTime(OVERLAY_TARGET_TIMEOUT_MS);
+    expect(onNotFound).toHaveBeenCalledTimes(1);
+    expect(item.hasAttribute("data-cuny-autologin-highlight")).toBe(false);
+  });
+});
+
+describe("Allow overlay fast-fail on wrong SPA view", () => {
+  test("invokes onNotFound immediately when Allow is absent but factor-panel exists", async () => {
+    const panel = document.createElement("factor-panel");
+    document.body.appendChild(panel);
+    const onNotFound = vi.fn();
+    showOverlay(
+      { type: "css", selector: 'button[onclick="allow()"]' },
+      "Allow",
+      1,
+      1,
+      onNotFound
+    );
+    await Promise.resolve();
+    expect(onNotFound).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ─── anchor placement ─────────────────────────────────────────────────────────

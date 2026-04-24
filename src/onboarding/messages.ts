@@ -113,12 +113,17 @@ export type TargetSpec = CssTarget | A11yTarget;
 export const ONBOARDING_PAGE_STAGES = [
   "credential_page",
   "allow_gate",
+  "allow_button_clicked",
+  "oaa_spa_home",
   "factors_list",
   "add_factor",
   "factor_type_select",
   "totp_enroll_secret",
   "totp_enroll_verify",
   "factors_list_after_enroll",
+  "unverified_cunyautologin",
+  "totp_factor_limit",
+  "access_denied",
   "target_not_found",
 ] as const;
 export type OnboardingPageStage = (typeof ONBOARDING_PAGE_STAGES)[number];

@@ -15,6 +15,7 @@ import {
   CREDENTIAL_ERROR_ELEMENT_ID,
   CREDENTIAL_ERROR_TEXT_MARKER,
 } from "../cuny/ssoSite";
+import { detectRuiSpaView } from "./ruiSpaView";
 import {
   CREDENTIAL_ERROR_BANNER_COPY,
   CREDENTIAL_ERROR_BANNER_ID,
@@ -483,5 +484,34 @@ describe("mountCredentialErrorBanner", () => {
     mountCredentialErrorBanner(document);
     const banner = document.getElementById(CREDENTIAL_ERROR_BANNER_ID);
     expect(banner?.parentElement).toBe(document.documentElement);
+  });
+});
+
+describe("detectRuiSpaView", () => {
+  test("access_denied URL wins before DOM probes", () => {
+    document.body.innerHTML = "";
+    expect(
+      detectRuiSpaView(
+        document,
+        "https://ssologin.cuny.edu/oaa/rui/oidc/redirect?error=access_denied"
+      )
+    ).toBe("access_denied");
+  });
+
+  test("otp|input present → totp_enroll_verify", () => {
+    document.body.innerHTML = '<input id="otp|input" />';
+    expect(detectRuiSpaView(document, "https://x/oaa/rui/?h_ra=1")).toBe(
+      "totp_enroll_verify"
+    );
+  });
+
+  test("factor-panel without otp → factors_list", () => {
+    document.body.innerHTML = "<factor-panel></factor-panel>";
+    expect(detectRuiSpaView(document, "https://x")).toBe("factors_list");
+  });
+
+  test("categoryActionheader → oaa_spa_home", () => {
+    document.body.innerHTML = '<span id="categoryActionheader">Hi</span>';
+    expect(detectRuiSpaView(document, "https://x")).toBe("oaa_spa_home");
   });
 });

@@ -28,6 +28,7 @@ export const ONBOARDING_EVENTS = [
   "CREDENTIAL_ERROR_ROUTE_TO_EMAIL",
   "CREDENTIALS_ACCEPTED",
   "ALLOW_CLICKED",
+  "FACTORS_LIST_READY",
   "GUIDED_STEP_DONE",
   "SECRET_CAPTURED",
   "VERIFY_SUCCEEDED",
@@ -80,7 +81,11 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
   }),
   ALLOW_GATE: Object.freeze({
     BACK: "PASSWORD_ENTRY",
-    ALLOW_CLICKED: "GUIDED_MANAGE",
+    ALLOW_CLICKED: "OAA_SPA_HOME",
+  }),
+  OAA_SPA_HOME: Object.freeze({
+    BACK: "PASSWORD_ENTRY",
+    FACTORS_LIST_READY: "GUIDED_MANAGE",
   }),
   GUIDED_MANAGE: Object.freeze({
     // BACK inside the guided flow returns to PASSWORD_ENTRY per the confirm

@@ -63,13 +63,25 @@ export const hideOverlay = (): void => {
   }
 };
 
+const isDisabledOverlayTarget = (el: Element): boolean =>
+  el.classList.contains("oj-disabled") || el.closest(".oj-disabled") !== null;
+
 const resolveTarget = (spec: TargetSpec): Element | null => {
-  if (spec.type === "css") return document.querySelector(spec.selector);
+  if (spec.type === "css") {
+    const el = document.querySelector(spec.selector);
+    if (!el) return null;
+    if (isDisabledOverlayTarget(el)) return null;
+    return el;
+  }
   // A11y: find first element with role="menuitem" matching the text exactly.
   // Required for oj-option items that have display:none in the live DOM.
   const items = document.querySelectorAll('[role="menuitem"]');
   for (const el of items) {
-    if (el.textContent?.trim() === spec.text) return el;
+    if (el.textContent?.trim() !== spec.text) continue;
+    if (isDisabledOverlayTarget(el)) return null;
+    // Prefer the oj-option host so e2e can assert on #ChallengeOMATOTP.
+    const host = el.closest("oj-option");
+    return host ?? el;
   }
   return null;
 };
@@ -125,6 +137,9 @@ const renderOverlay = (
  * DOM yet, waits for it via MutationObserver. If it never appears within
  * OVERLAY_TARGET_TIMEOUT_MS, calls onNotFound so the sidebar can recover.
  */
+/** Allow-gate button (`.map/pages/allow-gate.md`) — used for fast-fail when the tab is already past consent. */
+const CUNY_ALLOW_OVERLAY_SELECTOR = 'button[onclick="allow()"]';
+
 export const showOverlay = (
   spec: TargetSpec,
   tooltipText: string,
@@ -133,6 +148,19 @@ export const showOverlay = (
   onNotFound: () => void
 ): void => {
   hideOverlay();
+
+  // If the sidebar still thinks we are on Allow but the tab already advanced to
+  // factors-list, fail fast so plan-06 recovery can show before plan-07 posts
+  // `factors_list` and replaces the screen (which would cancel the 5s timer).
+  if (
+    spec.type === "css" &&
+    spec.selector === CUNY_ALLOW_OVERLAY_SELECTOR &&
+    !document.querySelector(CUNY_ALLOW_OVERLAY_SELECTOR) &&
+    document.querySelector("factor-panel")
+  ) {
+    queueMicrotask(() => onNotFound());
+    return;
+  }
 
   const el = resolveTarget(spec);
   if (el) {
