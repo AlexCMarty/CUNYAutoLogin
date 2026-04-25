@@ -10,9 +10,9 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 
 Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts`).
 
-## Current state: mid-implementation of onboarding v2
+## Current state: onboarding v2 through plan 08
 
-The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–5 are merged; plans 6–12 are not.**
+The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–8 are merged; plans 9–12 are not.**
 
 The feature flag `ONBOARDING_V2_ENABLED` in `src/onboarding/state.ts` is **currently `false`**. That means:
 
@@ -20,7 +20,7 @@ The feature flag `ONBOARDING_V2_ENABLED` in `src/onboarding/state.ts` is **curre
 - The onboarding v2 code under `src/onboarding/` is fully built and unit-tested but dormant at runtime unless you opt in.
 - To exercise onboarding v2 locally, run `npm run build:dev` (or `build:e2e`) and load the sidebar with the URL hash `#onboarding=1`. That dev-only escape hatch in `sidebar.ts` folds away in production builds via `import.meta.env.MODE`.
 
-When adding work, default to **additive plan-06+ changes**. Do not flip `ONBOARDING_V2_ENABLED` or rework legacy vault behavior unless the plan you're executing explicitly requires it.
+When adding work, default to **additive plan-09+ changes**. Do not flip `ONBOARDING_V2_ENABLED` or rework legacy vault behavior unless the plan you're executing explicitly requires it.
 
 ## Project layout
 
@@ -308,9 +308,10 @@ describe("tampered StoredVault → decrypt_failed", () => {
 Tests for unimplemented plans are skipped by default via the `PLAN_GATE` environment variable:
 
 ```bash
-PLAN_GATE=5 npm run test:e2e   # default — 22 pass, future tests skip
+PLAN_GATE=5 npm run test:e2e   # baseline gate — plans 01–05 only
 PLAN_GATE=6 npm run test:e2e   # adds plan-06 overlay tests
 PLAN_GATE=7 npm run test:e2e   # adds plan-07 guided-step tests
+PLAN_GATE=8 npm run test:e2e   # adds plan-08 verify/set-default tests (currently passing)
 PLAN_GATE=12 npm run test:e2e  # full suite
 ```
 

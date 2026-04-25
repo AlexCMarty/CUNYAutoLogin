@@ -36,7 +36,7 @@ The e2e suite uses a `PLAN_GATE` environment variable to skip tests for unimplem
 PLAN_GATE=N npm run test:e2e
 ```
 
-This runs tests for plans 1–N and skips plans N+1–12. The default (`PLAN_GATE=5`) runs only the originally-merged test suite with no new failures.
+This runs tests for plans 1–N and skips plans N+1–12. The current completion checkpoint is `PLAN_GATE=8`, which passes and validates plans 01–08 together.
 
 **Spec files:**
 - `e2e/onboarding.spec.ts` — plans 01–05 (always run, no gate)
