@@ -18,7 +18,7 @@ Read every file that touches `email`, `password`, `totpSecret`, or `masterPasswo
 - **`src/onboarding/render.ts`** — the sidebar unmount path must send `CLEAR_ONBOARDING_CREDENTIALS` so the service-worker staging buffer is dropped.
 - **`src/background/service-worker.ts`** — does the decrypted vault payload (`{ email, password, totpSecret }`) get logged, stored, or forwarded anywhere other than back to the requesting content script? The onboarding staging buffer (`stagedOnboardingCredentials`) must be a module-level variable only — never written to `storage.local` or `storage.session`. The `STAGE_ONBOARDING_CREDENTIALS` / `CLEAR_ONBOARDING_CREDENTIALS` handlers must touch only that variable. The `AUTO_FILL_REQUEST` path must prefer the real vault; staging is only a fallback when no vault exists.
 - **`src/onboarding/messages.ts`** — onboarding-protocol messages (`ONBOARDING_*`) must be metadata-only. A credential payload on an onboarding message type is a finding.
-- **`src/content/content.ts`** — does it log credential values? Does it post them anywhere? Does it write them to the DOM in a way the page's JS could read?
+- **`src/content/content.ts` and extracted flow modules** (`credentialFlow.ts`, `totpLoginFlow.ts`, `totpEnrollSecretBridge.ts`, `mfaEnrollVerifyFlow.ts`, `overlayBridge.ts`, `allowConsentReporter.ts`) — does any path log credential values, post them to unsafe channels, or write them to the DOM in a way page JS can read?
 - **`src/content/banner.ts`** — the credential-error banner is user-facing copy only (no credential values embedded). Confirm no credential leakage via `dataset`, attributes, or text nodes.
 
 ### 2. Plaintext storage — is anything sensitive on disk?
@@ -33,7 +33,7 @@ Check:
 ### 3. Credential logging — do secrets appear in the console?
 
 - Search all `console.log`, `console.error`, `console.warn`, `console.debug` calls. Are any of them passed a value that could contain credentials?
-- Check the `log()` wrapper in `content.ts` — is it gated by `import.meta.env.DEV` (build-time guard, safe) or a runtime check (not safe in production)?
+- Check the `log()` wrappers in content entry/flow modules — are they gated by `import.meta.env.DEV` (build-time guard, safe) rather than runtime-only checks?
 - Check `service-worker.ts` and sidebar controller modules for any logging in catch blocks that might capture error objects containing credential data.
 
 ### 4. Attack surface — what can external code trigger?

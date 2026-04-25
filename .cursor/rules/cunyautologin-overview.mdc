@@ -24,6 +24,11 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and also responds to manual `FILL_CREDENTIALS` messages from the dev side panel.
 4. Guides a first-time student through a 13-screen onboarding flow (see `.plans/overhaul-onboarding.md` — plans 1–8 merged; plans 9–12 in progress).
 
+Recent architecture refactors (merged):
+- onboarding stage routing in `onboarding/render.ts` now uses a declarative stage-handler map,
+- shared runtime message routing helpers live in `src/runtime/messageRouter.ts`,
+- content script responsibilities are split across focused `src/content/*Flow*.ts` and `*Bridge*.ts` modules, with `content.ts` as orchestration only.
+
 Master-password handling, `storage.local` vs `storage.session`, onboarding credential staging, and related security rules are defined only in the **Security, crypto, and gotchas** project rule — do not contradict that rule.
 
 Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `popup.utils.ts`).
@@ -73,17 +78,28 @@ src/
   cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs,
                                 TOTP constants, CUNY_LOGIN_ENTRY_URL, session key names
   cuny/ssoSite.test.ts          Unit tests
-  content/content.ts            IIFE bundle: MutationObserver waits for JET inputs; fill login +
-                                TOTP; enroll-page secret scraping; MFA self-service verify OTP
-                                polling; `AUTO_FILL_REQUEST` + dev-gated `FILL_CREDENTIALS`.
-                                Emits ONBOARDING_STAGE_DETECTED / ONBOARDING_CREDENTIAL_ERROR.
-                                /auth_cred_submit credential-error detection requires the
-                                `#serverError` DOM marker (prevents false positives on transient
-                                redirects — see plan-05 fix in commit 0525eed).
+  runtime/messageRouter.ts      Shared runtime routing helpers (`routeByType`, `guardedRoute`)
+  runtime/messageRouter.test.ts Unit tests
+  content/content.ts            IIFE composition root only: startup wiring + URL routing + dev
+                                `FILL_CREDENTIALS` listener.
+  content/domWait.ts            Shared MutationObserver wait helpers
+  content/credentialFlow.ts     Credential submit/error/report flow
+  content/totpLoginFlow.ts      Login-page TOTP generation/fill flow
+  content/totpEnrollSecretBridge.ts
+                                Enroll-page secret scrape/post bridge
+  content/mfaEnrollVerifyFlow.ts
+                                Self-service enroll-verify polling/retry/pause flow
+  content/overlayBridge.ts      Pull/execute overlay commands
+  content/allowConsentReporter.ts
+                                Allow-button click reporter
   content/banner.ts             Extension-branded credential-error banner on the CUNY tab.
                                 Inline styles + INT_MAX z-index; idempotent mount/unmount.
   content/content.utils.ts      Pure helpers (TOTP normalization, enroll scrape, KO-aware input setter, message guards)
   content/content.test.ts       Unit tests (jsdom)
+  content/content.bootstrap.test.ts
+                                Entrypoint bootstrap regression tests
+  content/*Flow*.test.ts        Unit tests for extracted flow modules
+  content/*Bridge*.test.ts      Unit tests for extracted bridge modules
   background/service-worker.ts  Opens the side panel on toolbar click (Chromium sidePanel /
                                 Firefox sidebarAction). AUTO_FILL_REQUEST prefers the decrypted
                                 vault and falls back to the in-memory onboarding staging buffer

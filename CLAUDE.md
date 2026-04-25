@@ -14,6 +14,11 @@ Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts`).
 
 The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–8 are merged; plans 9–12 are not.**
 
+Recent internal refactors are merged:
+- onboarding stage routing in `onboarding/render.ts` is declarative (stage-handler map),
+- shared runtime message routing helpers live in `src/runtime/messageRouter.ts`,
+- content script flows are modularized under `src/content/*Flow*.ts` / `*Bridge*.ts`, with `content.ts` as a thin orchestrator.
+
 The feature flag `ONBOARDING_V2_ENABLED` in `src/onboarding/state.ts` is **currently `false`**. That means:
 
 - `npm run build` (production) ships the **legacy vault sidebar** (the `<main class="wrap">` UI driven by `popup/popup.ts`). Users never see onboarding v2 until the flag flips.
@@ -75,17 +80,30 @@ src/
   cuny/ssoSite.ts               Single source of truth for SSO URL path markers, DOM element IDs,
                                 TOTP constants, CUNY_LOGIN_ENTRY_URL, session key names
   cuny/ssoSite.test.ts          Unit tests: all URL matcher functions and critical constants
-  content/content.ts            IIFE bundle: MutationObserver; fill login + TOTP; enroll-page secret
-                                scraping; MFA self-service verify OTP polling; AUTO_FILL_REQUEST +
-                                FILL_CREDENTIALS (dev-only) handling. Emits ONBOARDING_STAGE_DETECTED
-                                and ONBOARDING_CREDENTIAL_ERROR during onboarding. /auth_cred_submit
-                                handling requires a #serverError DOM marker before reporting a
-                                credential error (no false positives on transient redirects).
+  runtime/messageRouter.ts      Shared typed runtime routing helpers (`routeByType`, `guardedRoute`)
+                                reused by background and onboarding bridge listeners.
+  runtime/messageRouter.test.ts Unit tests for router fallthrough/guard behavior.
+  content/content.ts            IIFE entrypoint/orchestrator only: startup wiring + URL routing +
+                                dev-only FILL_CREDENTIALS listener. Delegates behavior to flow modules.
+  content/domWait.ts            Shared MutationObserver wait helpers for async JET-rendered DOM nodes.
+  content/credentialFlow.ts     Credential page submit/error handling + onboarding credential-error reporting.
+  content/totpLoginFlow.ts      Login TOTP generation/fill behavior.
+  content/totpEnrollSecretBridge.ts
+                                Enroll-page TOTP secret scrape + post bridge.
+  content/mfaEnrollVerifyFlow.ts
+                                Self-service enroll verify polling/retry/pause flow.
+  content/overlayBridge.ts      Pull/execute overlay commands from the service worker.
+  content/allowConsentReporter.ts
+                                Allow-button click reporter for ALLOW_GATE progression.
   content/banner.ts             Extension-branded credential error banner mounted on the CUNY tab
                                 when wrong credentials are detected. Inlined styles + INT_MAX
                                 z-index to resist CUNY's CSS. Exports mount/unmount + idempotency.
   content/content.utils.ts      Pure helpers (TOTP normalization, enroll scrape, KO-aware setInputValue, message guards)
-  content/content.test.ts       Unit tests: content.utils (jsdom)
+  content/content.test.ts       Unit tests: content.utils + banner + ruiSpaView (jsdom)
+  content/content.bootstrap.test.ts
+                                Unit tests for content entrypoint startup wiring.
+  content/*Flow*.test.ts        Unit tests for extracted credential/TOTP/MFA flow modules.
+  content/*Bridge*.test.ts      Unit tests for overlay/consent bridge modules.
   background/service-worker.ts  onInstalled log; opens the side panel on toolbar-action click
                                 (Chromium sidePanel.setPanelBehavior; Firefox sidebarAction.open);
                                 AUTO_FILL_REQUEST → prefers decrypted vault, falls back to the
