@@ -43,12 +43,70 @@ const findUnverifiedCunyAutologin = (doc: Document): boolean => {
   return false;
 };
 
+const findCunyAutologinPanel = (doc: Document): {
+  isValidated: boolean;
+  isPreferred: boolean;
+} | null => {
+  for (const el of doc.querySelectorAll("factor-panel")) {
+    const raw = el.getAttribute("factor");
+    if (!raw) continue;
+    try {
+      const j = JSON.parse(raw) as {
+        factorAlias?: string;
+        factorIsValidated?: boolean;
+        factorIsPreferred?: boolean;
+      };
+      if (j.factorAlias !== CUNY_ONBOARDING_ALIAS) continue;
+      return {
+        isValidated: j.factorIsValidated === true,
+        isPreferred: j.factorIsPreferred === true,
+      };
+    } catch {
+      // ignore malformed JSON
+    }
+  }
+  return null;
+};
+
 const totpOptionIsDisabled = (doc: Document): boolean => {
   const opt = doc.querySelector("oj-option#ChallengeOMATOTP");
   return opt?.classList.contains("oj-disabled") ?? false;
 };
 
 let pollId: number | null = null;
+let setDefaultTimeoutId: number | null = null;
+
+const SET_DEFAULT_CONFIRM_TIMEOUT_MS = 2000;
+
+const armSetDefaultTimeout = (): void => {
+  if (setDefaultTimeoutId !== null) return;
+  setDefaultTimeoutId = window.setTimeout(() => {
+    setDefaultTimeoutId = null;
+    if (posted.has("set_default_confirmed")) return;
+    postStage("target_not_found");
+  }, SET_DEFAULT_CONFIRM_TIMEOUT_MS);
+};
+
+const disarmSetDefaultTimeout = (): void => {
+  if (setDefaultTimeoutId === null) return;
+  window.clearTimeout(setDefaultTimeoutId);
+  setDefaultTimeoutId = null;
+};
+
+const isCunyAutologinKebabClick = (target: Element): boolean => {
+  const kebab = target.closest("oj-menu-button.oj-button-sm");
+  if (!kebab) return false;
+  const panel = kebab.closest("factor-panel");
+  if (!panel) return false;
+  const raw = panel.getAttribute("factor");
+  if (!raw) return false;
+  try {
+    const j = JSON.parse(raw) as { factorAlias?: string };
+    return j.factorAlias === CUNY_ONBOARDING_ALIAS;
+  } catch {
+    return false;
+  }
+};
 
 const installMenuProgressClickReporters = (): void => {
   document.addEventListener(
@@ -73,6 +131,11 @@ const installMenuProgressClickReporters = (): void => {
             stage: "factor_type_select",
           })
           .catch(() => undefined);
+        return;
+      }
+      if (isCunyAutologinKebabClick(t)) {
+        postStage("set_default_menu_opened");
+        armSetDefaultTimeout();
       }
     },
     true
@@ -100,6 +163,14 @@ export const startRuiOnboardingObservers = (): void => {
     if (view === "factors_list") {
       if (document.querySelectorAll("factor-panel").length > 0) {
         postStage("factors_list");
+        const cunyFactor = findCunyAutologinPanel(document);
+        if (cunyFactor?.isValidated) {
+          postStage("factors_list_after_enroll");
+        }
+        if (cunyFactor?.isPreferred) {
+          postStage("set_default_confirmed");
+          disarmSetDefaultTimeout();
+        }
         if (totpOptionIsDisabled(document)) {
           postStage("totp_factor_limit");
         }

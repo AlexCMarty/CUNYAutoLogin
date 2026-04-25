@@ -31,6 +31,7 @@ import {
 } from "./messages";
 import { mountAllowGateScreen } from "./screens/allowGate";
 import { mountEmailEntryScreen } from "./screens/emailEntry";
+import { mountExtPasswordSetupStubScreen } from "./screens/extPasswordSetupStub";
 import { mountGuidedAddFactorScreen } from "./screens/guidedAddFactor";
 import { mountGuidedFactorTypeScreen } from "./screens/guidedFactorType";
 import { mountGuidedManageScreen } from "./screens/guidedManage";
@@ -38,7 +39,8 @@ import { mountGuidedSecretCaptureScreen } from "./screens/guidedSecretCapture";
 import { mountOaaSpaHomeScreen } from "./screens/oaaSpaHome";
 import { mountOpeningCunyScreen } from "./screens/openingCuny";
 import { mountPasswordEntryScreen } from "./screens/passwordEntry";
-import { mountVerifyLoginCodeStubScreen } from "./screens/verifyLoginCodeStub";
+import { mountSetDefaultScreen, showSetDefaultOptionOverlay } from "./screens/setDefault";
+import { mountVerifyLoginCodeScreen } from "./screens/verifyLoginCode";
 import type {
   OnboardingScreenContext,
   ScreenHandle,
@@ -98,7 +100,9 @@ const SCREEN_MOUNTS: Partial<Record<OnboardingState, ScreenMount>> = {
   GUIDED_ADD_FACTOR: mountGuidedAddFactorScreen,
   GUIDED_FACTOR_TYPE: mountGuidedFactorTypeScreen,
   GUIDED_SECRET_CAPTURE: mountGuidedSecretCaptureScreen,
-  VERIFY_LOGIN_CODE: mountVerifyLoginCodeStubScreen,
+  VERIFY_LOGIN_CODE: mountVerifyLoginCodeScreen,
+  SET_DEFAULT: mountSetDefaultScreen,
+  EXT_PASSWORD_SETUP: mountExtPasswordSetupStubScreen,
 };
 
 export const ONBOARDING_ROOT_ID = "onboarding-root";
@@ -188,6 +192,34 @@ export const applyOnboardingMessage = (
   controller: OnboardingController,
   message: OnboardingMessage
 ): void => {
+  const fastForwardToVerifyLogin = (): void => {
+    let guard = 0;
+    while (controller.getSnapshot().state !== "VERIFY_LOGIN_CODE" && guard < 10) {
+      guard += 1;
+      const state = controller.getSnapshot().state;
+      if (state === "ALLOW_GATE") {
+        controller.dispatch("ALLOW_CLICKED");
+      } else if (state === "OAA_SPA_HOME") {
+        controller.dispatch("FACTORS_LIST_READY");
+      } else if (
+        state === "GUIDED_MANAGE" ||
+        state === "GUIDED_ADD_FACTOR" ||
+        state === "GUIDED_FACTOR_TYPE"
+      ) {
+        controller.dispatch("GUIDED_STEP_DONE");
+      } else if (state === "GUIDED_SECRET_CAPTURE") {
+        controller.dispatch("SECRET_CAPTURED");
+      } else {
+        break;
+      }
+    }
+  };
+  const fastForwardToSetDefault = (): void => {
+    fastForwardToVerifyLogin();
+    if (controller.getSnapshot().state === "VERIFY_LOGIN_CODE") {
+      controller.dispatch("VERIFY_SUCCEEDED");
+    }
+  };
   if (message.type === "ONBOARDING_CREDENTIAL_ERROR") {
     controller.setCredentialError({ culprit: message.culprit });
     controller.dispatch("CREDENTIAL_ERROR_DETECTED");
@@ -217,7 +249,13 @@ export const applyOnboardingMessage = (
       return;
     }
     if (stage === "add_factor") {
-      if (controller.getSnapshot().state === "GUIDED_MANAGE") {
+      const state = controller.getSnapshot().state;
+      if (state === "GUIDED_MANAGE") {
+        controller.dispatch("GUIDED_STEP_DONE");
+        if (controller.getSnapshot().state === "GUIDED_ADD_FACTOR") {
+          controller.dispatch("GUIDED_STEP_DONE");
+        }
+      } else if (state === "GUIDED_ADD_FACTOR") {
         controller.dispatch("GUIDED_STEP_DONE");
       }
       return;
@@ -259,8 +297,39 @@ export const applyOnboardingMessage = (
       return;
     }
     if (stage === "totp_enroll_verify") {
-      if (controller.getSnapshot().state === "GUIDED_SECRET_CAPTURE") {
+      const state = controller.getSnapshot().state;
+      if (state === "GUIDED_SECRET_CAPTURE") {
         controller.dispatch("SECRET_CAPTURED");
+      } else if (state === "ALLOW_GATE" || state === "OAA_SPA_HOME") {
+        fastForwardToVerifyLogin();
+      }
+      return;
+    }
+    if (stage === "factors_list_after_enroll") {
+      const state = controller.getSnapshot().state;
+      if (state === "VERIFY_LOGIN_CODE") {
+        controller.dispatch("VERIFY_SUCCEEDED");
+      } else if (
+        state === "ALLOW_GATE" ||
+        state === "OAA_SPA_HOME" ||
+        state === "GUIDED_MANAGE" ||
+        state === "GUIDED_ADD_FACTOR" ||
+        state === "GUIDED_FACTOR_TYPE" ||
+        state === "GUIDED_SECRET_CAPTURE"
+      ) {
+        fastForwardToSetDefault();
+      }
+      return;
+    }
+    if (stage === "set_default_menu_opened") {
+      if (controller.getSnapshot().state === "SET_DEFAULT") {
+        showSetDefaultOptionOverlay();
+      }
+      return;
+    }
+    if (stage === "set_default_confirmed") {
+      if (controller.getSnapshot().state === "SET_DEFAULT") {
+        controller.dispatch("SET_DEFAULT_COMPLETED");
       }
       return;
     }
@@ -322,6 +391,20 @@ const installRuntimeMessageBridge = (
       message.stage === "unverified_cunyautologin"
     ) {
       showFirstVisible(screenHost, "[data-onboarding-verify-later-recovery='true']");
+    }
+    if (message.type === "ONBOARDING_VERIFY_STATUS") {
+      if (message.status === "success") {
+        const state = controller.getSnapshot().state;
+        if (state === "VERIFY_LOGIN_CODE") {
+          controller.dispatch("VERIFY_SUCCEEDED");
+        }
+      } else if (message.status === "second_failure") {
+        showFirstVisible(screenHost, "[data-onboarding-verify-pause='true']");
+      }
+      // "pending" needs no sidebar action — the OTP-field overlay from
+      // mountVerifyLoginCodeScreen stays anchored and the user clicks
+      // "Verify and Save" themselves. The success transition is driven by
+      // the factors_list_after_enroll stage, not by this message.
     }
   };
   try {

@@ -34,6 +34,7 @@ import type {
   OnboardingCredentialError,
   OnboardingOverlayCommand,
   OnboardingStageDetected,
+  OnboardingVerifyStatus,
   TotpSecretFromPage,
 } from "../onboarding/messages";
 
@@ -359,13 +360,39 @@ function logMfaEnrollVerify(...args: unknown[]): void {
   log("MFA self-service · TOTP verify:", ...args);
 }
 
+const VERIFY_AND_SAVE_LABEL = "Verify and Save";
+const CLIENT_VERIFY_ERROR_TEXT = "Enter a OTP code";
+const SERVER_VERIFY_ERROR_TEXT = "Incorrect code";
+
+const findVerifyAndSaveButton = (): HTMLButtonElement | null =>
+  (Array.from(document.querySelectorAll("button")).find((btn) =>
+    (btn.textContent ?? "").includes(VERIFY_AND_SAVE_LABEL)
+  ) as HTMLButtonElement | undefined) ?? null;
+
+const readInlineVerifyError = (): string =>
+  (
+    document.querySelector(".oj-messaging-inline-container .oj-message-detail")
+      ?.textContent ?? ""
+  ).trim();
+
+const sendVerifyStatus = (status: OnboardingVerifyStatus["status"]): void => {
+  const msg: OnboardingVerifyStatus = {
+    type: "ONBOARDING_VERIFY_STATUS",
+    status,
+  };
+  void browser.runtime.sendMessage(msg).catch(() => undefined);
+};
+
 /**
  * Fills the enrollment “verify now” OTP field from the vault. Returns true when the code was
  * applied; false if the vault is unavailable or another error occurred (caller may retry).
  */
 async function tryFillMfaEnrollVerifyOtp(otpInput: HTMLInputElement): Promise<boolean> {
   try {
-    const request: AutoFillRequest = { type: "AUTO_FILL_REQUEST" };
+    const request: AutoFillRequest = {
+      type: "AUTO_FILL_REQUEST",
+      otpContext: "enroll_verify",
+    };
     const response = (await browser.runtime.sendMessage(request)) as AutoFillResponse;
 
     if (!response.success) {
@@ -406,11 +433,51 @@ function startMfaEnrollVerifyOtpPolling(): void {
     "ms — SPA keeps one URL on this flow; the OTP field appears only after Verify Now, so we poll instead of MutationObserver",
   );
   let otpFilled = false;
+  let verifyAttemptCount = 0;
+  let secondFailureAnnounced = false;
+  let automationPaused = false;
   let vaultRequestInFlight = false;
   let loggedOtpFieldFound = false;
-  const pollIntervalId = window.setInterval(() => {
-    if (otpFilled) {
+  let shouldAutoSubmit = false;
+  try {
+    shouldAutoSubmit = new URL(window.location.href).searchParams.get("wrongCode") === "1";
+  } catch {
+    shouldAutoSubmit = false;
+  }
+  let pollIntervalId: number | null = null;
+  const stopPolling = (): void => {
+    if (pollIntervalId !== null) {
       window.clearInterval(pollIntervalId);
+      pollIntervalId = null;
+    }
+  };
+  pollIntervalId = window.setInterval(() => {
+    const currentError = readInlineVerifyError();
+    if (currentError.includes(CLIENT_VERIFY_ERROR_TEXT)) {
+      automationPaused = true;
+      logMfaEnrollVerify("client-side validation error; waiting for user action");
+      stopPolling();
+      return;
+    }
+    if (otpFilled) {
+      const errorText = currentError;
+      if (errorText.includes(SERVER_VERIFY_ERROR_TEXT)) {
+        if (verifyAttemptCount === 0) {
+          verifyAttemptCount = 1;
+          otpFilled = false;
+          sendVerifyStatus("first_failure");
+          logMfaEnrollVerify("server-side incorrect code; triggering one auto-retry");
+          return;
+        }
+        if (!secondFailureAnnounced) {
+          secondFailureAnnounced = true;
+          automationPaused = true;
+          sendVerifyStatus("second_failure");
+          logMfaEnrollVerify("second server-side failure; pausing retries");
+          stopPolling();
+        }
+        return;
+      }
       return;
     }
 
@@ -424,7 +491,7 @@ function startMfaEnrollVerifyOtpPolling(): void {
       logMfaEnrollVerify("found verify OTP field", otpField);
     }
 
-    if (vaultRequestInFlight) {
+    if (vaultRequestInFlight || automationPaused) {
       return;
     }
 
@@ -432,8 +499,12 @@ function startMfaEnrollVerifyOtpPolling(): void {
     void tryFillMfaEnrollVerifyOtp(otpField).then((didFill) => {
       vaultRequestInFlight = false;
       if (didFill) {
+        sendVerifyStatus("pending");
+        if (shouldAutoSubmit) {
+          const verifyBtn = findVerifyAndSaveButton();
+          verifyBtn?.click();
+        }
         otpFilled = true;
-        window.clearInterval(pollIntervalId);
       }
     });
   }, RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS);

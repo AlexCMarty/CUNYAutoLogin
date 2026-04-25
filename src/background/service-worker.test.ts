@@ -582,9 +582,57 @@ describe("plan-05 — STAGE_ONBOARDING_CREDENTIALS", () => {
 // ──── plan-05: AUTO_FILL_REQUEST fallback to staged onboarding creds ────────
 
 describe("plan-05 — AUTO_FILL_REQUEST onboarding fallback", () => {
-  test("no vault + staged onboarding credentials → success with staged email+password and empty totpSecret", async () => {
+  test("no vault + staged onboarding credentials + pending secret + enroll_verify context → returns pending totpSecret", async () => {
     // Vault is absent (onboarding is pre-vault).
     vi.mocked(isStoredVault).mockReturnValue(false);
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "ABCDEFGHIJ",
+    });
+    await handler({
+      type: "STAGE_ONBOARDING_CREDENTIALS",
+      email: "onboard@login.cuny.edu",
+      password: "pending",
+    });
+    expect(
+      await handler({ type: "AUTO_FILL_REQUEST", otpContext: "enroll_verify" })
+    ).toEqual({
+      success: true,
+      payload: {
+        email: "onboard@login.cuny.edu",
+        password: "pending",
+        totpSecret: "ABCDEFGHIJ",
+      },
+    });
+    // Clean up shared module-level state so later tests don't see stale creds.
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" });
+  });
+
+  test("no vault + staged onboarding credentials + pending secret + login_totp context → returns empty totpSecret", async () => {
+    vi.mocked(isStoredVault).mockReturnValue(false);
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "ABCDEFGHIJ",
+    });
+    await handler({
+      type: "STAGE_ONBOARDING_CREDENTIALS",
+      email: "onboard@login.cuny.edu",
+      password: "pending",
+    });
+    expect(
+      await handler({ type: "AUTO_FILL_REQUEST", otpContext: "login_totp" })
+    ).toEqual({
+      success: true,
+      payload: {
+        email: "onboard@login.cuny.edu",
+        password: "pending",
+        totpSecret: "",
+      },
+    });
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" });
+  });
+
+  test("no vault + staged onboarding credentials + no pending secret → returns empty totpSecret", async () => {
+    vi.mocked(isStoredVault).mockReturnValue(false);
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({});
     await handler({
       type: "STAGE_ONBOARDING_CREDENTIALS",
       email: "onboard@login.cuny.edu",
@@ -598,7 +646,6 @@ describe("plan-05 — AUTO_FILL_REQUEST onboarding fallback", () => {
         totpSecret: "",
       },
     });
-    // Clean up shared module-level state so later tests don't see stale creds.
     await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" });
   });
 
@@ -613,6 +660,74 @@ describe("plan-05 — AUTO_FILL_REQUEST onboarding fallback", () => {
       payload: PAYLOAD,
     });
     await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" });
+  });
+
+  test("vault present + active onboarding + pending secret + enroll_verify → totpSecret overridden with pending", async () => {
+    // Active mid-enrollment with an existing vault: the stale vault TOTP
+    // would produce wrong codes on the new factor's verify page. The fresh
+    // session-staged secret must win for `otp|input` specifically. We gate
+    // on stagedOnboardingCredentials so viewing an already-enrolled factor
+    // (no active onboarding) still uses the vault's authoritative secret.
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [SESSION_MASTER_KEY]: MASTER,
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "FRESHENROLLSECRET",
+    });
+    await handler({
+      type: "STAGE_ONBOARDING_CREDENTIALS",
+      email: "onboard@login.cuny.edu",
+      password: "pending",
+    });
+    expect(
+      await handler({ type: "AUTO_FILL_REQUEST", otpContext: "enroll_verify" })
+    ).toEqual({
+      success: true,
+      payload: {
+        email: PAYLOAD.email,
+        password: PAYLOAD.password,
+        totpSecret: "FRESHENROLLSECRET",
+      },
+    });
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" });
+  });
+
+  test("vault present + NO active onboarding + pending secret + enroll_verify → vault totpSecret retained", async () => {
+    // User is viewing their own enrolled factor's self-service page: page
+    // scrapes the secret (equal to vault's on real CUNY), but no onboarding
+    // is in flight, so the vault is authoritative. Override must NOT fire.
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [SESSION_MASTER_KEY]: MASTER,
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "SCRAPEDSECRET",
+    });
+    expect(
+      await handler({ type: "AUTO_FILL_REQUEST", otpContext: "enroll_verify" })
+    ).toEqual({
+      success: true,
+      payload: PAYLOAD,
+    });
+  });
+
+  test("vault present + pending secret + login_totp context → vault totpSecret retained (no override)", async () => {
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [SESSION_MASTER_KEY]: MASTER,
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "FRESHENROLLSECRET",
+    });
+    expect(
+      await handler({ type: "AUTO_FILL_REQUEST", otpContext: "login_totp" })
+    ).toEqual({
+      success: true,
+      payload: PAYLOAD,
+    });
+  });
+
+  test("vault present + pending secret + no otpContext → vault totpSecret retained (no override)", async () => {
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [SESSION_MASTER_KEY]: MASTER,
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "FRESHENROLLSECRET",
+    });
+    expect(await handler({ type: "AUTO_FILL_REQUEST" })).toEqual({
+      success: true,
+      payload: PAYLOAD,
+    });
   });
 
   test("no vault, no staged credentials, no session master → no_session_master", async () => {

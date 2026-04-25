@@ -223,18 +223,43 @@ browser.runtime.onMessage.addListener((message: unknown) => {
 
   return (async (): Promise<AutoFillResponse> => {
     try {
+      const otpContext = m.otpContext;
       // Prefer the encrypted vault when it is set up and unlocked (existing
       // post-onboarding flow). Fall back to the plan-05 onboarding staging
       // buffer when the vault isn't set up yet.
-      const sessionResult = await browser.storage.session?.get(SESSION_MASTER_KEY);
+      const sessionResult = await browser.storage.session?.get([
+        SESSION_MASTER_KEY,
+        PENDING_TOTP_SECRET_SESSION_KEY,
+      ]);
       const masterPassword = sessionResult?.[SESSION_MASTER_KEY];
+      const pendingTotpSecret = sessionResult?.[PENDING_TOTP_SECRET_SESSION_KEY];
+      // During mid-enrollment on `otp|input`, the freshly-scraped session
+      // secret is authoritative. It must override any stale vault secret a
+      // prior enrollment may have stored, otherwise the user types a code
+      // from the old secret into the new factor's verify field. Gate on
+      // `stagedOnboardingCredentials` so merely *viewing* an existing
+      // factor's self-service page (vault set up, no onboarding in flight)
+      // still returns the vault's authoritative secret.
+      const enrollSecretOverride: string | null =
+        otpContext === "enroll_verify" &&
+        stagedOnboardingCredentials !== null &&
+        typeof pendingTotpSecret === "string" &&
+        pendingTotpSecret.length > 0
+          ? pendingTotpSecret
+          : null;
       if (typeof masterPassword === "string") {
         const localResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
         const raw = localResult[VAULT_STORAGE_KEY];
         if (isStoredVault(raw)) {
           const decResult = await decryptVault(raw, masterPassword);
           return decResult.match<AutoFillResponse>(
-            (payload) => ({ success: true, payload }),
+            (payload) => ({
+              success: true,
+              payload:
+                enrollSecretOverride !== null
+                  ? { ...payload, totpSecret: enrollSecretOverride }
+                  : payload,
+            }),
             () => ({ success: false, reason: "decrypt_error" })
           );
         }
@@ -246,10 +271,9 @@ browser.runtime.onMessage.addListener((message: unknown) => {
           payload: {
             email: stagedOnboardingCredentials.email,
             password: stagedOnboardingCredentials.password,
-            // Onboarding is pre-TOTP-enrollment; the content script handles
-            // "no totp secret" gracefully (it only fills TOTP when a real
-            // secret is present).
-            totpSecret: "",
+            // Login challenge (`otpValue|input`) must never consume the
+            // staged enroll secret — only `otp|input` opts in via otpContext.
+            totpSecret: enrollSecretOverride ?? "",
           },
         };
       }

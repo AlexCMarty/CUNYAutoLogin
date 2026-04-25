@@ -30,6 +30,12 @@ import type { VaultPayload } from "../crypto/vault";
 
 export type AutoFillRequest = {
   readonly type: "AUTO_FILL_REQUEST";
+  /**
+   * Optional caller hint for which OTP context is being filled.
+   * - login_totp: /oaa-totp-factor (existing factor challenge)
+   * - enroll_verify: /oaa/rui/... otp|input (new-factor verification)
+   */
+  readonly otpContext?: "login_totp" | "enroll_verify";
 };
 
 export type AutoFillResponse =
@@ -121,6 +127,8 @@ export const ONBOARDING_PAGE_STAGES = [
   "totp_enroll_secret",
   "totp_enroll_verify",
   "factors_list_after_enroll",
+  "set_default_menu_opened",
+  "set_default_confirmed",
   "unverified_cunyautologin",
   "totp_factor_limit",
   "access_denied",

@@ -403,7 +403,9 @@ describePlan(8, "plan-08 — verify login code: OTP fill", () => {
 
   test.beforeEach(async ({ page, context, extensionId }) => {
     cunyTab = await setupToAllowGate(page, context, extensionId);
-    await cunyTab.goto(TOTP_ENROLL_VERIFY_FIXTURE_URL);
+    // Pin the fixture's enroll secret to the test's known value so the TOTP
+    // generated from the scraped secret matches our expected value.
+    await cunyTab.goto(`${TOTP_ENROLL_VERIFY_FIXTURE_URL}&secret=${E2E_TOTP_SECRET}`);
   });
 
   test.afterEach(async () => {
@@ -411,17 +413,40 @@ describePlan(8, "plan-08 — verify login code: OTP fill", () => {
   });
 
   test("otp|input receives correct TOTP code via keystroke simulation", async () => {
-    const { otp } = await TOTP.generate(E2E_TOTP_SECRET, TOTP_GENERATION_OPTIONS);
-    // simulateKeystrokes sets .value correctly, so toHaveValue works.
-    await expect(cunyTab.locator(`[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"]`)).toHaveValue(
-      otp,
-      { timeout: 10_000 }
+    // Wait until the extension has filled a 6-digit code.
+    await expect(
+      cunyTab.locator(`[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"]`)
+    ).toHaveValue(/^\d{6}$/, { timeout: 10_000 });
+
+    const typedValue = await cunyTab
+      .locator(`[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"]`)
+      .inputValue();
+
+    // The code must be a TOTP derived from E2E_TOTP_SECRET. Accept any of the
+    // adjacent 30s windows to absorb clock-drift between extension fill time
+    // and test assertion time (a boundary crossing would otherwise flake).
+    const now = Date.now();
+    const period = 30_000;
+    const candidates = await Promise.all(
+      [now - period, now, now + period].map(async (t) => {
+        const { otp } = await TOTP.generate(E2E_TOTP_SECRET, {
+          ...TOTP_GENERATION_OPTIONS,
+          timestamp: t,
+        });
+        return otp;
+      })
     );
+    expect(candidates).toContain(typedValue);
   });
 
-  test("Verify and Save button is highlighted after OTP fill", async () => {
+  // The overlay stays anchored on otp|input; we don't shift to the
+  // Verify-and-Save button because it has no stable selector on the live
+  // CUNY page. The user sees the filled code and clicks Save themselves.
+  test("otp|input stays highlighted after OTP fill (overlay does not vanish)", async () => {
     await expect(
-      cunyTab.locator("button#verify-save-btn[data-cuny-autologin-highlight='true']")
+      cunyTab.locator(
+        `[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"][data-cuny-autologin-highlight='true']`
+      )
     ).toBeVisible({ timeout: 10_000 });
   });
 });

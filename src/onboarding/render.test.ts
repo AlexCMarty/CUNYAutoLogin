@@ -246,13 +246,22 @@ describe("mountOnboarding", () => {
     expect(controller.getSnapshot().state).toBe("GUIDED_ADD_FACTOR");
   });
 
-  test("ONBOARDING_STAGE_DETECTED(add_factor) advances GUIDED_MANAGE → GUIDED_ADD_FACTOR", () => {
+  test("ONBOARDING_STAGE_DETECTED(add_factor) advances GUIDED_MANAGE → GUIDED_FACTOR_TYPE", () => {
     const controller = createOnboardingController({ initialState: "GUIDED_MANAGE" });
     applyOnboardingMessage(controller, {
       type: "ONBOARDING_STAGE_DETECTED",
       stage: "add_factor",
     });
-    expect(controller.getSnapshot().state).toBe("GUIDED_ADD_FACTOR");
+    expect(controller.getSnapshot().state).toBe("GUIDED_FACTOR_TYPE");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(add_factor) advances GUIDED_ADD_FACTOR → GUIDED_FACTOR_TYPE", () => {
+    const controller = createOnboardingController({ initialState: "GUIDED_ADD_FACTOR" });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "add_factor",
+    });
+    expect(controller.getSnapshot().state).toBe("GUIDED_FACTOR_TYPE");
   });
 
   test("ONBOARDING_STAGE_DETECTED(factor_type_select) advances GUIDED_ADD_FACTOR → GUIDED_FACTOR_TYPE", () => {
