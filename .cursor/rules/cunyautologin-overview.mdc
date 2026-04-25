@@ -22,7 +22,7 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
 2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
 3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and also responds to manual `FILL_CREDENTIALS` messages from the dev side panel.
-4. Guides a first-time student through a 13-screen onboarding flow (see `.plans/overhaul-onboarding.md` — plans 1–5 merged; plans 6–12 in progress).
+4. Guides a first-time student through a 13-screen onboarding flow (see `.plans/overhaul-onboarding.md` — plans 1–8 merged; plans 9–12 in progress).
 
 Master-password handling, `storage.local` vs `storage.session`, onboarding credential staging, and related security rules are defined only in the **Security, crypto, and gotchas** project rule — do not contradict that rule.
 
