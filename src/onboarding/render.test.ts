@@ -19,10 +19,12 @@ import {
   ONBOARDING_PLACEHOLDER_SELECTOR,
   ONBOARDING_ROOT_ID,
   ONBOARDING_SCREEN_HOST_SELECTOR,
+  ONBOARDING_STAGE_ROUTER_KEYS,
   applyOnboardingMessage,
   beadViewModelForState,
   mountOnboarding,
 } from "./render";
+import { ONBOARDING_PAGE_STAGES } from "./messages";
 import {
   EMAIL_FORWARD_SELECTOR,
   EMAIL_INPUT_SELECTOR,
@@ -300,6 +302,136 @@ describe("mountOnboarding", () => {
       stage: "totp_enroll_verify",
     });
     expect(controller.getSnapshot().state).toBe("VERIFY_LOGIN_CODE");
+  });
+
+  test("stage router handles every declared onboarding stage", () => {
+    expect(ONBOARDING_STAGE_ROUTER_KEYS).toEqual(ONBOARDING_PAGE_STAGES);
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(allow_button_clicked) is ignored outside ALLOW_GATE", () => {
+    const controller = createOnboardingController({ initialState: "OPENING_CUNY" });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "allow_button_clicked",
+    });
+    expect(controller.getSnapshot().state).toBe("OPENING_CUNY");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(oaa_spa_home) is ignored outside ALLOW_GATE", () => {
+    const controller = createOnboardingController({ initialState: "OPENING_CUNY" });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "oaa_spa_home",
+    });
+    expect(controller.getSnapshot().state).toBe("OPENING_CUNY");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(factor_type_select) is ignored outside GUIDED_ADD_FACTOR", () => {
+    const controller = createOnboardingController({ initialState: "GUIDED_MANAGE" });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "factor_type_select",
+    });
+    expect(controller.getSnapshot().state).toBe("GUIDED_MANAGE");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(totp_enroll_secret) from GUIDED_ADD_FACTOR reaches GUIDED_SECRET_CAPTURE", () => {
+    const controller = createOnboardingController({
+      initialState: "GUIDED_ADD_FACTOR",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "totp_enroll_secret",
+    });
+    expect(controller.getSnapshot().state).toBe("GUIDED_SECRET_CAPTURE");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(totp_enroll_secret) from GUIDED_FACTOR_TYPE reaches GUIDED_SECRET_CAPTURE", () => {
+    const controller = createOnboardingController({
+      initialState: "GUIDED_FACTOR_TYPE",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "totp_enroll_secret",
+    });
+    expect(controller.getSnapshot().state).toBe("GUIDED_SECRET_CAPTURE");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(totp_enroll_verify) from ALLOW_GATE fast-forwards to VERIFY_LOGIN_CODE", () => {
+    const controller = createOnboardingController({
+      initialState: "ALLOW_GATE",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "totp_enroll_verify",
+    });
+    expect(controller.getSnapshot().state).toBe("VERIFY_LOGIN_CODE");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(totp_enroll_verify) from OAA_SPA_HOME fast-forwards to VERIFY_LOGIN_CODE", () => {
+    const controller = createOnboardingController({
+      initialState: "OAA_SPA_HOME",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "totp_enroll_verify",
+    });
+    expect(controller.getSnapshot().state).toBe("VERIFY_LOGIN_CODE");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(factors_list_after_enroll) from VERIFY_LOGIN_CODE advances to SET_DEFAULT", () => {
+    const controller = createOnboardingController({
+      initialState: "VERIFY_LOGIN_CODE",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "factors_list_after_enroll",
+    });
+    expect(controller.getSnapshot().state).toBe("SET_DEFAULT");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(factors_list_after_enroll) from ALLOW_GATE fast-forwards to SET_DEFAULT", () => {
+    const controller = createOnboardingController({
+      initialState: "ALLOW_GATE",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "factors_list_after_enroll",
+    });
+    expect(controller.getSnapshot().state).toBe("SET_DEFAULT");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(set_default_confirmed) from SET_DEFAULT advances to EXT_PASSWORD_SETUP", () => {
+    const controller = createOnboardingController({ initialState: "SET_DEFAULT" });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "set_default_confirmed",
+    });
+    expect(controller.getSnapshot().state).toBe("EXT_PASSWORD_SETUP");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(set_default_confirmed) is ignored outside SET_DEFAULT", () => {
+    const controller = createOnboardingController({
+      initialState: "VERIFY_LOGIN_CODE",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "set_default_confirmed",
+    });
+    expect(controller.getSnapshot().state).toBe("VERIFY_LOGIN_CODE");
+  });
+
+  test.each(
+    ["unverified_cunyautologin", "totp_factor_limit", "access_denied"] as const
+  )("ONBOARDING_STAGE_DETECTED(%s) leaves state unchanged", (stage) => {
+    const controller = createOnboardingController({
+      initialState: "GUIDED_FACTOR_TYPE",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage,
+    });
+    expect(controller.getSnapshot().state).toBe("GUIDED_FACTOR_TYPE");
   });
 
   test("password forward on empty input does not advance past screen 3", () => {

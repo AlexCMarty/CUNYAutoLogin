@@ -26,7 +26,9 @@ import {
 } from "./controller";
 import {
   type ClearOnboardingCredentials,
+  ONBOARDING_PAGE_STAGES,
   type OnboardingMessage,
+  type OnboardingPageStage,
   isOnboardingMessage,
 } from "./messages";
 import { mountAllowGateScreen } from "./screens/allowGate";
@@ -220,6 +222,124 @@ export const applyOnboardingMessage = (
       controller.dispatch("VERIFY_SUCCEEDED");
     }
   };
+  const dispatchIfState = (
+    state: OnboardingState,
+    event: OnboardingEvent
+  ): void => {
+    if (controller.getSnapshot().state === state) {
+      controller.dispatch(event);
+    }
+  };
+  const dispatchSequence = (events: readonly OnboardingEvent[]): void => {
+    for (const event of events) controller.dispatch(event);
+  };
+  const handleAllowGate = (): void => {
+    controller.dispatch("CREDENTIALS_ACCEPTED");
+  };
+  const handleAllowButtonClicked = (): void => {
+    dispatchIfState("ALLOW_GATE", "ALLOW_CLICKED");
+  };
+  const handleOaaSpaHome = (): void => {
+    dispatchIfState("ALLOW_GATE", "ALLOW_CLICKED");
+  };
+  const handleAddFactor = (): void => {
+    const state = controller.getSnapshot().state;
+    if (state === "GUIDED_MANAGE") {
+      controller.dispatch("GUIDED_STEP_DONE");
+      dispatchIfState("GUIDED_ADD_FACTOR", "GUIDED_STEP_DONE");
+      return;
+    }
+    if (state === "GUIDED_ADD_FACTOR") {
+      controller.dispatch("GUIDED_STEP_DONE");
+    }
+  };
+  const handleFactorTypeSelect = (): void => {
+    dispatchIfState("GUIDED_ADD_FACTOR", "GUIDED_STEP_DONE");
+  };
+  const handleFactorsList = (): void => {
+    const state = controller.getSnapshot().state;
+    if (state === "ALLOW_GATE") {
+      dispatchSequence(["ALLOW_CLICKED", "FACTORS_LIST_READY", "GUIDED_STEP_DONE"]);
+      return;
+    }
+    if (state === "OAA_SPA_HOME") {
+      controller.dispatch("FACTORS_LIST_READY");
+    }
+  };
+  const handleTotpEnrollSecret = (): void => {
+    let state = controller.getSnapshot().state;
+    if (state === "ALLOW_GATE") {
+      dispatchSequence([
+        "ALLOW_CLICKED",
+        "FACTORS_LIST_READY",
+        "GUIDED_STEP_DONE",
+        "GUIDED_STEP_DONE",
+        "GUIDED_STEP_DONE",
+      ]);
+      return;
+    }
+    if (state === "GUIDED_ADD_FACTOR") {
+      controller.dispatch("GUIDED_STEP_DONE");
+      state = controller.getSnapshot().state;
+    }
+    if (state === "GUIDED_FACTOR_TYPE") {
+      controller.dispatch("GUIDED_STEP_DONE");
+    }
+  };
+  const handleTotpEnrollVerify = (): void => {
+    const state = controller.getSnapshot().state;
+    if (state === "GUIDED_SECRET_CAPTURE") {
+      controller.dispatch("SECRET_CAPTURED");
+      return;
+    }
+    if (state === "ALLOW_GATE" || state === "OAA_SPA_HOME") {
+      fastForwardToVerifyLogin();
+    }
+  };
+  const handleFactorsListAfterEnroll = (): void => {
+    const state = controller.getSnapshot().state;
+    if (state === "VERIFY_LOGIN_CODE") {
+      controller.dispatch("VERIFY_SUCCEEDED");
+      return;
+    }
+    if (
+      state === "ALLOW_GATE" ||
+      state === "OAA_SPA_HOME" ||
+      state === "GUIDED_MANAGE" ||
+      state === "GUIDED_ADD_FACTOR" ||
+      state === "GUIDED_FACTOR_TYPE" ||
+      state === "GUIDED_SECRET_CAPTURE"
+    ) {
+      fastForwardToSetDefault();
+    }
+  };
+  const handleSetDefaultMenuOpened = (): void => {
+    if (controller.getSnapshot().state === "SET_DEFAULT") {
+      showSetDefaultOptionOverlay();
+    }
+  };
+  const handleSetDefaultConfirmed = (): void => {
+    dispatchIfState("SET_DEFAULT", "SET_DEFAULT_COMPLETED");
+  };
+  const noopHandler = (): void => undefined;
+  const stageDetectedHandlers = Object.freeze({
+    credential_page: noopHandler,
+    allow_gate: handleAllowGate,
+    allow_button_clicked: handleAllowButtonClicked,
+    oaa_spa_home: handleOaaSpaHome,
+    factors_list: handleFactorsList,
+    add_factor: handleAddFactor,
+    factor_type_select: handleFactorTypeSelect,
+    totp_enroll_secret: handleTotpEnrollSecret,
+    totp_enroll_verify: handleTotpEnrollVerify,
+    factors_list_after_enroll: handleFactorsListAfterEnroll,
+    set_default_menu_opened: handleSetDefaultMenuOpened,
+    set_default_confirmed: handleSetDefaultConfirmed,
+    unverified_cunyautologin: noopHandler,
+    totp_factor_limit: noopHandler,
+    access_denied: noopHandler,
+    target_not_found: noopHandler,
+  } satisfies Record<OnboardingPageStage, () => void>);
   if (message.type === "ONBOARDING_CREDENTIAL_ERROR") {
     controller.setCredentialError({ culprit: message.culprit });
     controller.dispatch("CREDENTIAL_ERROR_DETECTED");
@@ -231,122 +351,14 @@ export const applyOnboardingMessage = (
     return;
   }
   if (message.type === "ONBOARDING_STAGE_DETECTED") {
-    const stage = message.stage;
-    if (stage === "allow_gate") {
-      controller.dispatch("CREDENTIALS_ACCEPTED");
-      return;
-    }
-    if (stage === "allow_button_clicked") {
-      if (controller.getSnapshot().state === "ALLOW_GATE") {
-        controller.dispatch("ALLOW_CLICKED");
-      }
-      return;
-    }
-    if (stage === "oaa_spa_home") {
-      if (controller.getSnapshot().state === "ALLOW_GATE") {
-        controller.dispatch("ALLOW_CLICKED");
-      }
-      return;
-    }
-    if (stage === "add_factor") {
-      const state = controller.getSnapshot().state;
-      if (state === "GUIDED_MANAGE") {
-        controller.dispatch("GUIDED_STEP_DONE");
-        if (controller.getSnapshot().state === "GUIDED_ADD_FACTOR") {
-          controller.dispatch("GUIDED_STEP_DONE");
-        }
-      } else if (state === "GUIDED_ADD_FACTOR") {
-        controller.dispatch("GUIDED_STEP_DONE");
-      }
-      return;
-    }
-    if (stage === "factor_type_select") {
-      if (controller.getSnapshot().state === "GUIDED_ADD_FACTOR") {
-        controller.dispatch("GUIDED_STEP_DONE");
-      }
-      return;
-    }
-    if (stage === "factors_list") {
-      const s = controller.getSnapshot().state;
-      if (s === "ALLOW_GATE") {
-        controller.dispatch("ALLOW_CLICKED");
-        controller.dispatch("FACTORS_LIST_READY");
-        controller.dispatch("GUIDED_STEP_DONE");
-      } else if (s === "OAA_SPA_HOME") {
-        controller.dispatch("FACTORS_LIST_READY");
-      }
-      return;
-    }
-    if (stage === "totp_enroll_secret") {
-      let s = controller.getSnapshot().state;
-      if (s === "ALLOW_GATE") {
-        controller.dispatch("ALLOW_CLICKED");
-        controller.dispatch("FACTORS_LIST_READY");
-        controller.dispatch("GUIDED_STEP_DONE");
-        controller.dispatch("GUIDED_STEP_DONE");
-        controller.dispatch("GUIDED_STEP_DONE");
-        return;
-      }
-      if (s === "GUIDED_ADD_FACTOR") {
-        controller.dispatch("GUIDED_STEP_DONE");
-        s = controller.getSnapshot().state;
-      }
-      if (s === "GUIDED_FACTOR_TYPE") {
-        controller.dispatch("GUIDED_STEP_DONE");
-      }
-      return;
-    }
-    if (stage === "totp_enroll_verify") {
-      const state = controller.getSnapshot().state;
-      if (state === "GUIDED_SECRET_CAPTURE") {
-        controller.dispatch("SECRET_CAPTURED");
-      } else if (state === "ALLOW_GATE" || state === "OAA_SPA_HOME") {
-        fastForwardToVerifyLogin();
-      }
-      return;
-    }
-    if (stage === "factors_list_after_enroll") {
-      const state = controller.getSnapshot().state;
-      if (state === "VERIFY_LOGIN_CODE") {
-        controller.dispatch("VERIFY_SUCCEEDED");
-      } else if (
-        state === "ALLOW_GATE" ||
-        state === "OAA_SPA_HOME" ||
-        state === "GUIDED_MANAGE" ||
-        state === "GUIDED_ADD_FACTOR" ||
-        state === "GUIDED_FACTOR_TYPE" ||
-        state === "GUIDED_SECRET_CAPTURE"
-      ) {
-        fastForwardToSetDefault();
-      }
-      return;
-    }
-    if (stage === "set_default_menu_opened") {
-      if (controller.getSnapshot().state === "SET_DEFAULT") {
-        showSetDefaultOptionOverlay();
-      }
-      return;
-    }
-    if (stage === "set_default_confirmed") {
-      if (controller.getSnapshot().state === "SET_DEFAULT") {
-        controller.dispatch("SET_DEFAULT_COMPLETED");
-      }
-      return;
-    }
-    if (stage === "unverified_cunyautologin") {
-      return;
-    }
-    if (stage === "totp_factor_limit") {
-      return;
-    }
-    if (stage === "access_denied") {
-      return;
-    }
+    stageDetectedHandlers[message.stage]();
     return;
   }
   // ONBOARDING_OVERLAY_COMMAND / VERIFY_STATUS / REOPEN_CUNY_TAB /
   // TAB_REATTACHED land in plan-06+.
 };
+
+export const ONBOARDING_STAGE_ROUTER_KEYS = ONBOARDING_PAGE_STAGES;
 
 const showFirstVisible = (
   screenHost: HTMLElement,
