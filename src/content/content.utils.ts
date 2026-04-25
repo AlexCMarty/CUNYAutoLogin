@@ -70,6 +70,16 @@ export function setInputValue(el: HTMLInputElement, value: string): void {
 export function simulateKeystrokes(el: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
   el.focus();
+  // Clear any prior value first so retries replace rather than append. Drive
+  // the JET observable to empty via a deletion `input` event before keystrokes
+  // start; otherwise a wrong-code retry produces "876345901234" not "901234".
+  if (el.value.length > 0) {
+    if (setter) setter.call(el, "");
+    else el.value = "";
+    el.dispatchEvent(
+      new InputEvent("input", { inputType: "deleteContentBackward", bubbles: true })
+    );
+  }
   for (const char of value) {
     el.dispatchEvent(new KeyboardEvent("keydown", { key: char, bubbles: true, cancelable: true }));
     el.dispatchEvent(new InputEvent("beforeinput", { data: char, inputType: "insertText", bubbles: true, cancelable: true }));

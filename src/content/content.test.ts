@@ -399,6 +399,23 @@ describe("simulateKeystrokes", () => {
     simulateKeystrokes(el, "abc");
     expect(snapshots).toEqual(["a", "ab", "abc"]);
   });
+
+  test("replaces a pre-existing value rather than appending (retry safety)", () => {
+    const el = createInput();
+    el.value = "876345";
+    simulateKeystrokes(el, "901234");
+    expect(el.value).toBe("901234");
+  });
+
+  test("dispatches deleteContentBackward input event before insertText when input had a prior value", () => {
+    const el = createInput();
+    el.value = "999999";
+    const inputTypes: string[] = [];
+    el.addEventListener("input", (e) => inputTypes.push((e as InputEvent).inputType));
+    simulateKeystrokes(el, "12");
+    // First event clears the prior value, then one insertText per character.
+    expect(inputTypes).toEqual(["deleteContentBackward", "insertText", "insertText"]);
+  });
 });
 
 // ─── hasCredentialErrorInDom ─────────────────────────────────────────────────
