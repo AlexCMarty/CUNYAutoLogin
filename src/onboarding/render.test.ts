@@ -9,7 +9,10 @@ vi.mock("webextension-polyfill", () => ({
       session: { get: vi.fn(), set: vi.fn(), remove: vi.fn() },
       local: { get: vi.fn(), set: vi.fn(), remove: vi.fn() },
     },
-    runtime: { sendMessage: vi.fn() },
+    runtime: {
+      sendMessage: vi.fn(),
+      onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
   },
 }));
 
@@ -35,6 +38,7 @@ import {
   PASSWORD_INPUT_SELECTOR,
 } from "./screens/passwordEntry";
 import { WELCOME_CTA_SELECTOR } from "./screens/welcome";
+import browser from "webextension-polyfill";
 
 const renderMain = (): HTMLElement => {
   const main = document.createElement("main");
@@ -72,6 +76,7 @@ describe("beadViewModelForState", () => {
 
 describe("mountOnboarding", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     document.body.innerHTML = "";
   });
 
@@ -105,6 +110,72 @@ describe("mountOnboarding", () => {
     unmount();
     expect(document.querySelector(BEAD_HEADER_SELECTOR)).toBeNull();
   });
+
+  test("registers and removes runtime.onMessage bridge listener on mount/unmount", () => {
+    renderOnboardingRoot();
+    const unmount = mountOnboarding(document);
+    expect(vi.mocked(browser.runtime.onMessage.addListener)).toHaveBeenCalledTimes(1);
+    const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls[0]?.[0];
+    expect(listener).toBeTypeOf("function");
+    unmount();
+    expect(vi.mocked(browser.runtime.onMessage.removeListener)).toHaveBeenCalledWith(
+      listener
+    );
+  });
+
+  test("bridge ONBOARDING_VERIFY_STATUS(second_failure) reveals verify pause message", () => {
+    renderOnboardingRoot();
+    mountOnboarding(document);
+    const host = document.querySelector(ONBOARDING_SCREEN_HOST_SELECTOR);
+    if (!(host instanceof HTMLElement)) throw new Error("screen host missing");
+    const paused = document.createElement("div");
+    paused.dataset.onboardingVerifyPause = "true";
+    paused.hidden = true;
+    host.appendChild(paused);
+
+    const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls.at(-1)?.[0];
+    if (typeof listener !== "function") throw new Error("bridge listener missing");
+    listener(
+      {
+        type: "ONBOARDING_VERIFY_STATUS",
+        status: "second_failure",
+      },
+      {} as never,
+      () => undefined
+    );
+    expect(paused.hidden).toBe(false);
+  });
+
+  test.each([
+    ["target_not_found", "data-onboarding-recovery-message"],
+    ["access_denied", "data-onboarding-recovery-message"],
+    ["totp_factor_limit", "data-onboarding-five-factor-limit"],
+    ["unverified_cunyautologin", "data-onboarding-verify-later-recovery"],
+  ] as const)(
+    "bridge ONBOARDING_STAGE_DETECTED(%s) reveals %s marker",
+    (stage, marker) => {
+      renderOnboardingRoot();
+      mountOnboarding(document);
+      const host = document.querySelector(ONBOARDING_SCREEN_HOST_SELECTOR);
+      if (!(host instanceof HTMLElement)) throw new Error("screen host missing");
+      const markerElement = document.createElement("div");
+      markerElement.setAttribute(marker, "true");
+      markerElement.hidden = true;
+      host.appendChild(markerElement);
+
+      const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls.at(-1)?.[0];
+      if (typeof listener !== "function") throw new Error("bridge listener missing");
+      listener(
+        {
+          type: "ONBOARDING_STAGE_DETECTED",
+          stage,
+        },
+        {} as never,
+        () => undefined
+      );
+      expect(markerElement.hidden).toBe(false);
+    }
+  );
 
   test("screen 1 → 2 → 3 walkable via Let's go / Continue, bead 1 stays active throughout", () => {
     renderOnboardingRoot();

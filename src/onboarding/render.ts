@@ -56,6 +56,7 @@ import {
   beadForState,
 } from "./state";
 import { type OnboardingEvent } from "./transitions";
+import { routeByType } from "../runtime/messageRouter";
 
 export type ScreenRenderer = {
   readonly state: OnboardingState;
@@ -372,52 +373,40 @@ const installRuntimeMessageBridge = (
   controller: OnboardingController,
   screenHost: HTMLElement
 ): (() => void) => {
+  const stageSideEffects = {
+    target_not_found: () =>
+      showFirstVisible(screenHost, "[data-onboarding-recovery-message='true']"),
+    access_denied: () =>
+      showFirstVisible(screenHost, "[data-onboarding-recovery-message='true']"),
+    totp_factor_limit: () =>
+      showFirstVisible(screenHost, "[data-onboarding-five-factor-limit='true']"),
+    unverified_cunyautologin: () =>
+      showFirstVisible(screenHost, "[data-onboarding-verify-later-recovery='true']"),
+  } as const;
   const listener = (message: unknown): void => {
     if (!isOnboardingMessage(message)) return;
     applyOnboardingMessage(controller, message);
-    // Plan-06: surface recovery message when content script reports the target
-    // could not be found on the CUNY tab.
-    if (
-      message.type === "ONBOARDING_STAGE_DETECTED" &&
-      message.stage === "target_not_found"
-    ) {
-      const el = screenHost.querySelector<HTMLElement>(
-        "[data-onboarding-recovery-message='true']"
-      );
-      if (el) el.hidden = false;
-    }
-    if (
-      message.type === "ONBOARDING_STAGE_DETECTED" &&
-      message.stage === "access_denied"
-    ) {
-      showFirstVisible(screenHost, "[data-onboarding-recovery-message='true']");
-    }
-    if (
-      message.type === "ONBOARDING_STAGE_DETECTED" &&
-      message.stage === "totp_factor_limit"
-    ) {
-      showFirstVisible(screenHost, "[data-onboarding-five-factor-limit='true']");
-    }
-    if (
-      message.type === "ONBOARDING_STAGE_DETECTED" &&
-      message.stage === "unverified_cunyautologin"
-    ) {
-      showFirstVisible(screenHost, "[data-onboarding-verify-later-recovery='true']");
-    }
-    if (message.type === "ONBOARDING_VERIFY_STATUS") {
-      if (message.status === "success") {
-        const state = controller.getSnapshot().state;
-        if (state === "VERIFY_LOGIN_CODE") {
-          controller.dispatch("VERIFY_SUCCEEDED");
+    routeByType(message, {
+      ONBOARDING_STAGE_DETECTED: (typedMessage) => {
+        const stage = typedMessage.stage;
+        const sideEffect = stageSideEffects[stage as keyof typeof stageSideEffects];
+        sideEffect?.();
+      },
+      ONBOARDING_VERIFY_STATUS: (typedMessage) => {
+        if (typedMessage.status === "success") {
+          const state = controller.getSnapshot().state;
+          if (state === "VERIFY_LOGIN_CODE") {
+            controller.dispatch("VERIFY_SUCCEEDED");
+          }
+        } else if (typedMessage.status === "second_failure") {
+          showFirstVisible(screenHost, "[data-onboarding-verify-pause='true']");
         }
-      } else if (message.status === "second_failure") {
-        showFirstVisible(screenHost, "[data-onboarding-verify-pause='true']");
-      }
-      // "pending" needs no sidebar action — the OTP-field overlay from
-      // mountVerifyLoginCodeScreen stays anchored and the user clicks
-      // "Verify and Save" themselves. The success transition is driven by
-      // the factors_list_after_enroll stage, not by this message.
-    }
+        // "pending" needs no sidebar action — the OTP-field overlay from
+        // mountVerifyLoginCodeScreen stays anchored and the user clicks
+        // "Verify and Save" themselves. The success transition is driven by
+        // the factors_list_after_enroll stage, not by this message.
+      },
+    });
   };
   try {
     browser.runtime.onMessage.addListener(listener);

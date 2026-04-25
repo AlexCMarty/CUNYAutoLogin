@@ -44,6 +44,7 @@ import browser from "webextension-polyfill";
 import { decryptVault, isStoredVault, VAULT_STORAGE_KEY } from "../crypto/vault";
 import type { VaultPayload } from "../crypto/vault";
 import { PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../cuny/ssoSite";
+import type { OnboardingOverlayCommand } from "../onboarding/messages";
 
 // ──── shared fixtures ─────────────────────────────────────────────────────────
 
@@ -59,9 +60,11 @@ const PAYLOAD: VaultPayload = {
 
 type MessageHandler = (msg: unknown) => unknown;
 let handler: MessageHandler;
+let getStagedOverlayCommand: () => OnboardingOverlayCommand | null;
 
 beforeAll(async () => {
-  await import("./service-worker");
+  const module = await import("./service-worker");
+  getStagedOverlayCommand = module.__test_getStagedOverlayCommand;
   handler = vi.mocked(browser.runtime.onMessage.addListener).mock
     .calls[0]![0]! as MessageHandler;
 });
@@ -423,6 +426,32 @@ describe("ONBOARDING_* — valid payload acceptance", () => {
   });
 });
 
+describe("ONBOARDING_CONTENT_SCRIPT_READY", () => {
+  test("returns null overlay command when no command staged", async () => {
+    await handler({
+      type: "ONBOARDING_OVERLAY_COMMAND",
+      action: "hide",
+    });
+    expect(await handler({ type: "ONBOARDING_CONTENT_SCRIPT_READY" })).toEqual({
+      overlayCommand: null,
+    });
+  });
+
+  test("returns staged overlay command after show action", async () => {
+    await handler({
+      type: "ONBOARDING_OVERLAY_COMMAND",
+      action: "show",
+      target: "#allow-btn",
+      tooltipText: "Click Allow to continue.",
+      stepIndex: 1,
+      stepTotal: 4,
+    });
+    expect(await handler({ type: "ONBOARDING_CONTENT_SCRIPT_READY" })).toEqual({
+      overlayCommand: getStagedOverlayCommand(),
+    });
+  });
+});
+
 // ──── ONBOARDING_* — invalid payload rejection ───────────────────────────────
 
 describe("ONBOARDING_* — invalid payload rejection", () => {
@@ -493,6 +522,49 @@ describe("ONBOARDING_* — never touches storage", () => {
     await handler({ type: "ONBOARDING_OVERLAY_COMMAND", action: "show" });
     expect(vi.mocked(browser.storage.local.get)).not.toHaveBeenCalled();
     expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+  });
+});
+
+describe("ONBOARDING_OVERLAY_COMMAND staging semantics", () => {
+  test("show action stages command", async () => {
+    await handler({
+      type: "ONBOARDING_OVERLAY_COMMAND",
+      action: "show",
+      target: "#allow-btn",
+    });
+    expect(getStagedOverlayCommand()).toEqual({
+      type: "ONBOARDING_OVERLAY_COMMAND",
+      action: "show",
+      target: "#allow-btn",
+    });
+  });
+
+  test("hide action clears staged command", async () => {
+    await handler({
+      type: "ONBOARDING_OVERLAY_COMMAND",
+      action: "show",
+      target: "#allow-btn",
+    });
+    await handler({
+      type: "ONBOARDING_OVERLAY_COMMAND",
+      action: "hide",
+    });
+    expect(getStagedOverlayCommand()).toBeNull();
+  });
+
+  test("invalid overlay payload does not change staged command", async () => {
+    await handler({
+      type: "ONBOARDING_OVERLAY_COMMAND",
+      action: "show",
+      target: "#allow-btn",
+    });
+    const before = getStagedOverlayCommand();
+    await handler({
+      type: "ONBOARDING_OVERLAY_COMMAND",
+      action: "show",
+      target: 42,
+    });
+    expect(getStagedOverlayCommand()).toEqual(before);
   });
 });
 
