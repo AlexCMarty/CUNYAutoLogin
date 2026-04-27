@@ -8,10 +8,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   testDir: path.join(__dirname, "e2e"),
   testMatch: /.*\.spec\.ts/,
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  workers: 6, // By trial and error, increasing this will make tests take longer.
   reporter: [["list"], ["html", { open: "never" }]],
   timeout: 60_000,
   use: {

@@ -316,7 +316,6 @@ describe("tampered StoredVault → decrypt_failed", () => {
 ## E2E testing conventions
 
 - Always run `npm run build:e2e` before `npm run test:e2e`. Stale artifacts cause false failures.
-- `workers: 1`, `fullyParallel: false` — extension storage is global to the browser context.
 - Each spec's `beforeEach` clears vault state via `#clear-vault-debug-btn` (only present in dev/e2e builds). Never assume clean state without this reset.
 - Use shared helpers from `e2e/helpers.ts` (`gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault`, `walkToPasswordEntry`, `onboardingHashWith`, `describePlan`).
 - Firefox is not supported in E2E — test Firefox manually via `about:debugging`.
