@@ -36,7 +36,7 @@ The e2e suite uses a `PLAN_GATE` environment variable to skip tests for unimplem
 PLAN_GATE=N npm run test:e2e
 ```
 
-This runs tests for plans 1–N and skips plans N+1–12. The current completion checkpoint is `PLAN_GATE=8`, which passes and validates plans 01–08 together.
+This runs tests for plans 1–N and skips plans N+1–12. The current completion checkpoint is `PLAN_GATE=9`, which passes and validates plans 01–09 together.
 
 **Spec files:**
 - `e2e/onboarding.spec.ts` — plans 01–05 (always run, no gate)
@@ -73,8 +73,12 @@ This runs tests for plans 1–N and skips plans N+1–12. The current completion
    - Use selectors from `.map/pages/` — never guess or invent DOM selectors.
 3. **Verify**
    - Run the exact required tests from `PLAN_FILE`.
+   - Run all unit tests with `npm run test:unit`
    - Run `PLAN_GATE=N npm run test:e2e` where N = this plan's number.
    - Run any additional focused tests needed to prove no regression in touched areas.
+   - After all tests pass, invoke the cuny-extension-tester agent and have it check your work. Be sure to pass in `.env/cred.txt` for credentials and the PLAN_GATE.
+   - Fix whatever it says is broken.
+   - Only finish when the cuny-extension-tester approves.
 4. **Gate check**
    - Evaluate each validation criterion from `PLAN_FILE` one by one.
    - If any criterion fails, do not claim completion.
