@@ -19,7 +19,9 @@ Always run `npm run build:e2e` before `npm run test:e2e`. The Playwright specs l
   - `credential-error.html` — `/oam/server/auth_cred_submit` (default)
   - `credential-success-transient.html` — `/oam/server/auth_cred_submit?outcome=success`
   - `totp.html` — `/oaa-totp-factor/` (supports `?next=<url>` to redirect after auto-fill)
-  - `self-service.html` — `/oaa/rui/index.html` (supports `?view=home|factors|secret|verify|post-enroll|post-enroll-unverified`; no `?view` = legacy enroll behavior)
+  - `self-service.html` — `/oaa/rui/index.html` (supports `?view=home|factors|secret|verify|post-enroll|post-enroll-unverified`; no `?view` = legacy enroll behavior).
+    `?view=home` auto-clicks Manage 1500ms after the overlay highlights it (lets `setupToExtPasswordSetup` drive the flow without an explicit locator click).
+    `?view=secret` Verify Now appends `&autoSubmit=1` to the verify URL; `?view=verify&autoSubmit=1` suppresses the empty-OTP error and auto-submits once the extension fills a 6-digit code.
   - `allow-gate.html` — `/cunylogin/pages/mfaConsent.jsp` (supports `?next=<url>` on Allow click)
 - **Extension loader** (`e2e/extension-fixture.ts`): Extends Playwright's `test` with a `context` fixture that launches Chromium via `chromium.launchPersistentContext` with `--load-extension=dist/`. Also provides the `extensionId` fixture (parsed from the service worker URL).
 - **Firefox is not supported** in E2E — Firefox does not allow loading temporary extensions via CLI flags in the same way. Test manually via `about:debugging`.
@@ -29,8 +31,8 @@ Always run `npm run build:e2e` before `npm run test:e2e`. The Playwright specs l
 Tests for unimplemented plans are skipped automatically via `PLAN_GATE`:
 
 ```bash
-PLAN_GATE=5 npm run test:e2e   # default: 22 pass, 58 skip
-PLAN_GATE=6 npm run test:e2e   # plan-06 overlay tests run
+PLAN_GATE=5 npm run test:e2e   # plans 01–05 only
+PLAN_GATE=9 npm run test:e2e   # current checkpoint: 67 pass, 13 skip (plans 10–12 skipped)
 PLAN_GATE=12 npm run test:e2e  # full suite (all plans implemented)
 ```
 
@@ -43,7 +45,7 @@ Use `describePlan(N, "title", () => { ... })` from `e2e/helpers.ts` to gate any 
 
 ## Test isolation and concurrency
 
-`playwright.config.ts` sets `workers: 1` and `fullyParallel: false`. Extension state (`browser.storage.local`, `browser.storage.session`) is global to the browser context — tests that mutate vault state cannot safely run concurrently.
+`playwright.config.ts` sets `workers: 6` and `fullyParallel: true`. Each worker launches its own isolated browser context with a fresh extension instance, so tests can run concurrently. Extension state (`browser.storage.local`, `browser.storage.session`) is isolated per browser context.
 
 Each spec's `beforeEach` clears the vault via the debug panel button (`#clear-vault-debug-btn`) when it is visible. This button is only rendered in dev builds (`build:e2e` uses dev mode). Do not assume a clean vault state at the start of a test without this reset step.
 

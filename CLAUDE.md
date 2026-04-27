@@ -10,9 +10,9 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 
 Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts`).
 
-## Current state: onboarding v2 through plan 08
+## Current state: onboarding v2 through plan 09
 
-The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–8 are merged; plans 9–12 are not.**
+The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–9 are merged; plans 10–12 are not.**
 
 Recent internal refactors are merged:
 - onboarding stage routing in `onboarding/render.ts` is declarative (stage-handler map),
@@ -25,7 +25,7 @@ The feature flag `ONBOARDING_V2_ENABLED` in `src/onboarding/state.ts` is **curre
 - The onboarding v2 code under `src/onboarding/` is fully built and unit-tested but dormant at runtime unless you opt in.
 - To exercise onboarding v2 locally, run `npm run build:dev` (or `build:e2e`) and load the sidebar with the URL hash `#onboarding=1`. That dev-only escape hatch in `sidebar.ts` folds away in production builds via `import.meta.env.MODE`.
 
-When adding work, default to **additive plan-09+ changes**. Do not flip `ONBOARDING_V2_ENABLED` or rework legacy vault behavior unless the plan you're executing explicitly requires it.
+When adding work, default to **additive plan-10+ changes**. Do not flip `ONBOARDING_V2_ENABLED` or rework legacy vault behavior unless the plan you're executing explicitly requires it.
 
 ## Project layout
 
@@ -52,7 +52,7 @@ src/
   popup/popup.test.ts           Unit tests: popup.utils (jsdom + mocked webextension-polyfill)
   popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (dev/e2e builds only)
   popup/popup.css               Base vault UI styles imported by the side panel stylesheet
-  onboarding/state.ts           Onboarding state enum (17 states from WELCOME → COMPLETE_DONE),
+  onboarding/state.ts           Onboarding state enum (18 states from WELCOME → COMPLETE_DONE),
                                 STATE_TO_BEAD mapping, BEAD_LABELS, ONBOARDING_V2_ENABLED flag
   onboarding/transitions.ts     Declarative TRANSITION_TABLE (state × event → next state);
                                 advance / canTransition / backStateFor / forwardTargetsFor
@@ -70,10 +70,14 @@ src/
                                 applies ONBOARDING_* messages to the controller, and fires
                                 CLEAR_ONBOARDING_CREDENTIALS on unmount so the SW drops its
                                 in-memory copy.
-  onboarding/screens/           Per-screen mount functions. Implemented so far:
+  onboarding/screens/           Per-screen mount functions. Fully implemented:
                                 welcome.ts, emailEntry.ts, passwordEntry.ts, openingCuny.ts,
-                                allowGate.ts (Screen 5 stub). screenContext.ts defines the
-                                shared mount context. Plans 06+ add overlay screens 6–13.
+                                allowGate.ts, oaaSpaHome.ts, guidedManage.ts, guidedAddFactor.ts,
+                                guidedFactorType.ts, guidedSecretCapture.ts, verifyLoginCode.ts,
+                                setDefault.ts, extPasswordSetup.ts (plan 09).
+                                Stubs (plan N will replace): biometricOfferStub.ts (plan 10),
+                                verifyLoginCodeStub.ts (superseded — kept for reference only).
+                                screenContext.ts defines the shared mount context.
   onboarding/*.test.ts          Vitest suites (jsdom) for each module above.
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; VAULT_STORAGE_KEY; payload types
   crypto/vault.test.ts          Unit tests: encrypt/decrypt round-trips, tamper detection, isStoredVault guard
@@ -132,7 +136,11 @@ e2e/
                                 can exercise correct-credentials transient URLs.
   fixtures/                     HTML pages mimicking CUNY SSO screens:
                                 credential.html, credential-error.html, credential-success-transient.html,
-                                totp.html, self-service.html
+                                totp.html, allow-gate.html, self-service.html.
+                                self-service.html ?view=home auto-clicks Manage when the overlay
+                                highlights it (1500ms delay); ?view=secret Verify Now appends
+                                &autoSubmit=1 to the verify URL so setupToExtPasswordSetup can
+                                click Verify and Save immediately without a fill-wait.
   constants.ts                  Shared constants (FIXTURE_PORT, fixture URLs)
   test-credentials.ts           Plaintext test credentials used only by E2E tests (fabricated)
 .plans/                         Engineering plan documents (overhaul-onboarding.md, agents/plan-NN-*.md,

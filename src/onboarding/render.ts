@@ -33,7 +33,8 @@ import {
 } from "./messages";
 import { mountAllowGateScreen } from "./screens/allowGate";
 import { mountEmailEntryScreen } from "./screens/emailEntry";
-import { mountExtPasswordSetupStubScreen } from "./screens/extPasswordSetupStub";
+import { mountBiometricOfferStubScreen } from "./screens/biometricOfferStub";
+import { mountExtPasswordSetupScreen } from "./screens/extPasswordSetup";
 import { mountGuidedAddFactorScreen } from "./screens/guidedAddFactor";
 import { mountGuidedFactorTypeScreen } from "./screens/guidedFactorType";
 import { mountGuidedManageScreen } from "./screens/guidedManage";
@@ -105,7 +106,8 @@ const SCREEN_MOUNTS: Partial<Record<OnboardingState, ScreenMount>> = {
   GUIDED_SECRET_CAPTURE: mountGuidedSecretCaptureScreen,
   VERIFY_LOGIN_CODE: mountVerifyLoginCodeScreen,
   SET_DEFAULT: mountSetDefaultScreen,
-  EXT_PASSWORD_SETUP: mountExtPasswordSetupStubScreen,
+  EXT_PASSWORD_SETUP: mountExtPasswordSetupScreen,
+  BIOMETRIC_OFFER: mountBiometricOfferStubScreen,
 };
 
 export const ONBOARDING_ROOT_ID = "onboarding-root";

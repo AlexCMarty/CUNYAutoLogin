@@ -43,12 +43,26 @@
             <button class="oj-button-button" type="button">Manage Devices</button>
           </oj-button>
         `;
-        document.querySelector("oj-button#createNewCategory button").addEventListener("click", () => {
+        const manageInnerBtn = document.querySelector("oj-button#createNewCategory button");
+        manageInnerBtn.addEventListener("click", () => {
           // Redirect to ?view=factors after click (300ms simulates SPA transition).
           const next = params.get("next");
           const target = next ?? (window.location.href.replace(/&?view=[^&]*/, "") + "&view=factors");
           setTimeout(() => { window.location.href = target; }, 300);
         });
+
+        // Auto-advance when the extension overlay highlights Manage (simulates the guided
+        // student click so setupToExtPasswordSetup doesn't need to click Manage explicitly).
+        // 1500ms delay lets plan-07 "highlight" and "loading message" assertions land first;
+        // a manual test click (plan-07 "advances to GUIDED_MANAGE") will fire sooner and
+        // navigate the page, cancelling this timer before it fires.
+        const autoClickObserver = new MutationObserver(() => {
+          if (document.querySelector("oj-button#createNewCategory[data-cuny-autologin-highlight='true']")) {
+            autoClickObserver.disconnect();
+            setTimeout(() => { manageInnerBtn.click(); }, 1500);
+          }
+        });
+        autoClickObserver.observe(document.documentElement, { attributes: true, subtree: true });
       }
 
       // ── ?view=factors — factors-list ─────────────────────────────────────────
@@ -118,7 +132,9 @@
         document.getElementById("verify-now-btn").addEventListener("click", () => {
           window.__e2eVerifyNowClicked = true;
           const next = params.get("next");
-          const target = next ?? (window.location.href.replace(/&?view=[^&]*/, "") + "&view=verify");
+          // autoSubmit=1 lets setupToExtPasswordSetup click Verify and Save immediately
+          // without waiting for the OTP fill; the fixture then auto-submits once filled.
+          const target = next ?? (window.location.href.replace(/&?view=[^&]*/, "") + "&view=verify&autoSubmit=1");
           window.location.href = target;
         });
 
@@ -151,6 +167,8 @@
         window.__e2eVerifyAndSaveClicked = false;
         window.__e2eCancelVerifyClicked = false;
 
+        const autoSubmit = params.get("autoSubmit") === "1";
+
         document.getElementById("verify-save-btn").addEventListener("click", () => {
           const otpValue = document.getElementById("otp|input").value;
           const errorContainer = document.querySelector(".oj-messaging-inline-container");
@@ -158,8 +176,11 @@
 
           if (!otpValue) {
             // Client-side error: JET model empty (setInputValue would produce this).
-            errorContainer.style.display = "block";
-            errorDetail.textContent = "Enter a OTP code";
+            // When autoSubmit=1, suppress so the extension keeps polling and fills the OTP.
+            if (!autoSubmit) {
+              errorContainer.style.display = "block";
+              errorDetail.textContent = "Enter a OTP code";
+            }
             return;
           }
           if (wrongCode) {
@@ -170,9 +191,22 @@
           }
           window.__e2eVerifyAndSaveClicked = true;
           const next = params.get("next");
-          const target = next ?? (window.location.href.replace(/&?(view|wrongCode)=[^&]*/g, "") + "&view=post-enroll");
+          const target = next ?? (window.location.href.replace(/&?(view|wrongCode|autoSubmit)=[^&]*/g, "") + "&view=post-enroll");
           window.location.href = target;
         });
+
+        // When autoSubmit=1, poll until OTP has a 6-digit value then auto-click.
+        // This lets setupToExtPasswordSetup click Verify and Save immediately;
+        // the click is a no-op until the extension fills the code.
+        if (autoSubmit) {
+          const autoSubmitInterval = setInterval(() => {
+            const otpValue = document.getElementById("otp|input")?.value ?? "";
+            if (/^\d{6}$/.test(otpValue)) {
+              clearInterval(autoSubmitInterval);
+              document.getElementById("verify-save-btn").click();
+            }
+          }, 100);
+        }
 
         document.getElementById("cancel-verify-btn").addEventListener("click", () => {
           window.__e2eCancelVerifyClicked = true;

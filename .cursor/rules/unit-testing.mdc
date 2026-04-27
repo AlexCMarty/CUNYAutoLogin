@@ -33,6 +33,7 @@ npm run test:unit   # vitest run
 | `src/onboarding/beadHeader.test.ts` | Bead rendering for each state (jsdom) |
 | `src/onboarding/render.test.ts` | Shell mount/unmount, `applyOnboardingMessage`, bridge registration |
 | `src/onboarding/screens/{welcome,emailEntry,passwordEntry,openingCuny}.test.ts` | Per-screen mount/interaction (jsdom) |
+| `src/onboarding/screens/extPasswordSetup.test.ts` | `computePasswordStrength` (Weak/Fair/Strong), DOM validation gating, match indicator, unmount (jsdom) |
 
 Prefer colocated `*.utils.ts` for testable logic when the main file is an IIFE or otherwise hard to import (`popup.utils.ts`, `content.utils.ts`).
 
