@@ -12,7 +12,7 @@ Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts`).
 
 ## Current state: onboarding v2 through plan 11
 
-The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–11 are merged; plan 12 is not.**
+The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–12 are merged.**
 
 Recent internal refactors are merged:
 - onboarding stage routing in `onboarding/render.ts` is declarative (stage-handler map),
@@ -338,9 +338,11 @@ Tests for unimplemented plans are skipped by default via the `PLAN_GATE` environ
 PLAN_GATE=5 npm run test:e2e   # baseline gate — plans 01–05 only
 PLAN_GATE=6 npm run test:e2e   # adds plan-06 overlay tests
 PLAN_GATE=7 npm run test:e2e   # adds plan-07 guided-step tests
-PLAN_GATE=8 npm run test:e2e   # adds plan-08 verify/set-default tests (currently passing)
+PLAN_GATE=8 npm run test:e2e   # adds plan-08 verify/set-default tests
 PLAN_GATE=12 npm run test:e2e  # full suite
 ```
+
+Current integrated checkpoint: `PLAN_GATE=12` passes.
 
 Spec files by plan range:
 - `e2e/onboarding.spec.ts` — plans 01–05 (no gate; always run)

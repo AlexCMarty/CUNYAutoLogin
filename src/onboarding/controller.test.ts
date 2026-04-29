@@ -106,4 +106,11 @@ describe("createOnboardingController", () => {
     controller.dispatch("VERIFY_SUCCEEDED");
     expect(listener).not.toHaveBeenCalled();
   });
+
+  test("state transitions do not emit dev logs outside development/e2e modes", () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const controller = createOnboardingController();
+    controller.dispatch("NEXT");
+    expect(logSpy).not.toHaveBeenCalled();
+  });
 });

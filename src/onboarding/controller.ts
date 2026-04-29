@@ -22,6 +22,20 @@ import type { CredentialCulprit } from "./messages";
 import type { OnboardingState } from "./state";
 import { type OnboardingEvent, advance } from "./transitions";
 
+const DEV_MODE_NAMES = ["development", "e2e"] as const;
+
+const isDevMode = (): boolean =>
+  (DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE);
+
+const logTransition = (
+  from: OnboardingState,
+  to: OnboardingState,
+  cause: string
+): void => {
+  if (!isDevMode()) return;
+  console.log(`[CUNYAutoLogin onboarding] ${from} -> ${to} (${cause})`);
+};
+
 export type OnboardingCredentialErrorInfo = {
   readonly culprit: CredentialCulprit;
 };
@@ -78,14 +92,18 @@ export const createOnboardingController = (
     getSnapshot: snapshot,
     setState: (nextState) => {
       if (state === nextState) return;
+      const previousState = state;
       state = nextState;
+      logTransition(previousState, nextState, "setState");
       notify();
     },
     dispatch: (event) => {
       const next = advance(state, event);
       if (next === null) return;
       if (next === state) return;
+      const previousState = state;
       state = next;
+      logTransition(previousState, next, event);
       notify();
     },
     setEmail: (value) => {

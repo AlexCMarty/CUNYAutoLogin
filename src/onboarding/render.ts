@@ -127,6 +127,7 @@ export const ONBOARDING_RESUME_BUTTON_SELECTOR = "[data-onboarding-resume='true'
 export const ONBOARDING_REOPEN_CUNY_SELECTOR = "[data-onboarding-reopen-cuny='true']";
 
 const ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY = "cunyOnboardingResumeSnapshotV1";
+const DEV_MODE_NAMES = ["development", "e2e"] as const;
 
 type OnboardingResumeSnapshot = {
   readonly state: OnboardingState;
@@ -138,6 +139,14 @@ type PendingResumeSnapshot = {
   readonly state: OnboardingState;
   readonly email: string;
   readonly password: string;
+};
+
+const isDevMode = (): boolean =>
+  (DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE);
+
+const reportOnboardingFailure = (where: string, error: unknown): void => {
+  if (!isDevMode()) return;
+  console.warn(`[onboarding/render] ${where} failed:`, error);
 };
 
 const mountPlaceholderScreen = (ctx: OnboardingScreenContext): ScreenHandle => {
@@ -415,6 +424,9 @@ const installRuntimeMessageBridge = (
     sender?: { tab?: { id?: number } | undefined }
   ): void => {
     if (!isOnboardingMessage(message)) return;
+    if (isDevMode()) {
+      console.log(`[onboarding/render] runtime message: ${message.type}`);
+    }
     const senderTabId = sender?.tab?.id;
     if (typeof senderTabId === "number") {
       onCunyTabSeen?.(senderTabId);
@@ -444,15 +456,17 @@ const installRuntimeMessageBridge = (
   };
   try {
     browser.runtime.onMessage.addListener(listener);
-  } catch {
+  } catch (error) {
     // Non-extension context (jsdom without mock) — bridge is a no-op.
+    reportOnboardingFailure("runtime.onMessage.addListener", error);
     return () => undefined;
   }
   return () => {
     try {
       browser.runtime.onMessage.removeListener(listener);
-    } catch {
+    } catch (error) {
       // Ignore; listener registration may have failed silently.
+      reportOnboardingFailure("runtime.onMessage.removeListener", error);
     }
   };
 };
@@ -463,8 +477,9 @@ const clearStagedOnboardingCredentials = (): void => {
   };
   try {
     void browser.runtime.sendMessage(message);
-  } catch {
+  } catch (error) {
     // Extension reloaded — SW memory is already gone.
+    reportOnboardingFailure("runtime.sendMessage(CLEAR_ONBOARDING_CREDENTIALS)", error);
   }
 };
 
@@ -485,7 +500,8 @@ const loadResumeSnapshot = async (): Promise<OnboardingResumeSnapshot | null> =>
     const raw = result?.[ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY];
     if (!isResumeSnapshot(raw)) return null;
     return raw;
-  } catch {
+  } catch (error) {
+    reportOnboardingFailure("storage.session.get(resumeSnapshot)", error);
     return null;
   }
 };
@@ -493,8 +509,9 @@ const loadResumeSnapshot = async (): Promise<OnboardingResumeSnapshot | null> =>
 const clearResumeSnapshot = async (): Promise<void> => {
   try {
     await browser.storage.session?.remove(ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY);
-  } catch {
+  } catch (error) {
     // Ignore when session storage is unavailable.
+    reportOnboardingFailure("storage.session.remove(resumeSnapshot)", error);
   }
 };
 
@@ -518,8 +535,9 @@ const saveResumeSnapshot = async (
         password: snapshot.password,
       } satisfies OnboardingResumeSnapshot,
     });
-  } catch {
+  } catch (error) {
     // Ignore when session storage is unavailable.
+    reportOnboardingFailure("storage.session.set(resumeSnapshot)", error);
   }
 };
 
@@ -649,8 +667,9 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   };
   try {
     tabsOnRemoved?.addListener?.(onTabRemoved);
-  } catch {
+  } catch (error) {
     // Ignore when tabs API is unavailable.
+    reportOnboardingFailure("tabs.onRemoved.addListener", error);
   }
 
   repaint();
@@ -669,8 +688,9 @@ export const mountOnboarding = (doc: Document): (() => void) => {
     uninstallBridge();
     try {
       tabsOnRemoved?.removeListener?.(onTabRemoved);
-    } catch {
+    } catch (error) {
       // Ignore remove failures in non-extension contexts.
+      reportOnboardingFailure("tabs.onRemoved.removeListener", error);
     }
     resumeButton.removeEventListener("click", handleResume);
     reopenCunyButton.removeEventListener("click", handleReopenCuny);
