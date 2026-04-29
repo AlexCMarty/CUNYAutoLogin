@@ -57,6 +57,8 @@ When `mountOnboarding` is active (sidebar), `onboarding/render.ts` registers a `
 
 On sidebar unmount, `mountOnboarding` fires `CLEAR_ONBOARDING_CREDENTIALS` so the service worker drops its staged credentials.
 
+Plan-11 adds a session-only resume snapshot (`cunyOnboardingResumeSnapshotV1`) in `browser.storage.session` that stores `{ state, email, password }` for resumable states only. This exists to prevent resume-to-password flows from staging a blank email on Screen 4. The snapshot must never be persisted to `storage.local`.
+
 ## Extension banner on the CUNY tab
 
 `src/content/banner.ts` mounts an extension-branded credential-error banner on the CUNY page when the content script detects wrong credentials (`mountCredentialErrorBanner`). Styles are inlined with INT_MAX z-index so CUNY's CSS can't hide it, and the element is attached to `document.documentElement` to survive late JET mutations. Mount/unmount are idempotent.

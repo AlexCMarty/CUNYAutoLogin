@@ -16,6 +16,7 @@ Read every file that touches `email`, `password`, `totpSecret`, or `masterPasswo
 - **`src/popup/popup.ts` / `src/popup/popup.utils.ts`** — `saveDraft`, `clearDraft`, `coerceDraft`: what storage API do they use? Is it `browser.storage.session` (in-memory, acceptable) or `localStorage`/`storage.local` (on-disk, **not acceptable** for plaintext)? Is `saveDraft` still gated to `currentMode === "setup"`?
 - **`src/onboarding/controller.ts`** — email/password drafts must live in closure memory only. Confirm there is no `storage.local` or `storage.session` write in this module.
 - **`src/onboarding/render.ts`** — the sidebar unmount path must send `CLEAR_ONBOARDING_CREDENTIALS` so the service-worker staging buffer is dropped.
+- **`src/onboarding/render.ts` resume snapshot** — `cunyOnboardingResumeSnapshotV1` may store resumable `{ state, email, password }` in `browser.storage.session` only. Verify this never falls back to `storage.local`, and that non-resumable states clear the snapshot.
 - **`src/background/service-worker.ts`** — does the decrypted vault payload (`{ email, password, totpSecret }`) get logged, stored, or forwarded anywhere other than back to the requesting content script? The onboarding staging buffer (`stagedOnboardingCredentials`) must be a module-level variable only — never written to `storage.local` or `storage.session`. The `STAGE_ONBOARDING_CREDENTIALS` / `CLEAR_ONBOARDING_CREDENTIALS` handlers must touch only that variable. The `AUTO_FILL_REQUEST` path must prefer the real vault; staging is only a fallback when no vault exists.
 - **`src/onboarding/messages.ts`** — onboarding-protocol messages (`ONBOARDING_*`) must be metadata-only. A credential payload on an onboarding message type is a finding.
 - **`src/content/content.ts` and extracted flow modules** (`credentialFlow.ts`, `totpLoginFlow.ts`, `totpEnrollSecretBridge.ts`, `mfaEnrollVerifyFlow.ts`, `overlayBridge.ts`, `allowConsentReporter.ts`) — does any path log credential values, post them to unsafe channels, or write them to the DOM in a way page JS can read?
@@ -29,6 +30,7 @@ Check:
 - `browser.storage.local.set(...)` callsites — what is being stored? Is it only `{ cunyVault: StoredVault }`?
 - `localStorage.setItem(...)` — **any use of `localStorage` for sensitive data is a critical finding**. Extension `localStorage` persists to disk as LevelDB files readable by anyone with filesystem access.
 - `browser.storage.session.set(...)` callsites — what is stored? Is it scoped to in-memory only sensitive values (master password, setup draft, pending TOTP)? The onboarding `stagedOnboardingCredentials` in `service-worker.ts` must **not** appear here — it is a module-level JS variable only.
+- `browser.storage.session.set(...)` callsites — what is stored? Is it scoped to in-memory only sensitive values (master password, setup draft, pending TOTP, and resumable onboarding snapshot fields)? The onboarding `stagedOnboardingCredentials` in `service-worker.ts` must **not** appear here — it is a module-level JS variable only.
 
 ### 3. Credential logging — do secrets appear in the console?
 

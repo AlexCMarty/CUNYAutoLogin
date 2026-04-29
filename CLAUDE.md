@@ -10,9 +10,9 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 
 Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts`).
 
-## Current state: onboarding v2 through plan 09
+## Current state: onboarding v2 through plan 11
 
-The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–9 are merged; plans 10–12 are not.**
+The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–11 are merged; plan 12 is not.**
 
 Recent internal refactors are merged:
 - onboarding stage routing in `onboarding/render.ts` is declarative (stage-handler map),
@@ -63,13 +63,15 @@ src/
                                 STAGE_ONBOARDING_CREDENTIALS, CLEAR_ONBOARDING_CREDENTIALS (carry
                                 secrets — not onboarding-protocol). Onboarding: STAGE_DETECTED,
                                 CREDENTIAL_ERROR, OVERLAY_COMMAND, VERIFY_STATUS, REOPEN_CUNY_TAB,
-                                TAB_REATTACHED (metadata-only). Every message has an is* guard.
+                                TAB_REATTACHED, CUNY_TAB_MISSING (metadata-only). Every message has an is* guard.
   onboarding/beadHeader.ts      Renders the five progress beads at the top of the sidebar.
   onboarding/render.ts          mountOnboarding(doc) — mounts bead header + active screen into
                                 #onboarding-root, installs the runtime.onMessage bridge that
                                 applies ONBOARDING_* messages to the controller, and fires
                                 CLEAR_ONBOARDING_CREDENTIALS on unmount so the SW drops its
-                                in-memory copy.
+                                in-memory copy. Plan-11 adds resume snapshots in storage.session
+                                (`cunyOnboardingResumeSnapshotV1`, state+email+password) and
+                                CUNY-tab close/reopen interruption handling.
   onboarding/screens/           Per-screen mount functions. Fully implemented:
                                 welcome.ts, emailEntry.ts, passwordEntry.ts, openingCuny.ts,
                                 allowGate.ts, oaaSpaHome.ts, guidedManage.ts, guidedAddFactor.ts,

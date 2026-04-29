@@ -22,7 +22,7 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
 2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
 3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and also responds to manual `FILL_CREDENTIALS` messages from the dev side panel.
-4. Guides a first-time student through a 13-screen onboarding flow (see `.plans/overhaul-onboarding.md` — plans 1–9 merged; plans 10–12 in progress).
+4. Guides a first-time student through a 13-screen onboarding flow (see `.plans/overhaul-onboarding.md` — plans 1–11 merged; plan 12 in progress).
 
 Recent architecture refactors (merged):
 - onboarding stage routing in `onboarding/render.ts` now uses a declarative stage-handler map,
@@ -66,10 +66,13 @@ src/
                                     STAGE/CLEAR_ONBOARDING_CREDENTIALS (carry secrets)
                                   - onboarding: STAGE_DETECTED, CREDENTIAL_ERROR,
                                     OVERLAY_COMMAND, VERIFY_STATUS, REOPEN_CUNY_TAB,
-                                    TAB_REATTACHED (metadata-only; default-reject contract)
+                                    TAB_REATTACHED, CUNY_TAB_MISSING (metadata-only; default-reject contract)
   onboarding/beadHeader.ts      Five-bead progress header at the top of the sidebar
   onboarding/render.ts          `mountOnboarding` — mounts shell + screen + runtime.onMessage
-                                bridge; fires CLEAR_ONBOARDING_CREDENTIALS on unmount
+                                bridge; fires CLEAR_ONBOARDING_CREDENTIALS on unmount.
+                                Plan-11 adds session-only resume snapshot persistence
+                                (`cunyOnboardingResumeSnapshotV1`) and explicit CUNY-tab
+                                close/reopen interruption UX.
   onboarding/screens/           Fully implemented through plan 09:
                                 welcome, emailEntry, passwordEntry, openingCuny, allowGate,
                                 oaaSpaHome, guidedManage, guidedAddFactor, guidedFactorType,
