@@ -37,6 +37,7 @@ export type OnboardingSnapshotListener = (snapshot: OnboardingSnapshot) => void;
 
 export type OnboardingController = {
   readonly getSnapshot: () => OnboardingSnapshot;
+  readonly setState: (nextState: OnboardingState) => void;
   readonly dispatch: (event: OnboardingEvent) => void;
   readonly setEmail: (value: string) => void;
   readonly setPassword: (value: string) => void;
@@ -75,6 +76,11 @@ export const createOnboardingController = (
 
   return {
     getSnapshot: snapshot,
+    setState: (nextState) => {
+      if (state === nextState) return;
+      state = nextState;
+      notify();
+    },
     dispatch: (event) => {
       const next = advance(state, event);
       if (next === null) return;

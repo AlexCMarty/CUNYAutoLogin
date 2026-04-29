@@ -3,11 +3,14 @@ import {
   BEAD_LABELS,
   ONBOARDING_STATES,
   ONBOARDING_V2_ENABLED,
+  RESUME_SAFE_STATE,
   STATE_TO_BEAD,
   TERMINAL_STATE,
   beadForState,
+  isResumableState,
   isOnboardingState,
   isTerminal,
+  safeResumeStateFor,
   type BeadStage,
   type OnboardingState,
 } from "./state";
@@ -122,6 +125,37 @@ describe("isTerminal", () => {
     for (const state of ONBOARDING_STATES) {
       if (state === "COMPLETE_DONE") continue;
       expect(isTerminal(state)).toBe(false);
+    }
+  });
+});
+
+describe("resume policy", () => {
+  test("resume policy is defined for every onboarding state", () => {
+    for (const state of ONBOARDING_STATES) {
+      expect(RESUME_SAFE_STATE[state]).not.toBeUndefined();
+    }
+  });
+
+  test("guided flow states are resumable in-place", () => {
+    expect(safeResumeStateFor("ALLOW_GATE")).toBe("ALLOW_GATE");
+    expect(safeResumeStateFor("GUIDED_MANAGE")).toBe("GUIDED_MANAGE");
+    expect(safeResumeStateFor("GUIDED_SECRET_CAPTURE")).toBe("GUIDED_SECRET_CAPTURE");
+    expect(safeResumeStateFor("SET_DEFAULT")).toBe("SET_DEFAULT");
+  });
+
+  test("CREDENTIAL_ERROR resumes to PASSWORD_ENTRY safe fallback", () => {
+    expect(safeResumeStateFor("CREDENTIAL_ERROR")).toBe("PASSWORD_ENTRY");
+  });
+
+  test("post-setup states are non-resumable", () => {
+    expect(safeResumeStateFor("EXT_PASSWORD_SETUP")).toBeNull();
+    expect(safeResumeStateFor("BIOMETRIC_OFFER")).toBeNull();
+    expect(safeResumeStateFor("COMPLETE_DONE")).toBeNull();
+  });
+
+  test("isResumableState matches safeResumeStateFor nullability", () => {
+    for (const state of ONBOARDING_STATES) {
+      expect(isResumableState(state)).toBe(safeResumeStateFor(state) !== null);
     }
   });
 });

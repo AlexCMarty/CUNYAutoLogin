@@ -85,6 +85,42 @@ export const TERMINAL_STATE: OnboardingState = "COMPLETE_DONE";
 export const isTerminal = (state: OnboardingState): boolean => state === TERMINAL_STATE;
 
 /**
+ * Plan-11 resumability policy.
+ *
+ * We only resume to states that are safe without re-hydrating secrets from disk.
+ * Non-resumable states return null and restart at WELCOME.
+ */
+export const RESUME_SAFE_STATE: Readonly<
+  Record<OnboardingState, OnboardingState | null>
+> = Object.freeze({
+  WELCOME: null,
+  EMAIL_ENTRY: "EMAIL_ENTRY",
+  PASSWORD_ENTRY: "PASSWORD_ENTRY",
+  OPENING_CUNY: "OPENING_CUNY",
+  CREDENTIAL_ERROR: "PASSWORD_ENTRY",
+  ALLOW_GATE: "ALLOW_GATE",
+  OAA_SPA_HOME: "OAA_SPA_HOME",
+  GUIDED_MANAGE: "GUIDED_MANAGE",
+  GUIDED_ADD_FACTOR: "GUIDED_ADD_FACTOR",
+  GUIDED_FACTOR_TYPE: "GUIDED_FACTOR_TYPE",
+  GUIDED_SECRET_CAPTURE: "GUIDED_SECRET_CAPTURE",
+  VERIFY_LOGIN_CODE: "VERIFY_LOGIN_CODE",
+  SET_DEFAULT: "SET_DEFAULT",
+  EXT_PASSWORD_SETUP: null,
+  BIOMETRIC_OFFER: null,
+  BIOMETRIC_PREP: null,
+  COMPLETE_DEMO: null,
+  COMPLETE_DONE: null,
+});
+
+export const safeResumeStateFor = (
+  state: OnboardingState
+): OnboardingState | null => RESUME_SAFE_STATE[state];
+
+export const isResumableState = (state: OnboardingState): boolean =>
+  safeResumeStateFor(state) !== null;
+
+/**
  * Feature toggle that decides whether the sidebar boots the legacy vault UI
  * (`src/popup/popup.ts`) or the new onboarding flow. Default `false` preserves
  * existing setup/locked/unlocked behavior — later plans flip this once the

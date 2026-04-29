@@ -10,8 +10,11 @@ vi.mock("webextension-polyfill", () => ({
       local: { get: vi.fn(), set: vi.fn(), remove: vi.fn() },
     },
     runtime: {
-      sendMessage: vi.fn(),
+      sendMessage: vi.fn().mockResolvedValue(undefined),
       onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
+    tabs: {
+      onRemoved: { addListener: vi.fn(), removeListener: vi.fn() },
     },
   },
 }));
@@ -20,7 +23,9 @@ import { BEAD_HEADER_SELECTOR, BEAD_ITEM_SELECTOR } from "./beadHeader";
 import { createOnboardingController } from "./controller";
 import {
   ONBOARDING_PLACEHOLDER_SELECTOR,
+  ONBOARDING_REOPEN_CUNY_SELECTOR,
   ONBOARDING_ROOT_ID,
+  ONBOARDING_RESUME_BUTTON_SELECTOR,
   ONBOARDING_SCREEN_HOST_SELECTOR,
   ONBOARDING_STAGE_ROUTER_KEYS,
   applyOnboardingMessage,
@@ -123,6 +128,108 @@ describe("mountOnboarding", () => {
     );
   });
 
+  test("loads resumable snapshot from session and shows resume CTA", async () => {
+    vi.mocked(browser.storage.session.get).mockResolvedValue({
+      cunyOnboardingResumeSnapshotV1: { state: "GUIDED_SECRET_CAPTURE" },
+    });
+    renderOnboardingRoot();
+    mountOnboarding(document);
+    await Promise.resolve();
+    await expect
+      .poll(() => document.querySelector(ONBOARDING_RESUME_BUTTON_SELECTOR)?.hasAttribute("hidden"))
+      .toBe(false);
+  });
+
+  test("resume restores email draft so Screen 4 staging includes email", async () => {
+    vi.mocked(browser.storage.session.get).mockResolvedValue({
+      cunyOnboardingResumeSnapshotV1: {
+        state: "PASSWORD_ENTRY",
+        email: "resume@login.cuny.edu",
+      },
+    });
+    renderOnboardingRoot();
+    mountOnboarding(document);
+    await expect
+      .poll(
+        () =>
+          document
+            .querySelector<HTMLButtonElement>(ONBOARDING_RESUME_BUTTON_SELECTOR)
+            ?.hidden
+      )
+      .toBe(false);
+    document
+      .querySelector<HTMLButtonElement>(ONBOARDING_RESUME_BUTTON_SELECTOR)
+      ?.click();
+    const passwordInput = document.querySelector<HTMLInputElement>(PASSWORD_INPUT_SELECTOR);
+    const passwordForward = document.querySelector<HTMLButtonElement>(PASSWORD_FORWARD_SELECTOR);
+    if (!passwordInput || !passwordForward) {
+      throw new Error("password screen missing after resume");
+    }
+    passwordInput.value = "pw-after-resume";
+    passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
+    passwordForward.click();
+    await Promise.resolve();
+    expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith({
+      type: "STAGE_ONBOARDING_CREDENTIALS",
+      email: "resume@login.cuny.edu",
+      password: "pw-after-resume",
+    });
+  });
+
+  test("legacy state-only resume snapshot still resumes without crashing", async () => {
+    vi.mocked(browser.storage.session.get).mockResolvedValue({
+      cunyOnboardingResumeSnapshotV1: { state: "PASSWORD_ENTRY" },
+    });
+    renderOnboardingRoot();
+    mountOnboarding(document);
+    await expect
+      .poll(
+        () =>
+          document
+            .querySelector<HTMLButtonElement>(ONBOARDING_RESUME_BUTTON_SELECTOR)
+            ?.hidden
+      )
+      .toBe(false);
+    document
+      .querySelector<HTMLButtonElement>(ONBOARDING_RESUME_BUTTON_SELECTOR)
+      ?.click();
+    expect(document.querySelector(PASSWORD_INPUT_SELECTOR)).not.toBeNull();
+  });
+
+  test("closing tracked CUNY tab shows reopen button in guided states", () => {
+    renderOnboardingRoot();
+    mountOnboarding(document);
+    const runtimeListeners = vi.mocked(browser.runtime.onMessage.addListener).mock.calls;
+    const bridgeListener = runtimeListeners[0]?.[0];
+    if (typeof bridgeListener !== "function") throw new Error("bridge listener missing");
+    document.querySelector<HTMLButtonElement>(WELCOME_CTA_SELECTOR)?.click();
+    const emailInput = document.querySelector<HTMLInputElement>(EMAIL_INPUT_SELECTOR);
+    const emailForward = document.querySelector<HTMLButtonElement>(EMAIL_FORWARD_SELECTOR);
+    if (!emailInput || !emailForward) throw new Error("failed to reach email screen");
+    emailInput.value = "reopen@login.cuny.edu";
+    emailInput.dispatchEvent(new Event("input", { bubbles: true }));
+    emailForward.click();
+    const passwordInput = document.querySelector<HTMLInputElement>(PASSWORD_INPUT_SELECTOR);
+    const passwordForward = document.querySelector<HTMLButtonElement>(PASSWORD_FORWARD_SELECTOR);
+    if (!passwordInput || !passwordForward) throw new Error("failed to reach password screen");
+    passwordInput.value = "pw";
+    passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
+    passwordForward.click();
+    bridgeListener(
+      { type: "ONBOARDING_STAGE_DETECTED", stage: "allow_gate" },
+      { tab: { id: 123 } } as never,
+      () => undefined
+    );
+    const onRemovedListener = vi.mocked(browser.tabs.onRemoved.addListener).mock.calls[0]?.[0];
+    if (typeof onRemovedListener !== "function") throw new Error("tabs.onRemoved listener missing");
+    onRemovedListener(123, {} as never);
+    const reopenButton = document.querySelector<HTMLButtonElement>(
+      ONBOARDING_REOPEN_CUNY_SELECTOR
+    );
+    expect(reopenButton).not.toBeNull();
+    expect(reopenButton?.hidden).toBe(false);
+  });
+
   test("bridge ONBOARDING_VERIFY_STATUS(second_failure) reveals verify pause message", () => {
     renderOnboardingRoot();
     mountOnboarding(document);
@@ -133,7 +240,7 @@ describe("mountOnboarding", () => {
     paused.hidden = true;
     host.appendChild(paused);
 
-    const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls.at(-1)?.[0];
+    const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls[0]?.[0];
     if (typeof listener !== "function") throw new Error("bridge listener missing");
     listener(
       {
@@ -163,7 +270,7 @@ describe("mountOnboarding", () => {
       markerElement.hidden = true;
       host.appendChild(markerElement);
 
-      const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls.at(-1)?.[0];
+      const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls[0]?.[0];
       if (typeof listener !== "function") throw new Error("bridge listener missing");
       listener(
         {

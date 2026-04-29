@@ -103,11 +103,13 @@ const reportScreen4Failure = (where: string, error: unknown): void => {
 const sendRuntimeMessage = async (
   message: unknown,
   where: string
-): Promise<void> => {
+): Promise<boolean> => {
   try {
     await browser.runtime.sendMessage(message);
+    return true;
   } catch (error) {
     reportScreen4Failure(where, error);
+    return false;
   }
 };
 
@@ -190,8 +192,11 @@ export const mountOpeningCunyScreen: ScreenMount = (
   };
   const cunyUrl = resolveCunyEntryUrl();
   void (async () => {
-    await sendRuntimeMessage(stagePayload, "STAGE_ONBOARDING_CREDENTIALS");
+    const staged = await sendRuntimeMessage(stagePayload, "STAGE_ONBOARDING_CREDENTIALS");
     await openCunyTab(cunyUrl);
+    if (!staged) {
+      await sendRuntimeMessage(stagePayload, "STAGE_ONBOARDING_CREDENTIALS.retry");
+    }
   })();
 
   const handleBack = (): void => {

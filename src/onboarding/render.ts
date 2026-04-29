@@ -58,6 +58,8 @@ import {
   type BeadStage,
   type OnboardingState,
   beadForState,
+  isResumableState,
+  safeResumeStateFor,
 } from "./state";
 import { type OnboardingEvent } from "./transitions";
 import { routeByType } from "../runtime/messageRouter";
@@ -121,6 +123,22 @@ export const ONBOARDING_SCREEN_HOST_SELECTOR =
   "[data-onboarding-screen-host='true']";
 export const ONBOARDING_PLACEHOLDER_SELECTOR =
   "[data-onboarding-placeholder='true']";
+export const ONBOARDING_RESUME_BUTTON_SELECTOR = "[data-onboarding-resume='true']";
+export const ONBOARDING_REOPEN_CUNY_SELECTOR = "[data-onboarding-reopen-cuny='true']";
+
+const ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY = "cunyOnboardingResumeSnapshotV1";
+
+type OnboardingResumeSnapshot = {
+  readonly state: OnboardingState;
+  readonly email?: string;
+  readonly password?: string;
+};
+
+type PendingResumeSnapshot = {
+  readonly state: OnboardingState;
+  readonly email: string;
+  readonly password: string;
+};
 
 const mountPlaceholderScreen = (ctx: OnboardingScreenContext): ScreenHandle => {
   const container = ctx.doc.createElement("section");
@@ -379,7 +397,8 @@ const showFirstVisible = (
 
 const installRuntimeMessageBridge = (
   controller: OnboardingController,
-  screenHost: HTMLElement
+  screenHost: HTMLElement,
+  onCunyTabSeen?: (tabId: number) => void
 ): (() => void) => {
   const stageSideEffects = {
     target_not_found: () =>
@@ -391,8 +410,15 @@ const installRuntimeMessageBridge = (
     unverified_cunyautologin: () =>
       showFirstVisible(screenHost, "[data-onboarding-verify-later-recovery='true']"),
   } as const;
-  const listener = (message: unknown): void => {
+  const listener = (
+    message: unknown,
+    sender?: { tab?: { id?: number } | undefined }
+  ): void => {
     if (!isOnboardingMessage(message)) return;
+    const senderTabId = sender?.tab?.id;
+    if (typeof senderTabId === "number") {
+      onCunyTabSeen?.(senderTabId);
+    }
     applyOnboardingMessage(controller, message);
     routeByType(message, {
       ONBOARDING_STAGE_DETECTED: (typedMessage) => {
@@ -442,6 +468,61 @@ const clearStagedOnboardingCredentials = (): void => {
   }
 };
 
+const isResumeSnapshot = (value: unknown): value is OnboardingResumeSnapshot => {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  if (!(typeof record.state === "string" && isResumableState(record.state as OnboardingState))) {
+    return false;
+  }
+  if (record.email !== undefined && typeof record.email !== "string") return false;
+  if (record.password !== undefined && typeof record.password !== "string") return false;
+  return true;
+};
+
+const loadResumeSnapshot = async (): Promise<OnboardingResumeSnapshot | null> => {
+  try {
+    const result = await browser.storage.session?.get(ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY);
+    const raw = result?.[ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY];
+    if (!isResumeSnapshot(raw)) return null;
+    return raw;
+  } catch {
+    return null;
+  }
+};
+
+const clearResumeSnapshot = async (): Promise<void> => {
+  try {
+    await browser.storage.session?.remove(ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY);
+  } catch {
+    // Ignore when session storage is unavailable.
+  }
+};
+
+const saveResumeSnapshot = async (
+  snapshot: {
+    readonly state: OnboardingState;
+    readonly email: string;
+    readonly password: string;
+  }
+): Promise<void> => {
+  const safeState = safeResumeStateFor(snapshot.state);
+  if (!safeState) {
+    await clearResumeSnapshot();
+    return;
+  }
+  try {
+    await browser.storage.session?.set({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: safeState,
+        email: snapshot.email,
+        password: snapshot.password,
+      } satisfies OnboardingResumeSnapshot,
+    });
+  } catch {
+    // Ignore when session storage is unavailable.
+  }
+};
+
 export const mountOnboarding = (doc: Document): (() => void) => {
   const { host, hideLegacy, restoreLegacy } = resolveScreenHost(doc);
   hideLegacy();
@@ -458,8 +539,49 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   screenHost.className = "onboarding-screen-host";
   shell.appendChild(screenHost);
 
+  const interruptionActions = doc.createElement("div");
+  interruptionActions.className = "onboarding-actions onboarding-actions-single";
+  shell.appendChild(interruptionActions);
+
+  const resumeButton = doc.createElement("button");
+  resumeButton.type = "button";
+  resumeButton.dataset.onboardingResume = "true";
+  resumeButton.className = "onboarding-forward primary";
+  resumeButton.textContent = "Welcome back - resume where you left off";
+  resumeButton.hidden = true;
+  interruptionActions.appendChild(resumeButton);
+
+  const reopenCunyButton = doc.createElement("button");
+  reopenCunyButton.type = "button";
+  reopenCunyButton.dataset.onboardingReopenCuny = "true";
+  reopenCunyButton.className = "onboarding-forward primary";
+  reopenCunyButton.textContent = "Reopen CUNY tab";
+  reopenCunyButton.hidden = true;
+  interruptionActions.appendChild(reopenCunyButton);
+
   const controller = createOnboardingController();
   let currentHandle: ScreenHandle | null = null;
+  let pendingResumeSnapshot: PendingResumeSnapshot | null = null;
+  let isCunyTabMissing = false;
+  let activeCunyTabId: number | null = null;
+  const CUNY_REATTACHABLE_STATES = new Set<OnboardingState>([
+    "OPENING_CUNY",
+    "ALLOW_GATE",
+    "OAA_SPA_HOME",
+    "GUIDED_MANAGE",
+    "GUIDED_ADD_FACTOR",
+    "GUIDED_FACTOR_TYPE",
+    "GUIDED_SECRET_CAPTURE",
+    "VERIFY_LOGIN_CODE",
+    "SET_DEFAULT",
+  ]);
+
+  const repaintInterruptionActions = (): void => {
+    const currentState = controller.getSnapshot().state;
+    resumeButton.hidden = pendingResumeSnapshot === null;
+    reopenCunyButton.hidden =
+      !CUNY_REATTACHABLE_STATES.has(currentState) || !isCunyTabMissing;
+  };
 
   const repaint = (): void => {
     const state = controller.getSnapshot().state;
@@ -470,6 +592,7 @@ export const mountOnboarding = (doc: Document): (() => void) => {
       doc,
       currentHandle
     );
+    repaintInterruptionActions();
   };
 
   // Only re-mount the screen when the state actually changes. Input-only
@@ -477,18 +600,81 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   // must not rip the screen out from under the student's cursor.
   let lastState: OnboardingState = controller.getSnapshot().state;
   const unsubscribe = controller.subscribe((snapshot) => {
+    void saveResumeSnapshot(snapshot);
     if (snapshot.state === lastState) return;
     lastState = snapshot.state;
     repaint();
   });
 
-  const uninstallBridge = installRuntimeMessageBridge(controller, screenHost);
+  const uninstallBridge = installRuntimeMessageBridge(
+    controller,
+    screenHost,
+    (tabId) => {
+      activeCunyTabId = tabId;
+      isCunyTabMissing = false;
+      repaintInterruptionActions();
+    }
+  );
+
+  const handleResume = (): void => {
+    if (!pendingResumeSnapshot) return;
+    controller.setEmail(pendingResumeSnapshot.email);
+    controller.setPassword(pendingResumeSnapshot.password);
+    controller.setState(pendingResumeSnapshot.state);
+    pendingResumeSnapshot = null;
+    repaint();
+  };
+  resumeButton.addEventListener("click", handleResume);
+
+  const handleReopenCuny = (): void => {
+    const message: OnboardingMessage = { type: "ONBOARDING_REOPEN_CUNY_TAB" };
+    isCunyTabMissing = false;
+    repaintInterruptionActions();
+    void browser.runtime.sendMessage(message).catch(() => undefined);
+  };
+  reopenCunyButton.addEventListener("click", handleReopenCuny);
+
+  const tabsOnRemoved = (browser.tabs as unknown as {
+    onRemoved?: {
+      addListener?: (listener: (tabId: number, removeInfo: unknown) => void) => void;
+      removeListener?: (listener: (tabId: number, removeInfo: unknown) => void) => void;
+    };
+  }).onRemoved;
+  const onTabRemoved = (tabId: number): void => {
+    if (activeCunyTabId === null) return;
+    if (tabId !== activeCunyTabId) return;
+    activeCunyTabId = null;
+    isCunyTabMissing = true;
+    repaintInterruptionActions();
+  };
+  try {
+    tabsOnRemoved?.addListener?.(onTabRemoved);
+  } catch {
+    // Ignore when tabs API is unavailable.
+  }
 
   repaint();
+  void loadResumeSnapshot().then((snapshot) => {
+    if (!snapshot) return;
+    pendingResumeSnapshot = {
+      state: snapshot.state,
+      email: snapshot.email ?? "",
+      password: snapshot.password ?? "",
+    };
+    repaintInterruptionActions();
+  });
 
   return () => {
     unsubscribe();
     uninstallBridge();
+    try {
+      tabsOnRemoved?.removeListener?.(onTabRemoved);
+    } catch {
+      // Ignore remove failures in non-extension contexts.
+    }
+    resumeButton.removeEventListener("click", handleResume);
+    reopenCunyButton.removeEventListener("click", handleReopenCuny);
+    void saveResumeSnapshot(controller.getSnapshot());
     clearStagedOnboardingCredentials();
     currentHandle?.unmount();
     header.unmount();

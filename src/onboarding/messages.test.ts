@@ -7,6 +7,7 @@ import {
   VERIFY_STATUSES,
   hasOnboardingMessageType,
   isOnboardingCredentialError,
+  isOnboardingCunyTabMissing,
   isOnboardingMessage,
   isOnboardingOverlayCommand,
   isOnboardingReopenCunyTab,
@@ -19,8 +20,8 @@ import {
 // ──── constants (pinned) ──────────────────────────────────────────────────────
 
 describe("constants", () => {
-  test("exactly 6 onboarding message types are declared", () => {
-    expect(ONBOARDING_MESSAGE_TYPES.length).toBe(6);
+  test("exactly 7 onboarding message types are declared", () => {
+    expect(ONBOARDING_MESSAGE_TYPES.length).toBe(7);
   });
 
   test("every declared message type string is unique", () => {
@@ -256,6 +257,26 @@ describe("isOnboardingTabReattached", () => {
   });
 });
 
+describe("isOnboardingCunyTabMissing", () => {
+  test("missing=true payload is accepted", () => {
+    expect(
+      isOnboardingCunyTabMissing({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: true })
+    ).toBe(true);
+  });
+
+  test("missing=false payload is accepted", () => {
+    expect(
+      isOnboardingCunyTabMissing({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: false })
+    ).toBe(true);
+  });
+
+  test("non-boolean missing is rejected", () => {
+    expect(
+      isOnboardingCunyTabMissing({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: "yes" })
+    ).toBe(false);
+  });
+});
+
 // ──── isOnboardingMessage (top-level discriminant) ───────────────────────────
 
 describe("isOnboardingMessage", () => {
@@ -290,6 +311,12 @@ describe("isOnboardingMessage", () => {
   test("valid tab-reattached message → true", () => {
     expect(
       isOnboardingMessage({ type: "ONBOARDING_TAB_REATTACHED", tabId: 0 })
+    ).toBe(true);
+  });
+
+  test("valid cuny-tab-missing message → true", () => {
+    expect(
+      isOnboardingMessage({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: true })
     ).toBe(true);
   });
 

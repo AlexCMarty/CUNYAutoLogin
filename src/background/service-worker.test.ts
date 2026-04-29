@@ -27,6 +27,7 @@ vi.mock("webextension-polyfill", () => ({
     },
     tabs: {
       create: vi.fn(),
+      onRemoved: { addListener: vi.fn() },
     },
   },
 }));
@@ -424,6 +425,12 @@ describe("ONBOARDING_* — valid payload acceptance", () => {
       await handler({ type: "ONBOARDING_TAB_REATTACHED", tabId: 7 })
     ).toEqual({ ok: true });
   });
+
+  test("ONBOARDING_CUNY_TAB_MISSING with boolean payload → { ok: true }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: true })
+    ).toEqual({ ok: true });
+  });
 });
 
 describe("ONBOARDING_CONTENT_SCRIPT_READY", () => {
@@ -501,6 +508,12 @@ describe("ONBOARDING_* — invalid payload rejection", () => {
       ok: false,
       reason: "invalid_payload",
     });
+  });
+
+  test("ONBOARDING_CUNY_TAB_MISSING with non-boolean missing → { ok: false, invalid_payload }", async () => {
+    expect(
+      await handler({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: "yes" })
+    ).toEqual({ ok: false, reason: "invalid_payload" });
   });
 
   test("ONBOARDING_REOPEN_CUNY_TAB with non-string url → { ok: false, invalid_payload }", async () => {

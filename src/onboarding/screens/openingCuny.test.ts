@@ -114,6 +114,17 @@ describe("mountOpeningCunyScreen", () => {
     }
   });
 
+  test("staging uses the controller snapshot email verbatim", async () => {
+    const { ctx } = buildCtx(root, "restored@login.cuny.edu", "restored-password");
+    mountOpeningCunyScreen(ctx);
+    await flush();
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      type: "STAGE_ONBOARDING_CREDENTIALS",
+      email: "restored@login.cuny.edu",
+      password: "restored-password",
+    });
+  });
+
   test("honors the dev/e2e #cuny=<url> override when running under Vite dev mode", async () => {
     // Vite sets import.meta.env.MODE = "test" under Vitest by default. The
     // override branch in resolveCunyEntryUrl only engages for "development"

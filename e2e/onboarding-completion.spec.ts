@@ -29,9 +29,6 @@ async function setupToAllowGate(
   context: import("@playwright/test").BrowserContext,
   extensionId: string
 ): Promise<Page> {
-  await gotoPrimarySurface(page, extensionId);
-  await clearVaultIfPossible(page);
-  await setupVault(page);
   await page.goto(
     `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_ADVANCE_URL)}`
   );
@@ -319,8 +316,8 @@ describePlan(11, "plan-11 — interruption: CUNY tab closed mid-flow", () => {
     await page.locator("[data-onboarding-reopen-cuny='true']").click();
     const newTab = await newTabPromise;
     await newTab.waitForLoadState("domcontentloaded");
-    // The reopened tab should be at the CUNY entry URL.
-    expect(newTab.url()).toContain("oaa/rui");
+    // The reopened tab should return to CUNY SSO entry flow.
+    expect(newTab.url()).toContain("ssologin.cuny.edu");
     await newTab.close();
   });
 
@@ -350,7 +347,9 @@ describePlan(11, "plan-11 — interruption: sidebar close and resume", () => {
     // Navigate the sidebar away (simulates sidebar close by going to a blank page).
     await page.goto("about:blank");
     // Reopen the sidebar.
-    await gotoPrimarySurface(page, extensionId);
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_ADVANCE_URL)}`
+    );
 
     // Should see a resume prompt (not the Welcome screen).
     await expect(
@@ -368,11 +367,50 @@ describePlan(11, "plan-11 — interruption: sidebar close and resume", () => {
     await cunyTab.goto(TOTP_ENROLL_SECRET_FIXTURE_URL);
 
     await page.goto("about:blank");
-    await gotoPrimarySurface(page, extensionId);
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_ADVANCE_URL)}`
+    );
 
     await page.locator("[data-onboarding-resume='true']").click();
     // Must not be back at WELCOME.
     await expect(page.locator("[data-onboarding-screen='WELCOME']")).toBeHidden();
+    await cunyTab.close();
+  });
+});
+
+describePlan(11, "plan-11 — interruption: browser restart reset behavior", () => {
+  test("cleared session context returns onboarding to WELCOME without resume CTA", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    const cunyTab = await setupToAllowGate(page, context, extensionId);
+    await cunyTab.goto(TOTP_ENROLL_SECRET_FIXTURE_URL);
+
+    await page.goto("about:blank");
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_ADVANCE_URL)}`
+    );
+    await page.evaluate(async () => {
+      const extensionChrome = (globalThis as { chrome?: unknown }).chrome as
+        | { storage?: { session?: { clear: (callback?: () => void) => void } } }
+        | undefined;
+      const sessionArea = extensionChrome?.storage?.session;
+      if (sessionArea?.clear) {
+        await new Promise<void>((resolve) => {
+          sessionArea.clear(() => resolve());
+        });
+      }
+    });
+    await page.goto("about:blank");
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_ADVANCE_URL)}`
+    );
+
+    await expect(page.locator("[data-onboarding-screen='WELCOME']")).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.locator("[data-onboarding-resume='true']")).toBeHidden();
     await cunyTab.close();
   });
 });

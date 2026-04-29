@@ -60,6 +60,7 @@ const maybeEnableSidebarActionOnToolbarClick = (): void => {
 void maybeEnableSidePanelOnActionClick();
 maybeEnableSidebarActionOnToolbarClick();
 
+
 browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType) => {
   if (import.meta.env.DEV) {
     console.log("[CUNYAutoLogin] installed/updated:", details.reason);

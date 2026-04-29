@@ -190,13 +190,19 @@ export type OnboardingTabReattached = {
   readonly tabId: number;
 };
 
+export type OnboardingCunyTabMissing = {
+  readonly type: "ONBOARDING_CUNY_TAB_MISSING";
+  readonly missing: boolean;
+};
+
 export type OnboardingMessage =
   | OnboardingStageDetected
   | OnboardingCredentialError
   | OnboardingOverlayCommand
   | OnboardingVerifyStatus
   | OnboardingReopenCunyTab
-  | OnboardingTabReattached;
+  | OnboardingTabReattached
+  | OnboardingCunyTabMissing;
 
 export const ONBOARDING_MESSAGE_TYPES = [
   "ONBOARDING_STAGE_DETECTED",
@@ -205,6 +211,7 @@ export const ONBOARDING_MESSAGE_TYPES = [
   "ONBOARDING_VERIFY_STATUS",
   "ONBOARDING_REOPEN_CUNY_TAB",
   "ONBOARDING_TAB_REATTACHED",
+  "ONBOARDING_CUNY_TAB_MISSING",
 ] as const;
 export type OnboardingMessageType = (typeof ONBOARDING_MESSAGE_TYPES)[number];
 
@@ -300,6 +307,14 @@ export const isOnboardingTabReattached = (
   return typeof value.tabId === "number" && Number.isInteger(value.tabId);
 };
 
+export const isOnboardingCunyTabMissing = (
+  value: unknown
+): value is OnboardingCunyTabMissing => {
+  if (!isRecord(value)) return false;
+  if (value.type !== "ONBOARDING_CUNY_TAB_MISSING") return false;
+  return typeof value.missing === "boolean";
+};
+
 /**
  * Returns true iff `value` is a well-formed onboarding message with a known
  * `type` discriminator AND all payload fields match their declared shape.
@@ -327,6 +342,8 @@ export const isOnboardingMessage = (
       return isOnboardingReopenCunyTab(value);
     case "ONBOARDING_TAB_REATTACHED":
       return isOnboardingTabReattached(value);
+    case "ONBOARDING_CUNY_TAB_MISSING":
+      return isOnboardingCunyTabMissing(value);
   }
 };
 
