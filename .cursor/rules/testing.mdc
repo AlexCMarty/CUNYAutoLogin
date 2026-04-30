@@ -26,22 +26,17 @@ Always run `npm run build:e2e` before `npm run test:e2e`. The Playwright specs l
 - **Extension loader** (`e2e/extension-fixture.ts`): Extends Playwright's `test` with a `context` fixture that launches Chromium via `chromium.launchPersistentContext` with `--load-extension=dist/`. Also provides the `extensionId` fixture (parsed from the service worker URL).
 - **Firefox is not supported** in E2E — Firefox does not allow loading temporary extensions via CLI flags in the same way. Test manually via `about:debugging`.
 
-## Plan-gated tests
+## Full Playwright suite
 
-Tests for unimplemented plans are skipped automatically via `PLAN_GATE`:
+`npm run test:e2e` runs **all** E2E specs (after `build:e2e`). There is no environment-variable gate.
 
-```bash
-PLAN_GATE=5 npm run test:e2e   # plans 01–05 only
-PLAN_GATE=9 npm run test:e2e   # current checkpoint: 67 pass, 13 skip (plans 10–12 skipped)
-PLAN_GATE=12 npm run test:e2e  # full suite (all plans implemented)
-```
+Spec files:
+- `e2e/onboarding.spec.ts` — first-run, screens 1–4, credential errors
+- `e2e/onboarding-guided.spec.ts` — overlay, guided self-service, verify / set-default
+- `e2e/onboarding-completion.spec.ts` — extension password through smoke / post-onboarding UI
+- `e2e/locked.spec.ts`, `e2e/unlocked.spec.ts` — vault modes and autofill
 
-Spec files by plan range:
-- `e2e/onboarding.spec.ts` — plans 01–05 (no gate)
-- `e2e/onboarding-guided.spec.ts` — plans 06–08 (overlay, guided steps, verify/default)
-- `e2e/onboarding-completion.spec.ts` — plans 09–12 (ext password, biometrics, demo, smoke)
-
-Use `describePlan(N, "title", () => { ... })` from `e2e/helpers.ts` to gate any new tests. Never write plan-gated tests inside a raw `test.describe`.
+Use `test.describe` from the shared `extension-fixture` (or plain Playwright) for new suites.
 
 ## Test isolation and concurrency
 
@@ -49,18 +44,13 @@ Use `describePlan(N, "title", () => { ... })` from `e2e/helpers.ts` to gate any 
 
 Each spec's `beforeEach` clears the vault via the debug panel button (`#clear-vault-debug-btn`) when it is visible. This button is only rendered in dev builds (`build:e2e` uses dev mode). Do not assume a clean vault state at the start of a test without this reset step.
 
-State-oriented specs are split by concern:
-- `e2e/onboarding.spec.ts` — plans 01–05: first-run, screens 1–4, credential errors
-- `e2e/locked.spec.ts` — vault locked behavior
-- `e2e/unlocked.spec.ts` — unlocked vault autofill
-- `e2e/onboarding-guided.spec.ts` — plans 06–08 (gated)
-- `e2e/onboarding-completion.spec.ts` — plans 09–12 (gated)
+State-oriented specs are split by concern (see list above).
 
 Prefer shared setup helpers from `e2e/helpers.ts`:
 - `gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault` — vault lifecycle
 - `walkToPasswordEntry` — walks sidebar Welcome → Email → Password (fills E2E_EMAIL / E2E_PASSWORD)
 - `onboardingHashWith(cunyUrl)` — builds `#onboarding=1&cuny=<encoded>` hash for sidebar
-- `describePlan(N, title, fn)` — gates a describe block on `PLAN_GATE >= N`
+- `gotoPrimarySurface` — loads `sidebar.html#vault=1` so vault helpers work on an empty profile
 
 ## Adding fixture pages
 

@@ -43,6 +43,10 @@ import {
   PASSWORD_INPUT_SELECTOR,
 } from "./screens/passwordEntry";
 import { WELCOME_CTA_SELECTOR } from "./screens/welcome";
+import {
+  LEGACY_ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY,
+  ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY,
+} from "./resumeSession";
 import browser from "webextension-polyfill";
 
 const renderMain = (): HTMLElement => {
@@ -130,7 +134,7 @@ describe("mountOnboarding", () => {
 
   test("loads resumable snapshot from session and shows resume CTA", async () => {
     vi.mocked(browser.storage.session.get).mockResolvedValue({
-      cunyOnboardingResumeSnapshotV1: { state: "GUIDED_SECRET_CAPTURE" },
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: { state: "GUIDED_SECRET_CAPTURE" },
     });
     renderOnboardingRoot();
     mountOnboarding(document);
@@ -142,7 +146,7 @@ describe("mountOnboarding", () => {
 
   test("resume restores email draft so Screen 4 staging includes email", async () => {
     vi.mocked(browser.storage.session.get).mockResolvedValue({
-      cunyOnboardingResumeSnapshotV1: {
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
         state: "PASSWORD_ENTRY",
         email: "resume@login.cuny.edu",
       },
@@ -176,9 +180,9 @@ describe("mountOnboarding", () => {
     });
   });
 
-  test("legacy state-only resume snapshot still resumes without crashing", async () => {
+  test("legacy session resume key still loads snapshot", async () => {
     vi.mocked(browser.storage.session.get).mockResolvedValue({
-      cunyOnboardingResumeSnapshotV1: { state: "PASSWORD_ENTRY" },
+      [LEGACY_ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: { state: "PASSWORD_ENTRY" },
     });
     renderOnboardingRoot();
     mountOnboarding(document);

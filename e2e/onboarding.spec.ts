@@ -22,11 +22,9 @@ const FIXTURE_SECRET = "UU7UV2G7UCS5LETS";
 
 const ONBOARDING_HASH = "#onboarding=1";
 
-// Plan-04 exercises the onboarding v2 shell through a dev-only URL-hash
-// escape hatch so the `ONBOARDING_V2_ENABLED` compile-time flag stays `false`
-// in production. `build:e2e` uses `--mode development`, which makes
-// `import.meta.env.DEV === true` inside `src/sidebar/sidebar.ts`, so the hash
-// check is live for these specs.
+// Plan-04 exercises the onboarding shell through the dev-only `#onboarding=1`
+// URL hash (see `src/sidebar/sidebar.ts`). `build:e2e` uses `--mode development`
+// so that hash branch is live for these specs.
 test.describe("onboarding screens 1-3", () => {
   test.beforeEach(async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/sidebar.html${ONBOARDING_HASH}`);

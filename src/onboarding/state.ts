@@ -119,11 +119,3 @@ export const safeResumeStateFor = (
 
 export const isResumableState = (state: OnboardingState): boolean =>
   safeResumeStateFor(state) !== null;
-
-/**
- * Feature toggle that decides whether the sidebar boots the legacy vault UI
- * (`src/popup/popup.ts`) or the new onboarding flow. Default `false` preserves
- * existing setup/locked/unlocked behavior — later plans flip this once the
- * onboarding renderer, message protocol, and overlays all land.
- */
-export const ONBOARDING_V2_ENABLED = true as const;

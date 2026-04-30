@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import {
   BEAD_LABELS,
   ONBOARDING_STATES,
-  ONBOARDING_V2_ENABLED,
   RESUME_SAFE_STATE,
   STATE_TO_BEAD,
   TERMINAL_STATE,
@@ -25,10 +24,6 @@ describe("constants", () => {
   test("ONBOARDING_STATES values are unique", () => {
     const unique = new Set<OnboardingState>(ONBOARDING_STATES);
     expect(unique.size).toBe(ONBOARDING_STATES.length);
-  });
-
-  test("ONBOARDING_V2_ENABLED is true — onboarding v2 ships in sidebar builds", () => {
-    expect(ONBOARDING_V2_ENABLED).toBe(true);
   });
 
   test("TERMINAL_STATE is COMPLETE_DONE", () => {

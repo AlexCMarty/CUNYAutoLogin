@@ -1,14 +1,16 @@
 import { loadResumeSnapshotFromSession } from "../onboarding/resumeSession";
-import { ONBOARDING_V2_ENABLED } from "../onboarding/state";
 import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 
 /**
- * Sidebar entry. Delegates to the legacy vault UI (`src/popup/popup.ts`) when
- * the student already has a vault and no in-session onboarding resume, so they
- * manage email/password without seeing onboarding WELCOME again.
+ * Sidebar entry. Loads the vault UI (`src/popup/popup.ts`) when the student
+ * already has a vault and no in-session onboarding resume, so they manage
+ * email/password without seeing onboarding WELCOME again.
  *
- * Onboarding v2 mounts when there is no vault yet, when a session resume
- * snapshot exists (mid-flow), or when the dev/e2e `#onboarding=1` hash is set.
+ * Onboarding mounts when there is no vault yet, when a session resume snapshot
+ * exists (mid-flow), or when the dev/e2e `#onboarding=1` hash is set.
+ *
+ * Dev/e2e `#vault=1` forces the vault form (e2e uses this for setup on a
+ * fresh profile; production builds ignore unknown hash params).
  */
 
 const DEV_MODE_NAMES = ["development", "e2e"] as const;
@@ -27,6 +29,21 @@ const onboardingRequestedByDevHash = (): boolean => {
   }
 };
 
+/** Dev/e2e only: open the vault form even with no stored vault (first-time setup UI). */
+const vaultRequestedByDevHash = (): boolean => {
+  if (!(DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE)) {
+    return false;
+  }
+  try {
+    const params = new URLSearchParams(
+      window.location.hash.replace(/^#/, "")
+    );
+    return params.get("vault") === "1";
+  } catch {
+    return false;
+  }
+};
+
 const bootSidebar = async (): Promise<void> => {
   if (onboardingRequestedByDevHash()) {
     const { mountOnboarding } = await import("../onboarding/render");
@@ -34,10 +51,14 @@ const bootSidebar = async (): Promise<void> => {
     return;
   }
 
-  if (!ONBOARDING_V2_ENABLED) {
+  if (vaultRequestedByDevHash()) {
+    document.body.dataset.vaultUi = "sidebar-management";
     await import("../popup/popup");
     return;
   }
+
+  // Do not gate this flow behind a compile-time boolean: esbuild can fold a
+  // constant `false` branch and drop the live vault snapshot / resume path from the bundle.
 
   const snap = await loadVaultSessionSnapshot();
   if (!snap.storedVault) {
@@ -57,7 +78,7 @@ const bootSidebar = async (): Promise<void> => {
   await import("../popup/popup");
 };
 
-void bootSidebar();
+await bootSidebar();
 
 if ((DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE)) {
   window.addEventListener("hashchange", () => {

@@ -3,13 +3,6 @@ export const FIXTURE_PORT = 4173;
 
 export const FIXTURE_ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}` as const;
 
-/**
- * Minimum plan number that must be implemented before gated tests run.
- * Set via `PLAN_GATE=N npm run test:e2e`. Defaults to 5 (last merged plan).
- * Tests inside `describePlan(N, ...)` blocks are skipped when PLAN_GATE < N.
- */
-export const PLAN_GATE = Number(process.env.PLAN_GATE ?? "5");
-
 export const CREDENTIAL_FIXTURE_URL = `${FIXTURE_ORIGIN}/oam/server/obrareq.cgi`;
 export const CREDENTIAL_SAMLV20_FIXTURE_URL = `${FIXTURE_ORIGIN}/oamfed/idp/samlv20`;
 

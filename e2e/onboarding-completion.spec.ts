@@ -1,9 +1,5 @@
 /**
  * Plans 09–12: extension password, biometrics, demo, interruptions, and smoke test.
- *
- * All describe blocks are gated by PLAN_GATE. Run with:
- *   PLAN_GATE=9  npm run test:e2e   → plan-09 runs; 10-12 skip
- *   PLAN_GATE=12 npm run test:e2e   → all plans run (full suite)
  */
 import type { Page } from "@playwright/test";
 import {
@@ -15,7 +11,6 @@ import {
 import { expect, test } from "./extension-fixture";
 import {
   clearVaultIfPossible,
-  describePlan,
   gotoPrimarySurface,
   onboardingHashWith,
   setupVault,
@@ -87,7 +82,7 @@ async function setupToExtPasswordSetup(
 
 // ─── Plan 09 — Extension password ────────────────────────────────────────────
 
-describePlan(9, "plan-09 — extension password: screen renders", () => {
+test.describe("plan-09 — extension password: screen renders", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -176,7 +171,7 @@ describePlan(9, "plan-09 — extension password: screen renders", () => {
 
 // ─── Plan 10 — Biometrics and demo ───────────────────────────────────────────
 
-describePlan(10, "plan-10 — biometrics offer", () => {
+test.describe("plan-10 — biometrics offer", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -216,7 +211,7 @@ describePlan(10, "plan-10 — biometrics offer", () => {
   });
 });
 
-describePlan(10, "plan-10 — completion and demo", () => {
+test.describe("plan-10 — completion and demo", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -284,7 +279,7 @@ describePlan(10, "plan-10 — completion and demo", () => {
 
 // ─── Plan 11 — Interruptions ─────────────────────────────────────────────────
 
-describePlan(11, "plan-11 — interruption: CUNY tab closed mid-flow", () => {
+test.describe("plan-11 — interruption: CUNY tab closed mid-flow", () => {
   test("'Reopen CUNY tab' button appears in sidebar when CUNY tab is closed during guided steps", async ({
     page,
     context,
@@ -335,7 +330,7 @@ describePlan(11, "plan-11 — interruption: CUNY tab closed mid-flow", () => {
   });
 });
 
-describePlan(11, "plan-11 — interruption: sidebar close and resume", () => {
+test.describe("plan-11 — interruption: sidebar close and resume", () => {
   test("reopening sidebar mid-flow shows resume prompt", async ({
     page,
     context,
@@ -378,7 +373,7 @@ describePlan(11, "plan-11 — interruption: sidebar close and resume", () => {
   });
 });
 
-describePlan(11, "plan-11 — interruption: browser restart reset behavior", () => {
+test.describe("plan-11 — interruption: browser restart reset behavior", () => {
   test("cleared session context returns onboarding to WELCOME without resume CTA", async ({
     page,
     context,
@@ -417,7 +412,7 @@ describePlan(11, "plan-11 — interruption: browser restart reset behavior", () 
 
 // ─── Plan 12 — Hardening ─────────────────────────────────────────────────────
 
-describePlan(12, "plan-12 — hardening: selector timeout recovery", () => {
+test.describe("plan-12 — hardening: selector timeout recovery", () => {
   test("TARGET_NOT_FOUND causes sidebar to show recovery message, not hang", async ({
     page,
     context,
@@ -436,7 +431,7 @@ describePlan(12, "plan-12 — hardening: selector timeout recovery", () => {
   });
 });
 
-describePlan(12, "plan-12 — post-onboarding: vault UI after completion", () => {
+test.describe("plan-12 — post-onboarding: vault UI after completion", () => {
   let cunyTab: Page | undefined;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -466,14 +461,35 @@ describePlan(12, "plan-12 — post-onboarding: vault UI after completion", () =>
     page,
     extensionId,
   }) => {
+    // Unload may not run onboarding unmount; a resumable snapshot (e.g. COMPLETE_DEMO) can
+    // otherwise force the onboarding branch and skip sidebar-management + TOTP hide CSS.
+    await page.evaluate(() => {
+      return new Promise<void>((resolve) => {
+        const extensionChrome = (globalThis as { chrome?: unknown }).chrome as
+          | { storage?: { session?: { remove: (keys: string, cb?: () => void) => void } } }
+          | undefined;
+        const sessionArea = extensionChrome?.storage?.session;
+        if (sessionArea?.remove) {
+          sessionArea.remove("cunyOnboardingResumeSnapshot", () => {
+            sessionArea.remove("cunyOnboardingResumeSnapshotV1", () => resolve());
+          });
+        } else {
+          resolve();
+        }
+      });
+    });
+
     await page.goto(`chrome-extension://${extensionId}/sidebar.html`);
     await expect(page.locator("#vault-form")).toBeVisible({ timeout: 10_000 });
     await expect(page.locator("[data-onboarding-welcome-cta='true']")).toHaveCount(0);
+    await expect(page.locator("body[data-vault-ui='sidebar-management']")).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(page.locator("#totp-secret-field")).toBeHidden();
   });
 });
 
-describePlan(12, "plan-12 — smoke: full happy path Screen 1 → Screen 13", () => {
+test.describe("plan-12 — smoke: full happy path Screen 1 → Screen 13", () => {
   test("complete onboarding from WELCOME to COMPLETE_DONE on fixtures end-to-end", async ({
     page,
     context,

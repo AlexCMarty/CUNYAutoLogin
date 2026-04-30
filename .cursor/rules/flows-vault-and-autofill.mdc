@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Session unlock and auto-fill flows
 
-## Session unlock (legacy vault controller — `popup/popup.ts` mounted inside the sidebar)
+## Session unlock (vault controller — `popup/popup.ts` mounted inside the sidebar)
 
-The side panel has three modes: `setup`, `locked`, and `unlocked`. These are owned by the legacy vault controller (`src/popup/popup.ts`, named "popup" for historical reasons — there is no popup surface). The sidebar entrypoint (`src/sidebar/sidebar.ts`) dynamic-imports that controller unless `ONBOARDING_V2_ENABLED` is true (or `#onboarding=1` is present in dev/e2e builds), in which case it mounts `onboarding/render.ts` instead.
+The side panel has three modes: `setup`, `locked`, and `unlocked`. These are owned by the vault controller (`src/popup/popup.ts`, named "popup" for historical reasons — there is no popup surface). The sidebar entrypoint (`src/sidebar/sidebar.ts`) loads `onboarding/render.ts` when there is no vault yet, when a session resume snapshot exists, or when the URL hash contains `#onboarding=1` (dev/e2e only). Hash `#vault=1` (dev/e2e only) forces the vault setup form even with no stored vault (used by Playwright). Otherwise it loads `popup/popup.ts` when a vault exists and there is no resume snapshot.
 
 On every side panel open, `init()` checks `browser.storage.session` for a saved master password (`SESSION_MASTER_KEY = "cunySessionMaster"`). If found, it runs PBKDF2 + AES-GCM decrypt automatically and opens directly in `unlocked` mode. If decryption fails (e.g. vault was re-keyed), the session entry is purged and the side panel falls back to `locked`.
 
@@ -57,7 +57,7 @@ When `mountOnboarding` is active (sidebar), `onboarding/render.ts` registers a `
 
 On sidebar unmount, `mountOnboarding` fires `CLEAR_ONBOARDING_CREDENTIALS` so the service worker drops its staged credentials.
 
-Plan-11 adds a session-only resume snapshot (`cunyOnboardingResumeSnapshotV1`) in `browser.storage.session` that stores `{ state, email, password }` for resumable states only. This exists to prevent resume-to-password flows from staging a blank email on Screen 4. The snapshot must never be persisted to `storage.local`.
+A session-only resume snapshot (`cunyOnboardingResumeSnapshot` in `browser.storage.session`; older builds may still have `cunyOnboardingResumeSnapshotV1`) stores `{ state, email, password }` for resumable states only. This prevents resume-to-password flows from staging a blank email on Screen 4. The snapshot must never be persisted to `storage.local`.
 
 ## Extension banner on the CUNY tab
 

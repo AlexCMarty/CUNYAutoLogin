@@ -1,11 +1,6 @@
 /**
  * Plans 06–08: overlay engine, guided CUNY self-service steps, verify + set-default.
  *
- * All describe blocks are gated by PLAN_GATE. Run with:
- *   PLAN_GATE=6 npm run test:e2e   → plan-06 tests run; 07-08 skip
- *   PLAN_GATE=7 npm run test:e2e   → plans 06-07 run; 08 skips
- *   PLAN_GATE=8 npm run test:e2e   → all three plans run
- *
  * Test setup pattern: walk sidebar to ALLOW_GATE state using the existing
  * credential-advance fixture chain, then navigate the CUNY tab manually to
  * each fixture view for the specific step being tested.
@@ -34,7 +29,6 @@ import {
 import { expect, test } from "./extension-fixture";
 import {
   clearVaultIfPossible,
-  describePlan,
   gotoPrimarySurface,
   onboardingHashWith,
   setupVault,
@@ -77,7 +71,7 @@ async function setupToAllowGate(
 
 // ─── Plan 06 — Overlay engine ─────────────────────────────────────────────────
 
-describePlan(6, "plan-06 — overlay: dim layer and highlight ring", () => {
+test.describe("plan-06 — overlay: dim layer and highlight ring", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -133,7 +127,7 @@ describePlan(6, "plan-06 — overlay: dim layer and highlight ring", () => {
   });
 });
 
-describePlan(6, "plan-06 — overlay: step chip", () => {
+test.describe("plan-06 — overlay: step chip", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -155,7 +149,7 @@ describePlan(6, "plan-06 — overlay: step chip", () => {
   });
 });
 
-describePlan(6, "plan-06 — overlay: TARGET_NOT_FOUND fallback", () => {
+test.describe("plan-06 — overlay: TARGET_NOT_FOUND fallback", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -179,7 +173,7 @@ describePlan(6, "plan-06 — overlay: TARGET_NOT_FOUND fallback", () => {
 
 // ─── Plan 07 — Allow gate ─────────────────────────────────────────────────────
 
-describePlan(7, "plan-07 — guided: allow gate", () => {
+test.describe("plan-07 — guided: allow gate", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -216,7 +210,7 @@ describePlan(7, "plan-07 — guided: allow gate", () => {
 
 // ─── Plan 07 — oaa-spa-home ───────────────────────────────────────────────────
 
-describePlan(7, "plan-07 — guided: oaa-spa-home", () => {
+test.describe("plan-07 — guided: oaa-spa-home", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -256,7 +250,7 @@ describePlan(7, "plan-07 — guided: oaa-spa-home", () => {
 
 // ─── Plan 07 — factors-list and TOTP selection ───────────────────────────────
 
-describePlan(7, "plan-07 — guided: factors-list and TOTP type selection", () => {
+test.describe("plan-07 — guided: factors-list and TOTP type selection", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -292,7 +286,7 @@ describePlan(7, "plan-07 — guided: factors-list and TOTP type selection", () =
 
 // ─── Plan 07 — secret capture ────────────────────────────────────────────────
 
-describePlan(7, "plan-07 — guided: secret capture (totp-enroll-secret)", () => {
+test.describe("plan-07 — guided: secret capture (totp-enroll-secret)", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -332,7 +326,7 @@ describePlan(7, "plan-07 — guided: secret capture (totp-enroll-secret)", () =>
 
 // ─── Plan 07 — five-factor limit ─────────────────────────────────────────────
 
-describePlan(7, "plan-07 — guided: five-factor limit edge case", () => {
+test.describe("plan-07 — guided: five-factor limit edge case", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -370,7 +364,7 @@ describePlan(7, "plan-07 — guided: five-factor limit edge case", () => {
 
 // ─── Plan 07 — Verify Later edge case ────────────────────────────────────────
 
-describePlan(7, "plan-07 — guided: Verify Later saves as Unverified", () => {
+test.describe("plan-07 — guided: Verify Later saves as Unverified", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -398,7 +392,7 @@ describePlan(7, "plan-07 — guided: Verify Later saves as Unverified", () => {
 
 // ─── Plan 08 — OTP fill via keystroke simulation ──────────────────────────────
 
-describePlan(8, "plan-08 — verify login code: OTP fill", () => {
+test.describe("plan-08 — verify login code: OTP fill", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -453,7 +447,7 @@ describePlan(8, "plan-08 — verify login code: OTP fill", () => {
 
 // ─── Plan 08 — failure handling ──────────────────────────────────────────────
 
-describePlan(8, "plan-08 — verify login code: failure handling", () => {
+test.describe("plan-08 — verify login code: failure handling", () => {
   let cunyTab: Page;
 
   test.afterEach(async () => {
@@ -541,7 +535,7 @@ describePlan(8, "plan-08 — verify login code: failure handling", () => {
 
 // ─── Plan 08 — Set as Default ─────────────────────────────────────────────────
 
-describePlan(8, "plan-08 — set as default", () => {
+test.describe("plan-08 — set as default", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {

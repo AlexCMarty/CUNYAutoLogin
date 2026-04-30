@@ -22,7 +22,7 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
 2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
 3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and also responds to manual `FILL_CREDENTIALS` messages from the dev side panel.
-4. Guides a first-time student through a 13-screen onboarding flow (see `.plans/overhaul-onboarding.md` — plans 1–11 merged; plan 12 in progress).
+4. Guides a first-time student through a multi-screen onboarding flow (see `.plans/overhaul-onboarding.md` for engineering history).
 
 Recent architecture refactors (merged):
 - onboarding stage routing in `onboarding/render.ts` now uses a declarative stage-handler map,
@@ -35,29 +35,29 @@ Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `pop
 
 The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
 
-There is **no popup surface** in this extension. The `src/popup/` directory is a historical name — its module is the legacy vault controller, rendered inside the sidebar. All user-facing UI lives in `sidebar.html`.
+There is **no popup surface** in this extension. The `src/popup/` directory is a historical name — its module is the **vault controller**, rendered inside the sidebar. All user-facing UI lives in `sidebar.html`.
 
 ## Project layout
 
 ```
-sidebar.html                    Vite entry point. Hosts the legacy vault UI (<main class="wrap">,
-                                driven by popup/popup.ts) AND the onboarding v2 shell
-                                (#onboarding-root, hidden until mountOnboarding populates it).
+sidebar.html                    Vite entry point. Hosts the vault form (<main class="wrap">,
+                                popup/popup.ts) and #onboarding-root (onboarding/render.ts).
 src/
   vaultSession/snapshot.ts      `loadVaultSessionSnapshot` — setup / locked / unlocked snapshot
   vaultSession/snapshot.test.ts Unit tests
-  sidebar/sidebar.ts            Sidebar entrypoint. Boots onboarding v2 when ONBOARDING_V2_ENABLED
-                                (or, in dev/e2e builds only, `#onboarding=1` in the URL hash);
-                                otherwise dynamic-imports popup/popup.ts.
+  sidebar/sidebar.ts            Sidebar entrypoint. Loads onboarding when there is no vault yet,
+                                when a session resume snapshot exists, or when the URL hash has
+                                `#onboarding=1` (dev/e2e); `#vault=1` forces the vault form on a fresh
+                                profile (e2e); otherwise loads the vault UI when a vault exists.
   sidebar/{sidebar.utils,debugPanel,sidebar.css}.ts  Re-export surfaces from popup/* (historical layout).
-  popup/popup.ts                Legacy vault controller — setup / locked / unlocked, encrypt/save,
+  popup/popup.ts                Vault controller — setup / locked / unlocked, encrypt/save,
                                 session unlock, master rotation, draft autosave. Dev-only debug panel.
   popup/popup.utils.ts          Pure helpers (email validation, draft parse, status strings,
                                 MIN_MASTER_PASSWORD_LENGTH = 12, TOTP source hint helpers)
   popup/popup.test.ts           Unit tests (jsdom; mocked webextension-polyfill)
   popup/debugPanel.ts           Dev-only debug panel (FILL_CREDENTIALS tester + clear-vault button)
   popup/popup.css               Base vault UI styles
-  onboarding/state.ts           18-state enum, bead mapping, ONBOARDING_V2_ENABLED flag (false in main)
+  onboarding/state.ts           18-state enum, bead mapping, resume policy
   onboarding/transitions.ts     Declarative TRANSITION_TABLE + `advance` / `backStateFor`
   onboarding/controller.ts      `createOnboardingController` — closure-only email/password/
                                 credentialError state; subscribe/dispatch API
@@ -70,8 +70,8 @@ src/
   onboarding/beadHeader.ts      Five-bead progress header at the top of the sidebar
   onboarding/render.ts          `mountOnboarding` — mounts shell + screen + runtime.onMessage
                                 bridge; fires CLEAR_ONBOARDING_CREDENTIALS on unmount.
-                                Plan-11 adds session-only resume snapshot persistence
-                                (`cunyOnboardingResumeSnapshotV1`) and explicit CUNY-tab
+                                Session-only resume snapshot (`cunyOnboardingResumeSnapshot`;
+                                migrates legacy `cunyOnboardingResumeSnapshotV1`) and CUNY-tab
                                 close/reopen interruption UX.
   onboarding/screens/           Fully implemented through plan 09:
                                 welcome, emailEntry, passwordEntry, openingCuny, allowGate,
@@ -123,26 +123,21 @@ src/
 vite.config.ts                  Builds sidebar + background and emits manifest
 vite.content.config.ts          Builds `content.ts` as a single IIFE (`dist/content.js`, inline deps)
 e2e/
-  onboarding.spec.ts            Playwright: plans 01–05 — first-run / setup flow + onboarding v2
-                                screens 1–4 + credential-error regressions. Always runs (no gate).
-  onboarding-guided.spec.ts     Plans 06–08: overlay engine, guided CUNY steps (allow→secret),
-                                OTP verify failure handling, set-as-default polling.
-                                Gated: PLAN_GATE=6/7/8 to activate respective describe blocks.
-  onboarding-completion.spec.ts Plans 09–12: extension password, biometrics, completion demo,
-                                interruption/resume, full smoke test Screen 1→13.
-                                Gated: PLAN_GATE=9/10/11/12 to activate respective blocks.
+  onboarding.spec.ts            Playwright: first-run / setup + onboarding screens 1–4 +
+                                credential-error regressions.
+  onboarding-guided.spec.ts     Overlay, guided CUNY steps, verify / set-default flows.
+  onboarding-completion.spec.ts Extension password, biometrics, completion, interruptions, smoke.
   locked.spec.ts                Playwright: vault locked behavior
   unlocked.spec.ts              Playwright: unlocked vault + autofill
   helpers.ts                    Shared helpers: gotoPrimarySurface, clearVaultIfPossible,
-                                setupVault, lockVault, walkToPasswordEntry, onboardingHashWith,
-                                describePlan (PLAN_GATE gating wrapper)
+                                setupVault, lockVault, walkToPasswordEntry, onboardingHashWith
   extension-fixture.ts          Loads the built extension into Chromium via --load-extension
   fixtures-server.mjs           Local HTTP server for e2e/fixtures/*.html
   fixtures/                     credential (multi-variant), credential-error,
                                 credential-success-transient, totp (?next= redirect support),
                                 self-service (?view= multi-view SPA simulator),
                                 allow-gate (?next= redirect support)
-  constants.ts                  Shared constants (FIXTURE_PORT, PLAN_GATE, all fixture URLs)
+  constants.ts                  Shared constants (FIXTURE_PORT, FIXTURE_ORIGIN, fixture URLs)
   test-credentials.ts           Fabricated test credentials used only by E2E tests
 .plans/                         Engineering plan documents (overhaul-onboarding.md, agents/,
                                 roles, handoff notes). Not part of the extension build.

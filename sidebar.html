@@ -8,10 +8,11 @@
   </head>
   <body>
     <!--
-      #onboarding-root hosts the plan-04 onboarding v2 shell. It stays hidden by
-      default so the legacy vault UI in <main class="wrap"> (popup.ts) renders
-      unchanged. Populated only when ONBOARDING_V2_ENABLED is true or when the
-      dev-only #onboarding=1 URL hash is present (sidebar.ts).
+      #onboarding-root hosts the onboarding shell (render.ts). It stays hidden by
+      default so the vault form in <main class="wrap"> (popup.ts) is visible first.
+      The shell mounts when there is no vault yet, when a session resume snapshot
+      exists, or when the dev/e2e URL hash contains #onboarding=1 (sidebar.ts).
+      Hash #vault=1 (dev/e2e only) opens the vault form on a fresh profile for tests.
     -->
     <div id="onboarding-root" hidden></div>
     <main class="wrap">

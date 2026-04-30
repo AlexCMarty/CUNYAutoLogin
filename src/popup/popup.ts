@@ -7,7 +7,8 @@ import {
   type StoredVault,
   type VaultPayload,
 } from "../crypto/vault";
-import { clearOnboardingV2Complete } from "../onboarding/onboardingCompleted";
+import { clearOnboardingComplete } from "../onboarding/onboardingComplete";
+import { clearResumeSnapshotSession } from "../onboarding/resumeSession";
 import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 import { LOGIN_EMAIL_SUFFIX, PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../cuny/ssoSite";
 import {
@@ -376,7 +377,8 @@ async function resetToFreshInstall(els: PopupDom): Promise<void> {
     setStatus("Could not remove vault from storage.");
     return;
   }
-  await clearOnboardingV2Complete();
+  await clearOnboardingComplete();
+  await clearResumeSnapshotSession();
   delete document.body.dataset.vaultUi;
   await clearSessionMaster();
   await clearPendingTotpFromSession();

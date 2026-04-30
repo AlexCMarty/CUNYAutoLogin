@@ -8,44 +8,31 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
 3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and responds to manual `FILL_CREDENTIALS` messages from the dev side panel.
 
-Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts`).
+Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `popup.utils.ts`).
 
-## Current state: onboarding v2 through plan 11
+## Current state
 
-The repo is partway through the onboarding overhaul in `.plans/overhaul-onboarding.md` (tracked in `.plans/agents/plan-NN-*.md`). **Plans 1–12 are merged.**
+The sidebar ships **onboarding** (`onboarding/render.ts`) for first-time setup (no vault, or a session resume snapshot) and the **vault UI** (`popup/popup.ts` inside `sidebar.html`) when a vault exists and there is nothing to resume. The URL hash `#onboarding=1` is a **dev/e2e-only** escape hatch (see `src/sidebar/sidebar.ts`).
 
-Recent internal refactors are merged:
-- onboarding stage routing in `onboarding/render.ts` is declarative (stage-handler map),
-- shared runtime message routing helpers live in `src/runtime/messageRouter.ts`,
-- content script flows are modularized under `src/content/*Flow*.ts` / `*Bridge*.ts`, with `content.ts` as a thin orchestrator.
-
-The feature flag `ONBOARDING_V2_ENABLED` in `src/onboarding/state.ts` is **currently `false`**. That means:
-
-- `npm run build` (production) ships the **legacy vault sidebar** (the `<main class="wrap">` UI driven by `popup/popup.ts`). Users never see onboarding v2 until the flag flips.
-- The onboarding v2 code under `src/onboarding/` is fully built and unit-tested but dormant at runtime unless you opt in.
-- To exercise onboarding v2 locally, run `npm run build:dev` (or `build:e2e`) and load the sidebar with the URL hash `#onboarding=1`. That dev-only escape hatch in `sidebar.ts` folds away in production builds via `import.meta.env.MODE`.
-
-When adding work, default to **additive plan-10+ changes**. Do not flip `ONBOARDING_V2_ENABLED` or rework legacy vault behavior unless the plan you're executing explicitly requires it.
+Recent refactors: declarative onboarding stage routing in `onboarding/render.ts`, shared `src/runtime/messageRouter.ts`, and modular `src/content/*Flow*.ts` / `*Bridge*.ts` with `content.ts` as orchestrator.
 
 ## Project layout
 
 ```
 sidebar.html                    Vite entry point for the extension side panel/sidebar UI.
-                                Hosts both the legacy vault UI (<main class="wrap">, driven by
-                                popup/popup.ts) and the onboarding v2 shell (#onboarding-root,
-                                hidden by default; populated by onboarding/render.ts).
+                                Hosts the vault form (<main class="wrap">, popup/popup.ts) and
+                                #onboarding-root (onboarding/render.ts; hidden until that shell mounts).
 src/
   vaultSession/snapshot.ts      loadVaultSessionSnapshot — shared vault + session master mode (used by sidebar init)
   vaultSession/snapshot.test.ts Unit tests for snapshot (injected storage mocks; no top-level webextension-polyfill import)
-  sidebar/sidebar.ts            Side panel entrypoint. Boots onboarding v2 (onboarding/render.ts)
-                                when ONBOARDING_V2_ENABLED is true OR, in dev/e2e builds only,
-                                when the URL hash contains #onboarding=1. Otherwise delegates
-                                to popup/popup.ts (the legacy vault UI — named "popup" for
-                                history only; there is no popup surface in this extension).
+  sidebar/sidebar.ts            Side panel entrypoint. Loads onboarding/render.ts when there is
+                                no vault, when a session resume snapshot exists, or when the URL
+                                hash has #onboarding=1 (dev/e2e only). Otherwise loads popup/popup.ts
+                                for vault management (folder name "popup" is historical only).
   sidebar/sidebar.utils.ts      Side panel utility export surface (re-exports popup utils)
   sidebar/debugPanel.ts         Side panel debug panel export surface (re-exports popup debug panel)
   sidebar/sidebar.css           Side panel stylesheet entrypoint (imports popup styles)
-  popup/popup.ts                Legacy vault controller. Modes: setup / locked / unlocked;
+  popup/popup.ts                Vault controller. Modes: setup / locked / unlocked;
                                 encrypt/save; session unlock; master rotation; draft autosave.
   popup/popup.utils.ts          Pure helpers + small DOM utilities (email validation, draft parse, status copy,
                                 MIN_MASTER_PASSWORD_LENGTH = 12, TOTP source hint helpers)
@@ -53,7 +40,7 @@ src/
   popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (dev/e2e builds only)
   popup/popup.css               Base vault UI styles imported by the side panel stylesheet
   onboarding/state.ts           Onboarding state enum (18 states from WELCOME → COMPLETE_DONE),
-                                STATE_TO_BEAD mapping, BEAD_LABELS, ONBOARDING_V2_ENABLED flag
+                                STATE_TO_BEAD mapping, BEAD_LABELS, resume policy
   onboarding/transitions.ts     Declarative TRANSITION_TABLE (state × event → next state);
                                 advance / canTransition / backStateFor / forwardTargetsFor
   onboarding/controller.ts      createOnboardingController — holds current state + in-memory-only
@@ -69,8 +56,9 @@ src/
                                 #onboarding-root, installs the runtime.onMessage bridge that
                                 applies ONBOARDING_* messages to the controller, and fires
                                 CLEAR_ONBOARDING_CREDENTIALS on unmount so the SW drops its
-                                in-memory copy. Plan-11 adds resume snapshots in storage.session
-                                (`cunyOnboardingResumeSnapshotV1`, state+email+password) and
+                                in-memory copy.                                 Session resume snapshots in storage.session
+                                (`cunyOnboardingResumeSnapshot`, state+email+password; migrates
+                                older `cunyOnboardingResumeSnapshotV1`) and
                                 CUNY-tab close/reopen interruption handling.
   onboarding/screens/           Per-screen mount functions. Fully implemented:
                                 welcome.ts, emailEntry.ts, passwordEntry.ts, openingCuny.ts,
@@ -126,7 +114,7 @@ src/
 vite.config.ts                  Builds sidebar + background and emits manifest.json
 vite.content.config.ts          Builds content.ts as a single IIFE (dist/content.js, inline deps)
 e2e/
-  onboarding.spec.ts            Playwright: first-run / setup flow + onboarding v2 screens 1–4 +
+  onboarding.spec.ts            Playwright: first-run / setup flow + onboarding screens 1–4 +
                                 credential-error regression (/auth_cred_submit requires #serverError)
   locked.spec.ts                Playwright: vault locked behavior
   unlocked.spec.ts              Playwright: unlocked vault + autofill
@@ -143,7 +131,7 @@ e2e/
                                 highlights it (1500ms delay); ?view=secret Verify Now appends
                                 &autoSubmit=1 to the verify URL so setupToExtPasswordSetup can
                                 click Verify and Save immediately without a fill-wait.
-  constants.ts                  Shared constants (FIXTURE_PORT, fixture URLs)
+  constants.ts                  Shared constants (FIXTURE_PORT, FIXTURE_ORIGIN, fixture URLs)
   test-credentials.ts           Plaintext test credentials used only by E2E tests (fabricated)
 .plans/                         Engineering plan documents (overhaul-onboarding.md, agents/plan-NN-*.md,
                                 handoff notes, roles, operator prompts). Consulted by implementation
@@ -327,29 +315,17 @@ describe("tampered StoredVault → decrypt_failed", () => {
 
 - Always run `npm run build:e2e` before `npm run test:e2e`. Stale artifacts cause false failures.
 - Each spec's `beforeEach` clears vault state via `#clear-vault-debug-btn` (only present in dev/e2e builds). Never assume clean state without this reset.
-- Use shared helpers from `e2e/helpers.ts` (`gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault`, `walkToPasswordEntry`, `onboardingHashWith`, `describePlan`).
+- Use shared helpers from `e2e/helpers.ts` (`gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault`, `walkToPasswordEntry`, `onboardingHashWith`). `gotoPrimarySurface` opens `sidebar.html#vault=1` so the vault setup form is shown on a fresh profile (dev/e2e hash in `src/sidebar/sidebar.ts`).
 - Firefox is not supported in E2E — test Firefox manually via `about:debugging`.
 
-### Plan-gated tests
+### E2E spec layout
 
-Tests for unimplemented plans are skipped by default via the `PLAN_GATE` environment variable:
+`npm run test:e2e` runs the **full** Playwright suite (after `build:e2e`).
 
-```bash
-PLAN_GATE=5 npm run test:e2e   # baseline gate — plans 01–05 only
-PLAN_GATE=6 npm run test:e2e   # adds plan-06 overlay tests
-PLAN_GATE=7 npm run test:e2e   # adds plan-07 guided-step tests
-PLAN_GATE=8 npm run test:e2e   # adds plan-08 verify/set-default tests
-PLAN_GATE=12 npm run test:e2e  # full suite
-```
-
-Current integrated checkpoint: `PLAN_GATE=12` passes.
-
-Spec files by plan range:
-- `e2e/onboarding.spec.ts` — plans 01–05 (no gate; always run)
-- `e2e/onboarding-guided.spec.ts` — plans 06–08
-- `e2e/onboarding-completion.spec.ts` — plans 09–12
-
-Use `describePlan(N, "title", () => { ... })` from `e2e/helpers.ts` to gate any new describe block. Never use raw `test.describe` for plan-gated tests.
+- `e2e/onboarding.spec.ts` — first-run, screens 1–4, credential errors
+- `e2e/onboarding-guided.spec.ts` — overlay, guided self-service, verify / set-default
+- `e2e/onboarding-completion.spec.ts` — extension password through smoke / post-onboarding UI
+- `e2e/locked.spec.ts`, `e2e/unlocked.spec.ts` — vault modes and autofill
 
 ### Fixture URLs
 

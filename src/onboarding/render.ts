@@ -53,7 +53,7 @@ import type {
   ScreenMount,
 } from "./screens/screenContext";
 import { mountWelcomeScreen } from "./screens/welcome";
-import { markOnboardingV2Complete } from "./onboardingCompleted";
+import { markOnboardingComplete } from "./onboardingComplete";
 import {
   clearResumeSnapshotSession,
   loadResumeSnapshotFromSession,
@@ -579,7 +579,7 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   const unsubscribe = controller.subscribe((snapshot) => {
     void saveResumeSnapshot(snapshot);
     if (snapshot.state === "COMPLETE_DONE" && snapshot.state !== lastState) {
-      void markOnboardingV2Complete();
+      void markOnboardingComplete();
     }
     if (snapshot.state === lastState) return;
     lastState = snapshot.state;
