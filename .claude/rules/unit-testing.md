@@ -12,39 +12,35 @@ Unit tests live **alongside source files** as `*.test.ts`. The runner is **Vites
 
 ```bash
 npm run test:unit   # vitest run
+npm run test:watch  # vitest watch mode
 ```
 
 `vitest.config.ts` at the repo root picks up all `src/**/*.test.ts` files.
 
-**Current suites:**
+**Current suites change frequently**; use the filesystem as the source of truth.
+Run `rg --files src -g "*.test.ts"` if you need the current full list.
 
-| File | What it exercises |
-|------|-------------------|
-| `src/crypto/vault.test.ts` | Encrypt/decrypt, `isStoredVault`, tamper / malformed blob branches |
-| `src/cuny/ssoSite.test.ts` | URL matchers + pinned SSO constants |
-| `src/sidebar/sidebar.utils.test.ts` | `sidebar.utils.ts` — validation, drafts, status strings, TOTP hint helpers |
-| `src/content/content.test.ts` | `content.utils.ts` — TOTP normalization, enroll scrape, `setInputValue`, `isFillMessage` |
-| `src/background/service-worker.test.ts` | Message routing, `AUTO_FILL_REQUEST` outcomes (vault + onboarding-staging fallback), `TOTP_SECRET_FROM_PAGE` staging, STAGE/CLEAR_ONBOARDING_CREDENTIALS, ONBOARDING_REOPEN_CUNY_TAB |
-| `src/vaultSession/snapshot.test.ts` | `loadVaultSessionSnapshot` — setup/locked/unlocked branching (injected storage mocks) |
-| `src/onboarding/state.test.ts` | 17-state enum + bead mapping exhaustiveness |
-| `src/onboarding/transitions.test.ts` | `TRANSITION_TABLE` reachability + back/forward contracts |
-| `src/onboarding/controller.test.ts` | Subscribe/dispatch semantics, dedup, credentialError snapshot |
-| `src/onboarding/messages.test.ts` | Per-type guards + default-reject envelope |
-| `src/onboarding/beadHeader.test.ts` | Bead rendering for each state (jsdom) |
-| `src/onboarding/render.test.ts` | Shell mount/unmount, `applyOnboardingMessage`, bridge registration |
-| `src/onboarding/screens/{welcome,emailEntry,passwordEntry,openingCuny}.test.ts` | Per-screen mount/interaction (jsdom) |
-| `src/onboarding/screens/extPasswordSetup.test.ts` | `computePasswordStrength` (Weak/Fair/Strong), DOM validation gating, match indicator, unmount (jsdom) |
+Stable high-level coverage areas:
+
+- `src/crypto/*.test.ts` — vault encryption/decryption and parsing/tamper paths
+- `src/cuny/*.test.ts` — URL/DOM constants and matcher contracts
+- `src/sidebar/*.test.ts` — form helpers and vault UI behavior
+- `src/vaultSession/*.test.ts` — setup/locked/unlocked snapshot branching
+- `src/background/*.test.ts` — service-worker routing and staging behavior
+- `src/runtime/*.test.ts` — shared runtime router guards/routing
+- `src/content/*.test.ts` — content orchestrator + extracted flow/bridge modules
+- `src/onboarding/*.test.ts` and `src/onboarding/screens/*.test.ts` — state machine, render bridge, per-screen DOM behavior
 
 Prefer colocated `*.utils.ts` for testable logic when the main file is an IIFE or otherwise hard to import (`sidebar/sidebar.utils.ts`, `content.utils.ts`).
 
 ## Vitest environment
 
-- **Node (default):** `vault.test.ts`, `ssoSite.test.ts`, `service-worker.test.ts`, `vaultSession/snapshot.test.ts`, and the pure-logic onboarding suites (`state`, `transitions`, `messages`) — Node provides `globalThis.crypto.subtle` on supported versions.
-- **jsdom:** Add `// @vitest-environment jsdom` as the **first line** of any file that needs `document` / DOM APIs (`sidebar.utils.test.ts`, `content.test.ts`, `onboarding/controller.test.ts`, `onboarding/beadHeader.test.ts`, `onboarding/render.test.ts`, and every file under `onboarding/screens/`).
+- **Node (default):** pure-logic suites (for example `vault.test.ts`, `ssoSite.test.ts`, `service-worker.test.ts`, `runtime/messageRouter.test.ts`, onboarding state/transition/message/controller tests).
+- **jsdom:** Add `// @vitest-environment jsdom` as the **first line** of any file that needs `document` / DOM APIs (for example `sidebar.utils.test.ts`, `content.test.ts`, `onboarding/beadHeader.test.ts`, `onboarding/render.test.ts`, and files under `onboarding/screens/`).
 
 ## Mocking `webextension-polyfill`
 
-`sidebar.utils.test.ts` and `service-worker.test.ts` call `vi.mock("webextension-polyfill", () => ({ default: { … } }))` so `browser.storage` / `browser.runtime` are in-memory fakes.
+Many suites mock `webextension-polyfill` with `vi.mock("webextension-polyfill", () => ({ default: { … } }))` so `browser.storage` / `browser.runtime` are in-memory fakes. Keep those mocks local to each suite and reset between tests.
 
 For `service-worker.test.ts`, the module under test registers `onMessage` at import time — use `beforeAll(async () => { await import("./service-worker"); … })` and read the listener from `vi.mocked(browser.runtime.onMessage.addListener).mock.calls`.
 

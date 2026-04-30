@@ -7,9 +7,9 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
 2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
 3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid.
-4. Guides a first-time student through a 19-screen onboarding flow.
+4. Guides a first-time student through an 18-state onboarding flow.
 
-Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `sidebar/sidebar.utils.ts`).
+Saved email must end with **`@login.cuny.edu`** (enforced via `sidebar/sidebar.utils.ts` in the vault controller flow).
 
 ## Rule files
 
@@ -29,7 +29,7 @@ copies `.cursor/rules/*.mdc` → `.claude/rules/*.md` for Claude Code.
 
 ## Current state
 
-The onboarding flow (all 19 screens fully implemented, plans 1–12 merged) ships via
+The onboarding flow (18 states in `onboarding/state.ts`; `CREDENTIAL_ERROR` routes to correction screens) ships via
 `onboarding/render.ts`. Post-onboarding vault management lives in `sidebar/vaultController.ts`.
 The URL hash `#onboarding=1` is a dev/e2e-only escape hatch; `#vault=1` forces the vault setup
 form on an empty profile (e2e only).
@@ -40,11 +40,13 @@ form on an empty profile (e2e only).
 npm install
 npm run build          # production: tsc --noEmit → vite build → vite content
 npm run build:dev      # development mode; sidebar includes debug panel
-npm run build:e2e      # dev build with manifest.e2e.json (required before E2E tests)
+npm run build:e2e      # dev build with manifest.e2e.json
 npm run build:content  # rebuild only the content script
 npm run watch          # vite build --watch --mode development
 npm run typecheck      # tsc --noEmit only
+npm run test           # runs unit then e2e
 npm run test:unit      # vitest run (no build step needed)
+npm run test:watch     # vitest watch mode
 npm run test:e2e       # build:e2e then playwright test
 ```
 
@@ -63,7 +65,7 @@ Rebuild and reload the extension after any source change.
 ## Runtime dependencies
 
 - `webextension-polyfill` — unified `browser` API (never use `chrome.*` directly)
-- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `sidebar.ts`, `content.ts`
+- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `sidebar/vaultController.ts`, and content flow modules
 - `totp-generator` — TOTP codes in the content script (bundled into the content IIFE)
 
 ## Documentation

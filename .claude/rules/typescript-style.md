@@ -8,9 +8,9 @@ alwaysApply: false
 
 ## Syntax basics
 
-- Arrow functions always
+- Strongly prefer arrow functions
 - No `any` types — use precise union types or generics
-- Named exports only
+- Named exports by default; config entrypoints may use default exports when required by tooling (`vite.config.ts`, `vite.content.config.ts`, `vitest.config.ts`, `playwright.config.ts`)
 - `async`/`await` only; no `.then()`
 - Avoid `throw`. Use neverthrow to return `Result` / `ResultAsync` where practical. A `throw` **requires** a comment explaining why neverthrow was unsuitable here.
 - Always maintain the same level of security as a password manager
@@ -32,7 +32,7 @@ async function handleAutoFillRequest(message: unknown) { ... }
 Concrete naming patterns used in this codebase:
 - Predicates: `matchesCredentialPage`, `matchesTotpPage`, `isStoredVault` — not `check`, `test`, `verify`
 - Waiters: `waitForInputById`, `waitForEnrollTotpSecret` — not `getEl`, `findInput`
-- Error strings in unions: screaming snake case — `"decrypt_failed"`, `"no_session_master"`, `"crypto_failed"`
+- Error strings in unions: lowercase snake case — `"decrypt_failed"`, `"no_session_master"`, `"crypto_failed"`
 
 ## Function size and responsibility
 

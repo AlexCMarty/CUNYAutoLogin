@@ -9,18 +9,18 @@ alwaysApply: true
 
 The side panel has three modes: `setup`, `locked`, and `unlocked`. These are owned by the vault controller (`src/sidebar/vaultController.ts`). The sidebar entrypoint (`src/sidebar/sidebar.ts`) loads `onboarding/render.ts` when there is no vault yet, when a session resume snapshot exists, or when the URL hash contains `#onboarding=1` (dev/e2e only). Hash `#vault=1` (dev/e2e only) forces the vault setup form even with no stored vault (used by Playwright). Otherwise it loads `sidebar/vaultController.ts` when a vault exists and there is no resume snapshot.
 
-On every side panel open, `init()` checks `browser.storage.session` for a saved master password (`SESSION_MASTER_KEY = "cunySessionMaster"`). If found, it runs PBKDF2 + AES-GCM decrypt automatically and opens directly in `unlocked` mode. If decryption fails (e.g. vault was re-keyed), the session entry is purged and the side panel falls back to `locked`.
+On every side panel open, `init()` calls `loadVaultSessionSnapshot()` (`src/vaultSession/snapshot.ts`), which reads `browser.storage.local` + `browser.storage.session` (including `SESSION_MASTER_KEY = "cunySessionMaster"`), attempts PBKDF2 + AES-GCM decrypt when possible, and returns `setup` / `locked` / `unlocked` state. If decryption fails (for example vault was re-keyed), the session master is purged and the sidebar falls back to `locked`.
 
 The master password is written to `browser.storage.session` after every successful unlock or save. It is cleared immediately when the user clicks **Lock vault**, which also resets all in-memory session state.
 
 In **unlocked** mode, users can optionally set a new master password (both "new" fields must match); saving re-encrypts the vault.
 
-`browser.storage.session` is not available in Firefox < 115 or Chrome < 102. The three session helpers (`saveSessionMaster`, `loadSessionMaster`, `clearSessionMaster`) wrap the API in try/catch and silently degrade to always-locked behaviour on unsupported browsers.
+`browser.storage.session` is not available in Firefox < 115 or Chrome < 102. Session writes/removals in the vault controller and reads in `vaultSession/snapshot.ts` are wrapped in try/catch and degrade to always-locked behaviour on unsupported browsers.
 
 ## Auto-fill flow
 
 1. **On each ssologin.cuny.edu tab load** (`content.ts`): `autoFill()` sends `{ type: "AUTO_FILL_REQUEST" }` to the service worker.
-2. **Service worker** (`service-worker.ts`): Reads session master + encrypted vault from storage, decrypts, returns `{ success: true, payload }` or a failure reason (`no_session_master`, `no_vault`, `decrypt_error`). **Onboarding fallback:** when no vault is set up yet and the sidebar has staged onboarding credentials via `STAGE_ONBOARDING_CREDENTIALS`, the SW returns those (with `totpSecret: ""`) so Screen 4 can log the student in. The staging buffer is module-scope memory only — see the security rule. If the user never unlocked this session and onboarding isn't running, auto-fill does nothing.
+2. **Service worker** (`service-worker.ts`): Reads session master + encrypted vault from storage, decrypts, returns `{ success: true, payload }` or a failure reason (`no_session_master`, `no_vault`, `decrypt_error`). **Onboarding fallback:** when no vault is set up yet and the sidebar has staged onboarding credentials via `STAGE_ONBOARDING_CREDENTIALS`, the SW returns those credentials for first-login steps. For enroll-verify contexts, it can also merge a pending session TOTP secret override (`PENDING_TOTP_SECRET_SESSION_KEY`) into that fallback payload. The staging buffer is module-scope memory only — see the security rule. If the user never unlocked this session and onboarding isn't running, auto-fill does nothing.
 3. **Content script** (`main()`): Chooses behaviour by URL using helpers from `src/cuny/ssoSite.ts` (`matchesCredentialPage`, `matchesTotpPage`). `fillCredentials` / `fillTotp` wait for Oracle JET–rendered controls, set values in a Knockout-aware way, then click submit / Verify.
 
 Oracle JET renders inputs after `document_idle`, so the content script uses a `MutationObserver` + timeouts instead of assuming immediate DOM.
@@ -50,7 +50,7 @@ Polling is used here instead of `MutationObserver` because the Oracle SPA re-ren
 
 When `mountOnboarding` is active (sidebar), `onboarding/render.ts` registers a `runtime.onMessage` listener that routes known `ONBOARDING_*` messages through `applyOnboardingMessage(controller, message)`:
 
-- `ONBOARDING_CREDENTIAL_ERROR { culprit }` → stashes the culprit on the controller and routes the sidebar to `EMAIL_ENTRY` (culprit === "email") or `PASSWORD_ENTRY` (default), with an inline red banner above the affected input. The content script emits this only after seeing the `#serverError` DOM marker on `/auth_cred_submit` — URL alone is insufficient (plan-05, commit `0525eed`).
+- `ONBOARDING_CREDENTIAL_ERROR { culprit }` → stashes the culprit on the controller and routes the sidebar to `EMAIL_ENTRY` (culprit === "email") or `PASSWORD_ENTRY` (default), with an inline red banner above the affected input. The content script emits this when the credential-error DOM marker is present on either the credential-submit URL or the credential page URL; URL alone is insufficient because DOM evidence gates reporting. Current production emitter sends `culprit: "password"`.
 - `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advances `OPENING_CUNY` to `ALLOW_GATE`.
 - `ONBOARDING_REOPEN_CUNY_TAB` is handled by the service worker: it opens `CUNY_LOGIN_ENTRY_URL` (or the provided `url`) in a new tab. Used by Screen 4–10a when the student closed the CUNY tab mid-flow.
 - `ONBOARDING_OVERLAY_COMMAND` / `ONBOARDING_VERIFY_STATUS` / `ONBOARDING_TAB_REATTACHED` are validated and acknowledged by the service worker; their sidebar-side handlers are wired in `onboarding/render.ts`.

@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## Before running tests
 
-Always run `npm run build:e2e` before `npm run test:e2e`. The Playwright specs load the built extension from `dist/` — stale build artifacts cause false failures.
+`npm run test:e2e` already runs `npm run build:e2e` first. Run `npm run build:e2e` manually only when invoking `playwright test` directly.
 
 `build:e2e` is a dev build with `manifest.e2e.json` substituted for `manifest.json`. The E2E manifest adds `http://127.0.0.1:4173/*` to both `host_permissions` and `content_scripts.matches` so the content script is injected into fixture pages served by the local fixture server.
 
@@ -42,7 +42,7 @@ Use `test.describe` from the shared `extension-fixture` (or plain Playwright) fo
 
 `playwright.config.ts` sets `workers: 6` and `fullyParallel: true`. Each worker launches its own isolated browser context with a fresh extension instance, so tests can run concurrently. Extension state (`browser.storage.local`, `browser.storage.session`) is isolated per browser context.
 
-Each spec's `beforeEach` clears the vault via the debug panel button (`#clear-vault-debug-btn`) when it is visible. This button is only rendered in dev builds (`build:e2e` uses dev mode). Do not assume a clean vault state at the start of a test without this reset step.
+Many flows use `clearVaultIfPossible` (debug panel button `#clear-vault-debug-btn`) during setup when visible. This button is only rendered in dev builds (`build:e2e` uses dev mode). Do not assume every spec clears vault state in `beforeEach`; verify setup helpers for the suite you are editing.
 
 State-oriented specs are split by concern (see list above).
 

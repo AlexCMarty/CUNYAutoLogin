@@ -31,7 +31,7 @@ Recent architecture refactors (merged):
 
 Master-password handling, `storage.local` vs `storage.session`, onboarding credential staging, and related security rules are defined only in the **Security, crypto, and gotchas** project rule — do not contradict that rule.
 
-Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `sidebar/sidebar.utils.ts`).
+Saved email must end with **`@login.cuny.edu`** (enforced in the vault controller flow via `sidebar/sidebar.utils.ts`).
 
 The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
 
@@ -73,12 +73,14 @@ src/
                                 Session-only resume snapshot (`cunyOnboardingResumeSnapshot`;
                                 migrates legacy `cunyOnboardingResumeSnapshotV1`) and CUNY-tab
                                 close/reopen interruption UX.
-  onboarding/screens/           All screens fully implemented:
+  onboarding/screens/           Mounted onboarding screens:
                                 welcome, emailEntry, passwordEntry, openingCuny, allowGate,
                                 oaaSpaHome, guidedManage, guidedAddFactor, guidedFactorType,
                                 guidedSecretCapture, verifyLoginCode, setDefault, extPasswordSetup,
                                 biometricOffer, biometricPrep, completeDemo, completeDone.
                                 guidedCommon.ts has shared guided-flow helpers.
+                                `CREDENTIAL_ERROR` is a state routed by controller/message handling
+                                back to `EMAIL_ENTRY` or `PASSWORD_ENTRY` (no dedicated screen mount).
                                 verifyLoginCodeStub.ts kept for reference only.
                                 screenContext.ts defines the shared mount context.
   onboarding/*.test.ts          Vitest suites (jsdom) alongside each module
@@ -164,11 +166,13 @@ dist/                           Built extension — load this folder in the brow
 npm install
 npm run build          # production: tsc --noEmit → vite build → vite content
 npm run build:dev      # development mode on both Vite steps; sidebar includes debug panel
-npm run build:e2e      # dev build with manifest.e2e.json (required before E2E tests)
+npm run build:e2e      # dev build with manifest.e2e.json
 npm run build:content  # rebuild only the content script
-npm run watch          # vite build --watch --mode development (sidebar/bg; rerun build:content when content changes)
+npm run watch          # vite build --watch --mode development
 npm run typecheck      # tsc --noEmit only
+npm run test           # runs unit then e2e
 npm run test:unit      # vitest run (no build step needed)
+npm run test:watch     # vitest watch mode
 npm run test:e2e       # build:e2e then playwright test
 ```
 
@@ -185,7 +189,7 @@ Rebuild and reload the extension after any source change.
 ## Dependencies (runtime)
 
 - `webextension-polyfill` — unified `browser` API
-- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `sidebar.ts`, and `content.ts`
+- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `sidebar/vaultController.ts`, and content flow modules
 - `totp-generator` — TOTP codes in the content script (bundled into IIFE)
 
 ## Documentation
