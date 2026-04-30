@@ -133,3 +133,20 @@ export async function applyPendingTotpFromPage(els: PopupDom): Promise<void> {
     // session storage unavailable
   }
 }
+
+/**
+ * Sidebar management hides the TOTP field; when the field is empty,
+ * re-encrypt using the session payload secret.
+ */
+export function effectiveTotpSecretForSave(
+  fieldValue: string,
+  sessionTotp: string | null | undefined,
+  sidebarManagement: boolean
+): string {
+  const fromField = fieldValue.trim().replace(/\s+/g, "");
+  if (fromField.length > 0) return fromField;
+  if (sidebarManagement && sessionTotp) {
+    return sessionTotp.trim().replace(/\s+/g, "");
+  }
+  return "";
+}

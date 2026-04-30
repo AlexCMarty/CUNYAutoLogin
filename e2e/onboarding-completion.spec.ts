@@ -436,6 +436,43 @@ describePlan(12, "plan-12 — hardening: selector timeout recovery", () => {
   });
 });
 
+describePlan(12, "plan-12 — post-onboarding: vault UI after completion", () => {
+  let cunyTab: Page | undefined;
+
+  test.beforeEach(async ({ page, context, extensionId }) => {
+    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+    const pw = "Passw0rd!";
+    await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-forward='true']").click();
+    const skipBtn = page.locator("[data-onboarding-biometric-skip='true']");
+    if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await skipBtn.click();
+    }
+    await expect(page.locator("[data-onboarding-screen='COMPLETE_DEMO']")).toBeVisible({
+      timeout: 5_000,
+    });
+    await page.locator("[data-onboarding-demo-skip='true']").click();
+    await expect(page.locator("[data-onboarding-screen='COMPLETE_DONE']")).toBeVisible({
+      timeout: 5_000,
+    });
+  });
+
+  test.afterEach(async () => {
+    await cunyTab?.close().catch(() => {});
+  });
+
+  test("reload sidebar without onboarding hash shows vault form not WELCOME", async ({
+    page,
+    extensionId,
+  }) => {
+    await page.goto(`chrome-extension://${extensionId}/sidebar.html`);
+    await expect(page.locator("#vault-form")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("[data-onboarding-welcome-cta='true']")).toHaveCount(0);
+    await expect(page.locator("#totp-secret-field")).toBeHidden();
+  });
+});
+
 describePlan(12, "plan-12 — smoke: full happy path Screen 1 → Screen 13", () => {
   test("complete onboarding from WELCOME to COMPLETE_DONE on fixtures end-to-end", async ({
     page,

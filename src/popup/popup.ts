@@ -7,6 +7,7 @@ import {
   type StoredVault,
   type VaultPayload,
 } from "../crypto/vault";
+import { clearOnboardingV2Complete } from "../onboarding/onboardingCompleted";
 import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 import { LOGIN_EMAIL_SUFFIX, PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../cuny/ssoSite";
 import {
@@ -23,6 +24,7 @@ import {
   clearDraft,
   clearPendingTotpFromSession,
   applyPendingTotpFromPage,
+  effectiveTotpSecretForSave,
 } from "./popup.utils";
 export type { PopupDom } from "./popup.utils";
 
@@ -92,6 +94,8 @@ let sessionMasterPassword: string | null = null;
 let sessionPayload: VaultPayload | null = null;
 let storedVault: StoredVault | null = null;
 
+const isSidebarVaultManagement = (): boolean =>
+  document.body.dataset.vaultUi === "sidebar-management";
 
 function getEls(): Result<PopupDom, "missing_dom"> {
   const form = document.getElementById("vault-form");
@@ -180,9 +184,23 @@ function renderMode(els: PopupDom): void {
     changeMasterSection.classList.remove("hidden");
     els.lockBtn.classList.remove("hidden");
     els.masterLabel.textContent = "Extension master password";
-    els.modeHint.textContent =
-      "Your credentials are unlocked. Edit any field and save. To change your master password, fill the optional fields below.";
-    els.submitBtn.textContent = "Save changes";
+    if (isSidebarVaultManagement()) {
+      els.modeHint.textContent =
+        "Change your CUNY login email or password below, then save. To change your extension master password, use the optional fields at the bottom.";
+      els.submitBtn.textContent = "Save changes";
+      const emailLabel = document.getElementById("vault-email-label");
+      const passwordLabel = document.getElementById("vault-password-label");
+      if (emailLabel) emailLabel.textContent = "Change email";
+      if (passwordLabel) passwordLabel.textContent = "Change password";
+    } else {
+      els.modeHint.textContent =
+        "Your credentials are unlocked. Edit any field and save. To change your master password, fill the optional fields below.";
+      els.submitBtn.textContent = "Save changes";
+      const emailLabel = document.getElementById("vault-email-label");
+      const passwordLabel = document.getElementById("vault-password-label");
+      if (emailLabel) emailLabel.textContent = "CUNY email";
+      if (passwordLabel) passwordLabel.textContent = "Password";
+    }
 
     // Pre-fill credential fields from session
     if (sessionPayload) {
@@ -268,7 +286,11 @@ async function handleLocked(els: PopupDom): Promise<void> {
 async function handleUnlocked(els: PopupDom): Promise<void> {
   const email = els.email.value.trim();
   const password = els.password.value;
-  const totpSecret = els.totpSecret.value.trim().replace(/\s+/g, "");
+  const totpSecret = effectiveTotpSecretForSave(
+    els.totpSecret.value,
+    sessionPayload?.totpSecret,
+    isSidebarVaultManagement()
+  );
   const newMaster = els.newMasterPassword.value;
   const confirmMaster = els.confirmNewMasterPassword.value;
 
@@ -281,7 +303,11 @@ async function handleUnlocked(els: PopupDom): Promise<void> {
     return;
   }
   if (!totpSecret.length) {
-    setStatus("TOTP secret is required.");
+    setStatus(
+      isSidebarVaultManagement()
+        ? "Could not read your login code secret. Lock the vault and unlock again, then save."
+        : "TOTP secret is required."
+    );
     return;
   }
 
@@ -350,6 +376,8 @@ async function resetToFreshInstall(els: PopupDom): Promise<void> {
     setStatus("Could not remove vault from storage.");
     return;
   }
+  await clearOnboardingV2Complete();
+  delete document.body.dataset.vaultUi;
   await clearSessionMaster();
   await clearPendingTotpFromSession();
   await clearDraft();
@@ -381,6 +409,10 @@ async function init(): Promise<void> {
   sessionMasterPassword = snap.sessionMasterPassword;
   sessionPayload = snap.sessionPayload;
   currentMode = snap.mode;
+
+  if (currentMode === "setup") {
+    delete document.body.dataset.vaultUi;
+  }
 
   renderMode(els);
   setupPasswordToggles();

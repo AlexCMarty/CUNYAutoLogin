@@ -53,12 +53,17 @@ import type {
   ScreenMount,
 } from "./screens/screenContext";
 import { mountWelcomeScreen } from "./screens/welcome";
+import { markOnboardingV2Complete } from "./onboardingCompleted";
+import {
+  clearResumeSnapshotSession,
+  loadResumeSnapshotFromSession,
+  saveResumeSnapshotSession,
+} from "./resumeSession";
 import {
   BEAD_LABELS,
   type BeadStage,
   type OnboardingState,
   beadForState,
-  isResumableState,
   safeResumeStateFor,
 } from "./state";
 import { type OnboardingEvent } from "./transitions";
@@ -126,14 +131,7 @@ export const ONBOARDING_PLACEHOLDER_SELECTOR =
 export const ONBOARDING_RESUME_BUTTON_SELECTOR = "[data-onboarding-resume='true']";
 export const ONBOARDING_REOPEN_CUNY_SELECTOR = "[data-onboarding-reopen-cuny='true']";
 
-const ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY = "cunyOnboardingResumeSnapshotV1";
 const DEV_MODE_NAMES = ["development", "e2e"] as const;
-
-type OnboardingResumeSnapshot = {
-  readonly state: OnboardingState;
-  readonly email?: string;
-  readonly password?: string;
-};
 
 type PendingResumeSnapshot = {
   readonly state: OnboardingState;
@@ -483,38 +481,6 @@ const clearStagedOnboardingCredentials = (): void => {
   }
 };
 
-const isResumeSnapshot = (value: unknown): value is OnboardingResumeSnapshot => {
-  if (typeof value !== "object" || value === null) return false;
-  const record = value as Record<string, unknown>;
-  if (!(typeof record.state === "string" && isResumableState(record.state as OnboardingState))) {
-    return false;
-  }
-  if (record.email !== undefined && typeof record.email !== "string") return false;
-  if (record.password !== undefined && typeof record.password !== "string") return false;
-  return true;
-};
-
-const loadResumeSnapshot = async (): Promise<OnboardingResumeSnapshot | null> => {
-  try {
-    const result = await browser.storage.session?.get(ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY);
-    const raw = result?.[ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY];
-    if (!isResumeSnapshot(raw)) return null;
-    return raw;
-  } catch (error) {
-    reportOnboardingFailure("storage.session.get(resumeSnapshot)", error);
-    return null;
-  }
-};
-
-const clearResumeSnapshot = async (): Promise<void> => {
-  try {
-    await browser.storage.session?.remove(ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY);
-  } catch (error) {
-    // Ignore when session storage is unavailable.
-    reportOnboardingFailure("storage.session.remove(resumeSnapshot)", error);
-  }
-};
-
 const saveResumeSnapshot = async (
   snapshot: {
     readonly state: OnboardingState;
@@ -524,21 +490,14 @@ const saveResumeSnapshot = async (
 ): Promise<void> => {
   const safeState = safeResumeStateFor(snapshot.state);
   if (!safeState) {
-    await clearResumeSnapshot();
+    await clearResumeSnapshotSession();
     return;
   }
-  try {
-    await browser.storage.session?.set({
-      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
-        state: safeState,
-        email: snapshot.email,
-        password: snapshot.password,
-      } satisfies OnboardingResumeSnapshot,
-    });
-  } catch (error) {
-    // Ignore when session storage is unavailable.
-    reportOnboardingFailure("storage.session.set(resumeSnapshot)", error);
-  }
+  await saveResumeSnapshotSession({
+    state: safeState,
+    email: snapshot.email,
+    password: snapshot.password,
+  });
 };
 
 export const mountOnboarding = (doc: Document): (() => void) => {
@@ -619,6 +578,9 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   let lastState: OnboardingState = controller.getSnapshot().state;
   const unsubscribe = controller.subscribe((snapshot) => {
     void saveResumeSnapshot(snapshot);
+    if (snapshot.state === "COMPLETE_DONE" && snapshot.state !== lastState) {
+      void markOnboardingV2Complete();
+    }
     if (snapshot.state === lastState) return;
     lastState = snapshot.state;
     repaint();
@@ -673,7 +635,7 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   }
 
   repaint();
-  void loadResumeSnapshot().then((snapshot) => {
+  void loadResumeSnapshotFromSession().then((snapshot) => {
     if (!snapshot) return;
     pendingResumeSnapshot = {
       state: snapshot.state,

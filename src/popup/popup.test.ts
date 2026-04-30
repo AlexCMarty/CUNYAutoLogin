@@ -12,6 +12,7 @@ import {
   hideTotpSecretSourceHint,
   showTotpSecretSourceHint,
   applyPendingTotpFromPage,
+  effectiveTotpSecretForSave,
   MIN_MASTER_PASSWORD_LENGTH,
   DRAFT_KEY,
   type PopupDom,
@@ -88,6 +89,20 @@ describe("MIN_MASTER_PASSWORD_LENGTH", () => {
 // ---------------------------------------------------------------------------
 // validateEmail
 // ---------------------------------------------------------------------------
+
+describe("effectiveTotpSecretForSave", () => {
+  test("uses trimmed field when non-empty", () => {
+    expect(effectiveTotpSecretForSave("  AB CD  ", null, true)).toBe("ABCD");
+  });
+
+  test("uses session TOTP when sidebar management and field empty", () => {
+    expect(effectiveTotpSecretForSave("", "JBSWY3DPEHPK3PXP", true)).toBe("JBSWY3DPEHPK3PXP");
+  });
+
+  test("returns empty when not management and field empty", () => {
+    expect(effectiveTotpSecretForSave("", "JBSWY3DPEHPK3PXP", false)).toBe("");
+  });
+});
 
 describe("validateEmail", () => {
   test("valid @login.cuny.edu address → true", () => {

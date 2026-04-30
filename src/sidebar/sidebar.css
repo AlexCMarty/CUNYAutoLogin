@@ -1,1 +1,6 @@
 @import "../popup/popup.css";
+
+/* Post-onboarding sidebar: TOTP was captured during onboarding v2. */
+body[data-vault-ui="sidebar-management"] #totp-secret-field {
+  display: none;
+}

@@ -1,21 +1,14 @@
+import { loadResumeSnapshotFromSession } from "../onboarding/resumeSession";
 import { ONBOARDING_V2_ENABLED } from "../onboarding/state";
+import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 
 /**
- * Sidebar entry. By default this delegates to the legacy vault UI
- * (`src/popup/popup.ts`) so setup/locked/unlocked behavior is unchanged.
+ * Sidebar entry. Delegates to the legacy vault UI (`src/popup/popup.ts`) when
+ * the student already has a vault and no in-session onboarding resume, so they
+ * manage email/password without seeing onboarding WELCOME again.
  *
- * When `ONBOARDING_V2_ENABLED` is flipped on (plan-12 launch), the sidebar
- * boots the new screen-based onboarding renderer instead.
- *
- * Test-only escape hatch: in development-mode builds (`build:dev` / `build:e2e`,
- * both of which run `vite build --mode development`), the presence of
- * `#onboarding=1` in the URL hash will also boot the onboarding renderer. This
- * lets Playwright exercise plan-04+ screens without flipping the compile-time
- * feature flag. `import.meta.env.MODE` is statically replaced by Vite at build
- * time with the `--mode` string, so the whole branch folds away to `return
- * false` in production builds and there is no URL-based override surface on
- * anything shipped to users. (Unlike `import.meta.env.DEV`, which Vite ties
- * to `command === "serve"`, `MODE` honors our `--mode development` flag.)
+ * Onboarding v2 mounts when there is no vault yet, when a session resume
+ * snapshot exists (mid-flow), or when the dev/e2e `#onboarding=1` hash is set.
  */
 
 const DEV_MODE_NAMES = ["development", "e2e"] as const;
@@ -35,22 +28,37 @@ const onboardingRequestedByDevHash = (): boolean => {
 };
 
 const bootSidebar = async (): Promise<void> => {
-  if (ONBOARDING_V2_ENABLED || onboardingRequestedByDevHash()) {
+  if (onboardingRequestedByDevHash()) {
     const { mountOnboarding } = await import("../onboarding/render");
     mountOnboarding(document);
     return;
   }
+
+  if (!ONBOARDING_V2_ENABLED) {
+    await import("../popup/popup");
+    return;
+  }
+
+  const snap = await loadVaultSessionSnapshot();
+  if (!snap.storedVault) {
+    const { mountOnboarding } = await import("../onboarding/render");
+    mountOnboarding(document);
+    return;
+  }
+
+  const resume = await loadResumeSnapshotFromSession();
+  if (resume) {
+    const { mountOnboarding } = await import("../onboarding/render");
+    mountOnboarding(document);
+    return;
+  }
+
+  document.body.dataset.vaultUi = "sidebar-management";
   await import("../popup/popup");
 };
 
 void bootSidebar();
 
-/**
- * Dev/e2e escape hatch: if the URL hash changes after initial boot (e.g. the
- * sidebar was opened via toolbar action, then a test navigates it to
- * `#onboarding=1`), reload the page so `bootSidebar()` re-runs and the
- * onboarding shell mounts. Folds away in production via the MODE check.
- */
 if ((DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE)) {
   window.addEventListener("hashchange", () => {
     window.location.reload();

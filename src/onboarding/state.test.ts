@@ -27,8 +27,8 @@ describe("constants", () => {
     expect(unique.size).toBe(ONBOARDING_STATES.length);
   });
 
-  test("ONBOARDING_V2_ENABLED defaults to false — legacy flow preserved", () => {
-    expect(ONBOARDING_V2_ENABLED).toBe(false);
+  test("ONBOARDING_V2_ENABLED is true — onboarding v2 ships in sidebar builds", () => {
+    expect(ONBOARDING_V2_ENABLED).toBe(true);
   });
 
   test("TERMINAL_STATE is COMPLETE_DONE", () => {
@@ -147,9 +147,11 @@ describe("resume policy", () => {
     expect(safeResumeStateFor("CREDENTIAL_ERROR")).toBe("PASSWORD_ENTRY");
   });
 
-  test("post-setup states are non-resumable", () => {
+  test("extension password setup and terminal done are non-resumable; biometrics resume in-place", () => {
     expect(safeResumeStateFor("EXT_PASSWORD_SETUP")).toBeNull();
-    expect(safeResumeStateFor("BIOMETRIC_OFFER")).toBeNull();
+    expect(safeResumeStateFor("BIOMETRIC_OFFER")).toBe("BIOMETRIC_OFFER");
+    expect(safeResumeStateFor("BIOMETRIC_PREP")).toBe("BIOMETRIC_PREP");
+    expect(safeResumeStateFor("COMPLETE_DEMO")).toBe("COMPLETE_DEMO");
     expect(safeResumeStateFor("COMPLETE_DONE")).toBeNull();
   });
 

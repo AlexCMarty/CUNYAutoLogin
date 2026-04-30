@@ -107,9 +107,9 @@ export const RESUME_SAFE_STATE: Readonly<
   VERIFY_LOGIN_CODE: "VERIFY_LOGIN_CODE",
   SET_DEFAULT: "SET_DEFAULT",
   EXT_PASSWORD_SETUP: null,
-  BIOMETRIC_OFFER: null,
-  BIOMETRIC_PREP: null,
-  COMPLETE_DEMO: null,
+  BIOMETRIC_OFFER: "BIOMETRIC_OFFER",
+  BIOMETRIC_PREP: "BIOMETRIC_PREP",
+  COMPLETE_DEMO: "COMPLETE_DEMO",
   COMPLETE_DONE: null,
 });
 
@@ -126,4 +126,4 @@ export const isResumableState = (state: OnboardingState): boolean =>
  * existing setup/locked/unlocked behavior — later plans flip this once the
  * onboarding renderer, message protocol, and overlays all land.
  */
-export const ONBOARDING_V2_ENABLED = false as const;
+export const ONBOARDING_V2_ENABLED = true as const;

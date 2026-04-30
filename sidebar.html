@@ -23,7 +23,7 @@
 
         <div id="credential-fields">
           <label class="field">
-            <span>CUNY email</span>
+            <span id="vault-email-label">CUNY email</span>
             <input
               id="email"
               type="email"
@@ -34,14 +34,14 @@
           </label>
 
           <label class="field">
-            <span>Password</span>
+            <span id="vault-password-label">Password</span>
             <div class="input-wrap">
               <input id="password" type="password" autocomplete="current-password" />
               <button type="button" class="toggle-visibility" aria-label="Show password" tabindex="-1"></button>
             </div>
           </label>
 
-          <label class="field">
+          <label class="field" id="totp-secret-field">
             <span>TOTP secret (Base32)</span>
             <div class="input-wrap">
               <input id="totpSecret" type="password" autocomplete="off" spellcheck="false" />
