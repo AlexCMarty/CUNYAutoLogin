@@ -1,4 +1,4 @@
-/** Deterministic values for E2E vault setup (must satisfy popup validation). */
+/** Deterministic values for E2E vault setup (must satisfy sidebar vault validation). */
 export const E2E_MASTER_PASSWORD = "E2ETestMaster!!";
 
 export const E2E_EMAIL = "e2e-test@login.cuny.edu";

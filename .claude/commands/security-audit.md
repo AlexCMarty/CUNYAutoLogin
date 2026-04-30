@@ -12,8 +12,8 @@ Your job: perform a full, anal-retentive security audit. Assume the worst. Be ni
 
 Read every file that touches `email`, `password`, `totpSecret`, or `masterPassword`. Trace the full lifecycle: input → storage → retrieval → use. Ask at every step: could this value escape to an unintended location?
 
-- **`src/sidebar/sidebar.ts`** — the sidebar entrypoint async-loads `onboarding/render.ts` when there is no vault, when a session resume snapshot exists, or when the URL hash contains `#onboarding=1` (dev/e2e `import.meta.env.MODE` only); otherwise loads `popup/popup.ts` for vault management. Dev/e2e `#vault=1` forces the vault form on a fresh profile (Playwright `gotoPrimarySurface`). Confirm `#onboarding=1` and `#vault=1` branches cannot activate in production builds.
-- **`src/popup/popup.ts` / `src/popup/popup.utils.ts`** — `saveDraft`, `clearDraft`, `coerceDraft`: what storage API do they use? Is it `browser.storage.session` (in-memory, acceptable) or `localStorage`/`storage.local` (on-disk, **not acceptable** for plaintext)? Is `saveDraft` still gated to `currentMode === "setup"`?
+- **`src/sidebar/sidebar.ts`** — the sidebar entrypoint async-loads `onboarding/render.ts` when there is no vault, when a session resume snapshot exists, or when the URL hash contains `#onboarding=1` (dev/e2e `import.meta.env.MODE` only); otherwise loads `sidebar/vaultController.ts` for vault management. Dev/e2e `#vault=1` forces the vault form on a fresh profile (Playwright `gotoPrimarySurface`). Confirm `#onboarding=1` and `#vault=1` branches cannot activate in production builds.
+- **`src/sidebar/vaultController.ts` / `src/sidebar/sidebar.utils.ts`** — `saveDraft`, `clearDraft`, `coerceDraft`: what storage API do they use? Is it `browser.storage.session` (in-memory, acceptable) or `localStorage`/`storage.local` (on-disk, **not acceptable** for plaintext)? Is `saveDraft` still gated to `currentMode === "setup"`?
 - **`src/onboarding/controller.ts`** — email/password drafts must live in closure memory only. Confirm there is no `storage.local` or `storage.session` write in this module.
 - **`src/onboarding/render.ts`** — the sidebar unmount path must send `CLEAR_ONBOARDING_CREDENTIALS` so the service-worker staging buffer is dropped.
 - **`src/onboarding/render.ts` resume snapshot** — `cunyOnboardingResumeSnapshot` (and legacy `cunyOnboardingResumeSnapshotV1` during migration) may store resumable `{ state, email, password }` in `browser.storage.session` only. Verify this never falls back to `storage.local`, and that non-resumable states clear the snapshot.
@@ -48,7 +48,7 @@ Check:
 ### 5. Crypto strength
 
 - **`src/crypto/vault.ts`**: PBKDF2 iterations (should be ≥ 310,000 for SHA-256 per OWASP 2023), salt length (≥ 32 bytes), IV length (12 bytes for AES-GCM), key size (256 bits).
-- **Master password minimum length** in `sidebar.utils.ts`/`popup.utils.ts` (`MIN_MASTER_PASSWORD_LENGTH`): should be ≥ 12. Anything lower is too weak for a credential vault.
+- **Master password minimum length** in `sidebar/sidebar.utils.ts` (`MIN_MASTER_PASSWORD_LENGTH`): should be ≥ 12. Anything lower is too weak for a credential vault.
 
 ### 6. Git history
 

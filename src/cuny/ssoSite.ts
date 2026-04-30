@@ -112,7 +112,7 @@ export const TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY = "key-labelled-by|label" as co
 /** Session storage key for the master password (held only for the browser session lifetime). */
 export const SESSION_MASTER_KEY = "cunySessionMaster" as const;
 
-/** Session-only staging for a secret scraped from the enroll page (popup consumes + clears). */
+/** Session-only staging for a secret scraped from the enroll page (sidebar vault controller consumes + clears). */
 export const PENDING_TOTP_SECRET_SESSION_KEY = "cunyPendingTotpSecretFromSso" as const;
 
 /** Login form element ids on the credential page (Oracle JET). */

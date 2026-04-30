@@ -38,7 +38,7 @@ After updates, download a new release zip, unzip to replace the old folder, then
 
 1. Click the extension’s icon (puzzle piece → pin CUNYAutoLogin if you want it visible).
 2. Enter your CUNY email (**must** end with `@login.cuny.edu`), your CUNY password, your **TOTP secret** (see below), and a **strong master password** for the vault.
-3. Save. The next time you open the browser, unlock with your master password when the popup asks.
+3. Save. The next time you open the browser, unlock with your master password when the sidebar asks.
 
 Until the vault is unlocked for that session, the extension will not auto-fill sign-in pages.
 
@@ -54,10 +54,10 @@ You need an authenticator-style factor enrolled at CUNY before the extension can
 4. Choose **Add authentication factor**.
 5. Select **Mobile Authenticator - TOTP**.
 6. You will see a **secret key** (letters and digits) and a QR code. **Do not share the secret with anyone**—it can generate the same codes as your password for sign-in.
-7. Open the extension popup while this enrollment screen is still showing; the secret can be picked up from the page to save you typing.
+7. Open the extension sidebar while this enrollment screen is still showing; the secret can be picked up from the page to save you typing.
 8. Enter your `@login.cuny.edu` email, password, master password, and save in the extension.
 
-Finish on the CUNY site: give the factor a name (for example `CUNYAutoLogin`), save it, then click **Verify Now**. When the site asks for a one-time code, **unlock the extension** if it is locked. The six-digit code should fill in automatically once the box appears. If it does not, confirm you saved the vault and the popup shows **unlocked**.
+Finish on the CUNY site: give the factor a name (for example `CUNYAutoLogin`), save it, then click **Verify Now**. When the site asks for a one-time code, **unlock the extension** if it is locked. The six-digit code should fill in automatically once the box appears. If it does not, confirm you saved the vault and the sidebar shows **unlocked**.
 
 ---
 

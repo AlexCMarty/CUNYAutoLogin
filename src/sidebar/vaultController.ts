@@ -15,7 +15,7 @@ import {
   DRAFT_KEY,
   MIN_MASTER_PASSWORD_LENGTH,
   type FormDraft,
-  type PopupDom,
+  type SidebarDom,
   validateEmail,
   decryptStatusMessage,
   coerceDraft,
@@ -26,8 +26,8 @@ import {
   clearPendingTotpFromSession,
   applyPendingTotpFromPage,
   effectiveTotpSecretForSave,
-} from "./popup.utils";
-export type { PopupDom } from "./popup.utils";
+} from "./sidebar.utils";
+export type { SidebarDom } from "./sidebar.utils";
 
 const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const EYE_CLOSED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
@@ -50,13 +50,13 @@ async function clearSessionMaster(): Promise<void> {
   }
 }
 
-function applyDraft(els: PopupDom, draft: FormDraft): void {
+function applyDraft(els: SidebarDom, draft: FormDraft): void {
   if (draft.email) els.email.value = draft.email;
   if (draft.password) els.password.value = draft.password;
   if (draft.totpSecret) els.totpSecret.value = draft.totpSecret;
 }
 
-async function restoreDraft(els: PopupDom): Promise<void> {
+async function restoreDraft(els: SidebarDom): Promise<void> {
   try {
     const result = await browser.storage.session?.get(DRAFT_KEY);
     const raw = result?.[DRAFT_KEY];
@@ -98,7 +98,7 @@ let storedVault: StoredVault | null = null;
 const isSidebarVaultManagement = (): boolean =>
   document.body.dataset.vaultUi === "sidebar-management";
 
-function getEls(): Result<PopupDom, "missing_dom"> {
+function getEls(): Result<SidebarDom, "missing_dom"> {
   const form = document.getElementById("vault-form");
   const email = document.getElementById("email");
   const password = document.getElementById("password");
@@ -157,7 +157,7 @@ function getEls(): Result<PopupDom, "missing_dom"> {
 }
 
 
-function renderMode(els: PopupDom): void {
+function renderMode(els: SidebarDom): void {
   const { credentialFields, masterPasswordField, changeMasterSection } = els;
 
   if (currentMode === "setup") {
@@ -212,7 +212,7 @@ function renderMode(els: PopupDom): void {
   }
 }
 
-async function handleSetup(els: PopupDom): Promise<void> {
+async function handleSetup(els: SidebarDom): Promise<void> {
   const email = els.email.value.trim();
   const password = els.password.value;
   const totpSecret = els.totpSecret.value.trim().replace(/\s+/g, "");
@@ -257,7 +257,7 @@ async function handleSetup(els: PopupDom): Promise<void> {
   els.submitBtn.disabled = false;
 }
 
-async function handleLocked(els: PopupDom): Promise<void> {
+async function handleLocked(els: SidebarDom): Promise<void> {
   if (!storedVault) return;
 
   const masterPassword = els.masterPassword.value;
@@ -284,7 +284,7 @@ async function handleLocked(els: PopupDom): Promise<void> {
   els.submitBtn.disabled = false;
 }
 
-async function handleUnlocked(els: PopupDom): Promise<void> {
+async function handleUnlocked(els: SidebarDom): Promise<void> {
   const email = els.email.value.trim();
   const password = els.password.value;
   const totpSecret = effectiveTotpSecretForSave(
@@ -359,7 +359,7 @@ async function handleUnlocked(els: PopupDom): Promise<void> {
   els.submitBtn.disabled = false;
 }
 
-async function handleLock(els: PopupDom): Promise<void> {
+async function handleLock(els: SidebarDom): Promise<void> {
   sessionMasterPassword = null;
   sessionPayload = null;
   await clearSessionMaster();
@@ -370,7 +370,7 @@ async function handleLock(els: PopupDom): Promise<void> {
   renderMode(els);
 }
 
-async function resetToFreshInstall(els: PopupDom): Promise<void> {
+async function resetToFreshInstall(els: SidebarDom): Promise<void> {
   try {
     await browser.storage.local.remove(VAULT_STORAGE_KEY);
   } catch {
@@ -402,7 +402,7 @@ async function resetToFreshInstall(els: PopupDom): Promise<void> {
 async function init(): Promise<void> {
   const elsResult = getEls();
   if (elsResult.isErr()) {
-    console.error("[CUNYAutoLogin] popup DOM incomplete");
+    console.error("[CUNYAutoLogin] sidebar DOM incomplete");
     return;
   }
   const els = elsResult.value;

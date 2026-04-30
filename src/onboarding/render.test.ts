@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-// render.ts → emailEntry.ts → popup.utils.ts (which imports webextension-polyfill
+// render.ts → emailEntry.ts → sidebar.utils.ts (which imports webextension-polyfill
 // at module load). Stub the polyfill to keep jsdom happy.
 vi.mock("webextension-polyfill", () => ({
   default: {

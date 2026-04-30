@@ -31,17 +31,17 @@ Recent architecture refactors (merged):
 
 Master-password handling, `storage.local` vs `storage.session`, onboarding credential staging, and related security rules are defined only in the **Security, crypto, and gotchas** project rule — do not contradict that rule.
 
-Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `popup.utils.ts`).
+Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `sidebar/sidebar.utils.ts`).
 
 The extension display name in `src/manifest.json` is **CUNYAutoLogin**.
 
-There is **no popup surface** in this extension. The `src/popup/` directory is a historical name — its module is the **vault controller**, rendered inside the sidebar. All user-facing UI lives in `sidebar.html`.
+There is no separate transient panel surface in this extension. The vault controller lives in `src/sidebar/vaultController.ts`, rendered inside the sidebar. All user-facing UI lives in `sidebar.html`.
 
 ## Project layout
 
 ```
 sidebar.html                    Vite entry point. Hosts the vault form (<main class="wrap">,
-                                popup/popup.ts) and #onboarding-root (onboarding/render.ts).
+                                sidebar/vaultController.ts) and #onboarding-root (onboarding/render.ts).
 src/
   vaultSession/snapshot.ts      `loadVaultSessionSnapshot` — setup / locked / unlocked snapshot
   vaultSession/snapshot.test.ts Unit tests
@@ -49,14 +49,14 @@ src/
                                 when a session resume snapshot exists, or when the URL hash has
                                 `#onboarding=1` (dev/e2e); `#vault=1` forces the vault form on a fresh
                                 profile (e2e); otherwise loads the vault UI when a vault exists.
-  sidebar/{sidebar.utils,debugPanel,sidebar.css}.ts  Re-export surfaces from popup/* (historical layout).
-  popup/popup.ts                Vault controller — setup / locked / unlocked, encrypt/save,
+  sidebar/{sidebar.utils,debugPanel,sidebar.css}.ts  Sidebar vault helpers and debug panel modules.
+  sidebar/vaultController.ts                Vault controller — setup / locked / unlocked, encrypt/save,
                                 session unlock, master rotation, draft autosave. Dev-only debug panel.
-  popup/popup.utils.ts          Pure helpers (email validation, draft parse, status strings,
+  sidebar/sidebar.utils.ts          Pure helpers (email validation, draft parse, status strings,
                                 MIN_MASTER_PASSWORD_LENGTH = 12, TOTP source hint helpers)
-  popup/popup.test.ts           Unit tests (jsdom; mocked webextension-polyfill)
-  popup/debugPanel.ts           Dev-only debug panel (FILL_CREDENTIALS tester + clear-vault button)
-  popup/popup.css               Base vault UI styles
+  sidebar/sidebar.utils.test.ts           Unit tests (jsdom; mocked webextension-polyfill)
+  sidebar/debugPanel.ts           Dev-only debug panel (FILL_CREDENTIALS tester + clear-vault button)
+  sidebar/sidebar.css               Base vault UI styles
   onboarding/state.ts           18-state enum, bead mapping, resume policy
   onboarding/transitions.ts     Declarative TRANSITION_TABLE + `advance` / `backStateFor`
   onboarding/controller.ts      `createOnboardingController` — closure-only email/password/

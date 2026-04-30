@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-// `validateEmail` lives in popup.utils.ts, which imports webextension-polyfill
+// `validateEmail` lives in sidebar.utils.ts, which imports webextension-polyfill
 // at module scope. Mock it so jsdom doesn't trip the polyfill's "not in an
 // extension" guard — we never exercise browser.* in these tests.
 vi.mock("webextension-polyfill", () => ({
@@ -92,7 +92,7 @@ describe("mountEmailEntryScreen", () => {
     // The prefilled suffix passes validateEmail (endsWith check), but a bare
     // suffix with no local part is still a valid CUNY address surface per the
     // existing validator contract. Forward must be enabled once the value
-    // passes validateEmail — this mirrors popup.ts behavior.
+    // passes validateEmail — this mirrors vaultController.ts behavior.
     expect(forward?.disabled).toBe(false);
   });
 

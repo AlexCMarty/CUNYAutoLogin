@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Session unlock and auto-fill flows
 
-## Session unlock (vault controller — `popup/popup.ts` mounted inside the sidebar)
+## Session unlock (vault controller — `sidebar/vaultController.ts` mounted inside the sidebar)
 
-The side panel has three modes: `setup`, `locked`, and `unlocked`. These are owned by the vault controller (`src/popup/popup.ts`, named "popup" for historical reasons — there is no popup surface). The sidebar entrypoint (`src/sidebar/sidebar.ts`) loads `onboarding/render.ts` when there is no vault yet, when a session resume snapshot exists, or when the URL hash contains `#onboarding=1` (dev/e2e only). Hash `#vault=1` (dev/e2e only) forces the vault setup form even with no stored vault (used by Playwright). Otherwise it loads `popup/popup.ts` when a vault exists and there is no resume snapshot.
+The side panel has three modes: `setup`, `locked`, and `unlocked`. These are owned by the vault controller (`src/sidebar/vaultController.ts`). The sidebar entrypoint (`src/sidebar/sidebar.ts`) loads `onboarding/render.ts` when there is no vault yet, when a session resume snapshot exists, or when the URL hash contains `#onboarding=1` (dev/e2e only). Hash `#vault=1` (dev/e2e only) forces the vault setup form even with no stored vault (used by Playwright). Otherwise it loads `sidebar/vaultController.ts` when a vault exists and there is no resume snapshot.
 
 On every side panel open, `init()` checks `browser.storage.session` for a saved master password (`SESSION_MASTER_KEY = "cunySessionMaster"`). If found, it runs PBKDF2 + AES-GCM decrypt automatically and opens directly in `unlocked` mode. If decryption fails (e.g. vault was re-keyed), the session entry is purged and the side panel falls back to `locked`.
 

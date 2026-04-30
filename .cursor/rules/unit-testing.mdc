@@ -22,7 +22,7 @@ npm run test:unit   # vitest run
 |------|-------------------|
 | `src/crypto/vault.test.ts` | Encrypt/decrypt, `isStoredVault`, tamper / malformed blob branches |
 | `src/cuny/ssoSite.test.ts` | URL matchers + pinned SSO constants |
-| `src/popup/popup.test.ts` | `popup.utils.ts` — validation, drafts, status strings, TOTP hint helpers |
+| `src/sidebar/sidebar.utils.test.ts` | `sidebar.utils.ts` — validation, drafts, status strings, TOTP hint helpers |
 | `src/content/content.test.ts` | `content.utils.ts` — TOTP normalization, enroll scrape, `setInputValue`, `isFillMessage` |
 | `src/background/service-worker.test.ts` | Message routing, `AUTO_FILL_REQUEST` outcomes (vault + onboarding-staging fallback), `TOTP_SECRET_FROM_PAGE` staging, STAGE/CLEAR_ONBOARDING_CREDENTIALS, ONBOARDING_REOPEN_CUNY_TAB |
 | `src/vaultSession/snapshot.test.ts` | `loadVaultSessionSnapshot` — setup/locked/unlocked branching (injected storage mocks) |
@@ -35,16 +35,16 @@ npm run test:unit   # vitest run
 | `src/onboarding/screens/{welcome,emailEntry,passwordEntry,openingCuny}.test.ts` | Per-screen mount/interaction (jsdom) |
 | `src/onboarding/screens/extPasswordSetup.test.ts` | `computePasswordStrength` (Weak/Fair/Strong), DOM validation gating, match indicator, unmount (jsdom) |
 
-Prefer colocated `*.utils.ts` for testable logic when the main file is an IIFE or otherwise hard to import (`popup.utils.ts`, `content.utils.ts`).
+Prefer colocated `*.utils.ts` for testable logic when the main file is an IIFE or otherwise hard to import (`sidebar/sidebar.utils.ts`, `content.utils.ts`).
 
 ## Vitest environment
 
 - **Node (default):** `vault.test.ts`, `ssoSite.test.ts`, `service-worker.test.ts`, `vaultSession/snapshot.test.ts`, and the pure-logic onboarding suites (`state`, `transitions`, `messages`) — Node provides `globalThis.crypto.subtle` on supported versions.
-- **jsdom:** Add `// @vitest-environment jsdom` as the **first line** of any file that needs `document` / DOM APIs (`popup.test.ts`, `content.test.ts`, `onboarding/controller.test.ts`, `onboarding/beadHeader.test.ts`, `onboarding/render.test.ts`, and every file under `onboarding/screens/`).
+- **jsdom:** Add `// @vitest-environment jsdom` as the **first line** of any file that needs `document` / DOM APIs (`sidebar.utils.test.ts`, `content.test.ts`, `onboarding/controller.test.ts`, `onboarding/beadHeader.test.ts`, `onboarding/render.test.ts`, and every file under `onboarding/screens/`).
 
 ## Mocking `webextension-polyfill`
 
-`popup.test.ts` and `service-worker.test.ts` call `vi.mock("webextension-polyfill", () => ({ default: { … } }))` so `browser.storage` / `browser.runtime` are in-memory fakes.
+`sidebar.utils.test.ts` and `service-worker.test.ts` call `vi.mock("webextension-polyfill", () => ({ default: { … } }))` so `browser.storage` / `browser.runtime` are in-memory fakes.
 
 For `service-worker.test.ts`, the module under test registers `onMessage` at import time — use `beforeAll(async () => { await import("./service-worker"); … })` and read the listener from `vi.mocked(browser.runtime.onMessage.addListener).mock.calls`.
 

@@ -8,11 +8,11 @@ A Manifest V3 browser extension (Firefox + Chromium) that:
 2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
 3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid, and responds to manual `FILL_CREDENTIALS` messages from the dev side panel.
 
-Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `popup.utils.ts`).
+Saved email must end with **`@login.cuny.edu`** (enforced in `sidebar.ts` / `sidebar/sidebar.utils.ts`).
 
 ## Current state
 
-The sidebar ships **onboarding** (`onboarding/render.ts`) for first-time setup (no vault, or a session resume snapshot) and the **vault UI** (`popup/popup.ts` inside `sidebar.html`) when a vault exists and there is nothing to resume. The URL hash `#onboarding=1` is a **dev/e2e-only** escape hatch (see `src/sidebar/sidebar.ts`).
+The sidebar ships **onboarding** (`onboarding/render.ts`) for first-time setup (no vault, or a session resume snapshot) and the **vault UI** (`sidebar/vaultController.ts` inside `sidebar.html`) when a vault exists and there is nothing to resume. The URL hash `#onboarding=1` is a **dev/e2e-only** escape hatch (see `src/sidebar/sidebar.ts`).
 
 Recent refactors: declarative onboarding stage routing in `onboarding/render.ts`, shared `src/runtime/messageRouter.ts`, and modular `src/content/*Flow*.ts` / `*Bridge*.ts` with `content.ts` as orchestrator.
 
@@ -20,25 +20,25 @@ Recent refactors: declarative onboarding stage routing in `onboarding/render.ts`
 
 ```
 sidebar.html                    Vite entry point for the extension side panel/sidebar UI.
-                                Hosts the vault form (<main class="wrap">, popup/popup.ts) and
+                                Hosts the vault form (<main class="wrap">, sidebar/vaultController.ts) and
                                 #onboarding-root (onboarding/render.ts; hidden until that shell mounts).
 src/
   vaultSession/snapshot.ts      loadVaultSessionSnapshot — shared vault + session master mode (used by sidebar init)
   vaultSession/snapshot.test.ts Unit tests for snapshot (injected storage mocks; no top-level webextension-polyfill import)
   sidebar/sidebar.ts            Side panel entrypoint. Loads onboarding/render.ts when there is
                                 no vault, when a session resume snapshot exists, or when the URL
-                                hash has #onboarding=1 (dev/e2e only). Otherwise loads popup/popup.ts
-                                for vault management (folder name "popup" is historical only).
-  sidebar/sidebar.utils.ts      Side panel utility export surface (re-exports popup utils)
-  sidebar/debugPanel.ts         Side panel debug panel export surface (re-exports popup debug panel)
-  sidebar/sidebar.css           Side panel stylesheet entrypoint (imports popup styles)
-  popup/popup.ts                Vault controller. Modes: setup / locked / unlocked;
+                                hash has #onboarding=1 (dev/e2e only). Otherwise loads sidebar/vaultController.ts
+                                for vault management.
+  sidebar/sidebar.utils.ts      Side panel utility helpers for vault UI logic
+  sidebar/debugPanel.ts         Side panel debug controls (dev/e2e only)
+  sidebar/sidebar.css           Side panel stylesheet entrypoint for vault UI styles
+  sidebar/vaultController.ts                Vault controller. Modes: setup / locked / unlocked;
                                 encrypt/save; session unlock; master rotation; draft autosave.
-  popup/popup.utils.ts          Pure helpers + small DOM utilities (email validation, draft parse, status copy,
+  sidebar/sidebar.utils.ts          Pure helpers + small DOM utilities (email validation, draft parse, status copy,
                                 MIN_MASTER_PASSWORD_LENGTH = 12, TOTP source hint helpers)
-  popup/popup.test.ts           Unit tests: popup.utils (jsdom + mocked webextension-polyfill)
-  popup/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (dev/e2e builds only)
-  popup/popup.css               Base vault UI styles imported by the side panel stylesheet
+  sidebar/sidebar.utils.test.ts           Unit tests: sidebar.utils (jsdom + mocked webextension-polyfill)
+  sidebar/debugPanel.ts           Debug-only: test FILL_CREDENTIALS + clear vault (dev/e2e builds only)
+  sidebar/sidebar.css               Base vault UI styles imported by the side panel stylesheet
   onboarding/state.ts           Onboarding state enum (18 states from WELCOME → COMPLETE_DONE),
                                 STATE_TO_BEAD mapping, BEAD_LABELS, resume policy
   onboarding/transitions.ts     Declarative TRANSITION_TABLE (state × event → next state);
@@ -263,18 +263,18 @@ DOM helpers return `Result<El, string>` — fail fast at a single consolidated e
 
 Unit tests live alongside source files as `*.test.ts`. The runner is **Vitest** (`npm run test:unit`) — no build step needed. `vitest.config.ts` includes `src/**/*.test.ts`.
 
-**Suites today:** `vault.test.ts`, `ssoSite.test.ts`, `popup.test.ts`, `content.test.ts`, `service-worker.test.ts`, `vaultSession/snapshot.test.ts`, and the onboarding suite (`onboarding/{state,transitions,controller,messages,beadHeader,render}.test.ts` plus `onboarding/screens/{welcome,emailEntry,passwordEntry,openingCuny}.test.ts`).
+**Suites today:** `vault.test.ts`, `ssoSite.test.ts`, `sidebar.utils.test.ts`, `content.test.ts`, `service-worker.test.ts`, `vaultSession/snapshot.test.ts`, and the onboarding suite (`onboarding/{state,transitions,controller,messages,beadHeader,render}.test.ts` plus `onboarding/screens/{welcome,emailEntry,passwordEntry,openingCuny}.test.ts`).
 
-Logic that is awkward to test inside an IIFE or a top-level service worker lives in colocated `*.utils.ts` modules (`sidebar.utils.ts`/`popup.utils.ts`, `content.utils.ts`) so Vitest can import it directly.
+Logic that is awkward to test inside an IIFE or a top-level service worker lives in colocated `*.utils.ts` modules (`sidebar/sidebar.utils.ts`, `content.utils.ts`) so Vitest can import it directly.
 
 ### Vitest environment
 
 - **Default (Node):** `vault.test.ts`, `ssoSite.test.ts`, and `service-worker.test.ts` run in Node; `globalThis.crypto.subtle` is available on supported Node versions.
-- **jsdom:** Files that need `document` / `HTMLElement` start with `// @vitest-environment jsdom` — see `popup.test.ts` and `content.test.ts`.
+- **jsdom:** Files that need `document` / `HTMLElement` start with `// @vitest-environment jsdom` — see `sidebar.utils.test.ts` and `content.test.ts`.
 
 ### Mocking `webextension-polyfill`
 
-Popup and background unit tests use `vi.mock("webextension-polyfill", …)` to stub `browser.storage`, `browser.runtime.onMessage`, etc. Pair `vi.spyOn` on `crypto.subtle` with `afterEach(() => vi.restoreAllMocks())` so mocks do not leak across tests (see `unit-testing.mdc`).
+Sidebar and background unit tests use `vi.mock("webextension-polyfill", …)` to stub `browser.storage`, `browser.runtime.onMessage`, etc. Pair `vi.spyOn` on `crypto.subtle` with `afterEach(() => vi.restoreAllMocks())` so mocks do not leak across tests (see `unit-testing.mdc`).
 
 ### Result unwrapping
 

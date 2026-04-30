@@ -2,7 +2,7 @@ import { loadResumeSnapshotFromSession } from "../onboarding/resumeSession";
 import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 
 /**
- * Sidebar entry. Loads the vault UI (`src/popup/popup.ts`) when the student
+ * Sidebar entry. Loads the vault UI (`src/sidebar/vaultController.ts`) when the student
  * already has a vault and no in-session onboarding resume, so they manage
  * email/password without seeing onboarding WELCOME again.
  *
@@ -53,7 +53,7 @@ const bootSidebar = async (): Promise<void> => {
 
   if (vaultRequestedByDevHash()) {
     document.body.dataset.vaultUi = "sidebar-management";
-    await import("../popup/popup");
+    await import("./vaultController");
     return;
   }
 
@@ -75,7 +75,7 @@ const bootSidebar = async (): Promise<void> => {
   }
 
   document.body.dataset.vaultUi = "sidebar-management";
-  await import("../popup/popup");
+  await import("./vaultController");
 };
 
 await bootSidebar();

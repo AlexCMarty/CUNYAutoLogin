@@ -46,7 +46,7 @@ const tryFillMfaEnrollVerifyOtp = async (otpInput: HTMLInputElement): Promise<bo
 
     if (!response.success) {
       if (response.reason === "no_session_master") {
-        log("vault locked — unlock the extension popup to fill the 6-digit code");
+        log("vault locked — unlock the extension sidebar to fill the 6-digit code");
       } else if (response.reason === "no_vault") {
         log("vault not set up — save credentials in the extension first");
       } else {

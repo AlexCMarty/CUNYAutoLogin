@@ -10,7 +10,7 @@
  *  - Input is prefilled with `@login.cuny.edu` (per spec) and on focus the
  *    cursor is placed before the `@` so the student just types their username.
  *  - Forward button is grayed until the trimmed value ends with
- *    `@login.cuny.edu` (reuses `validateEmail` from `popup.utils`).
+ *    `@login.cuny.edu` (reuses `validateEmail` from `sidebar.utils`).
  *  - On blur with an invalid address, an inline hint appears.
  *
  * Back button returns to WELCOME. Forward dispatches `NEXT` which the
@@ -18,7 +18,7 @@
  */
 
 import { LOGIN_EMAIL_SUFFIX } from "../../cuny/ssoSite";
-import { validateEmail } from "../../popup/popup.utils";
+import { validateEmail } from "../../sidebar/sidebar.utils";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const SCREEN_LABEL = "What email do you use to log in to Brightspace?";

@@ -1,5 +1,5 @@
 /**
- * Single source of truth for vault + session master state (matches popup `init()`).
+ * Single source of truth for vault + session master state (matches sidebar vault controller `init()`).
  *
  * Avoids a static `import "webextension-polyfill"` so unit tests can import this module in Node
  * (the polyfill throws outside an extension). Extension callers omit `storage` and we lazy-load
@@ -57,7 +57,7 @@ async function clearBadSessionMaster(storage: SnapshotStorage): Promise<void> {
   try {
     await storage.session?.remove(SESSION_MASTER_KEY);
   } catch {
-    // session storage unavailable — same as popup
+    // session storage unavailable — same as sidebar vault controller
   }
 }
 

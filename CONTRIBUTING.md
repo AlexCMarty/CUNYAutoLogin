@@ -1,6 +1,6 @@
 # Contributing to CUNYAutoLogin
 
-Manifest V3 extension for Chromium and Firefox: encrypted credential storage in the popup (PBKDF2 + AES-GCM), session unlock via `browser.storage.session`, and a content script for `https://ssologin.cuny.edu` that auto-fills login and TOTP when the vault is unlocked.
+Manifest V3 extension for Chromium and Firefox: encrypted credential storage in the sidebar vault (PBKDF2 + AES-GCM), session unlock via `browser.storage.session`, and a content script for `https://ssologin.cuny.edu` that auto-fills login and TOTP when the vault is unlocked.
 
 ## Build
 
@@ -9,19 +9,19 @@ npm install
 npm run build
 ```
 
-This runs TypeScript checks, then Vite for the popup and background, then a second Vite pass for the content script. Output goes to `dist/`.
+This runs TypeScript checks, then Vite for the sidebar and background, then a second Vite pass for the content script. Output goes to `dist/`.
 
-- **`npm run build`** — **Production** (default Vite mode): minified where appropriate, no popup debug controls (test fill / clear vault).
-- **`npm run build:dev`** — **Development**: unminified popup/background and readable `content.js` when possible; popup includes **Send test FILL_CREDENTIALS** and **Clear vault — debug**.
+- **`npm run build`** — **Production** (default Vite mode): minified where appropriate, no sidebar debug controls (test fill / clear vault).
+- **`npm run build:dev`** — **Development**: unminified sidebar/background and readable `content.js` when possible; sidebar includes **Send test FILL_CREDENTIALS** and **Clear vault — debug**.
 
 CI and GitHub Releases use `npm run build` only.
 
 | Script | Purpose |
 |--------|---------|
-| `npm run build` | Full production build (popup, background, content, manifest copy) |
+| `npm run build` | Full production build (sidebar, background, content, manifest copy) |
 | `npm run build:dev` | Full development build (`--mode development` on both Vite steps) |
 | `npm run build:content` | Rebuild only `dist/content.js` (uses default production mode unless you pass flags) |
-| `npm run watch` | Watch mode for popup/background in development mode (rerun `build:content` or `build:dev` when content changes) |
+| `npm run watch` | Watch mode for sidebar/background in development mode (rerun `build:content` or `build:dev` when content changes) |
 | `npm run typecheck` | `tsc --noEmit` only |
 | `npm run build:e2e` | Same as `build:dev`, but copies [`src/manifest.e2e.json`](src/manifest.e2e.json) to `dist/manifest.json` (adds `http://127.0.0.1:4173/*` for local HTML fixtures used by Playwright). |
 | `npm run test:e2e` | Runs `build:e2e`, then [Playwright](https://playwright.dev/) Chromium tests against `dist/` (see **End-to-end tests** below). |
@@ -58,7 +58,7 @@ CI should call `npm run test:e2e` so `dist/manifest.json` always includes the lo
 
 **Installing from a release:** On the [**Releases**](./releases) page, download the zip, unzip to a folder with `manifest.json` at the top level, then load that folder using **Load unpacked** / **Load Temporary Add-on** as above.
 
-## Popup: first run and update
+## Sidebar vault: first run and update
 
 1. Click the extension icon.
 2. Enter CUNY email (must end with `@login.cuny.edu`), password, Base32 TOTP secret, and a **local master password** (never stored in `storage.local`; used only to derive the encryption key).
@@ -74,7 +74,7 @@ CI should call `npm run test:e2e` so `dist/manifest.json` always includes the lo
 
 Requires a build from **`npm run build:dev`** (the test button is omitted from production builds).
 
-1. With a ssologin tab active, open the extension popup (vault unlocked).
+1. With a ssologin tab active, open the extension sidebar (vault unlocked).
 2. Click **Send test FILL_CREDENTIALS to active tab**.
 3. In the page console, confirm a log like `runtime.onMessage FILL_CREDENTIALS — triggering main()`.
 
@@ -86,10 +86,10 @@ After **My authentication factors**, the self-service app often keeps the **same
 
 ## Project layout
 
-- `popup.html` / `src/popup/` — popup UI, vault encrypt/save, session unlock, master rotation.
+- `sidebar.html` / `src/sidebar/` — sidebar UI, vault encrypt/save, session unlock, master rotation.
 - `src/crypto/vault.ts` — PBKDF2 + AES-GCM helpers and storage shape.
 - `src/content/content.ts` — Oracle JET–aware fill for login + TOTP; `AUTO_FILL_REQUEST` and `FILL_CREDENTIALS`.
 - `src/background/service-worker.ts` — decrypt vault for auto-fill when session master is present.
-- `vite.config.ts` — popup + background; `vite.content.config.ts` — single-file `dist/content.js` (IIFE).
+- `vite.config.ts` — sidebar + background; `vite.content.config.ts` — single-file `dist/content.js` (IIFE).
 
 The content script is built in a second step so `dist/content.js` is one file with no shared ES module chunks (required for reliable MV3 injection).
