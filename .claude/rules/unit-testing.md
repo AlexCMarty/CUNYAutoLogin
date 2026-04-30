@@ -1,0 +1,110 @@
+---
+description: Vitest unit testing conventions for src/**/*.test.ts files
+globs: "src/**/*.test.ts"
+alwaysApply: false
+---
+
+# Unit testing conventions
+
+## Runner and location
+
+Unit tests live **alongside source files** as `*.test.ts`. The runner is **Vitest** — no build step is required.
+
+```bash
+npm run test:unit   # vitest run
+```
+
+`vitest.config.ts` at the repo root picks up all `src/**/*.test.ts` files.
+
+**Current suites:**
+
+| File | What it exercises |
+|------|-------------------|
+| `src/crypto/vault.test.ts` | Encrypt/decrypt, `isStoredVault`, tamper / malformed blob branches |
+| `src/cuny/ssoSite.test.ts` | URL matchers + pinned SSO constants |
+| `src/sidebar/sidebar.utils.test.ts` | `sidebar.utils.ts` — validation, drafts, status strings, TOTP hint helpers |
+| `src/content/content.test.ts` | `content.utils.ts` — TOTP normalization, enroll scrape, `setInputValue`, `isFillMessage` |
+| `src/background/service-worker.test.ts` | Message routing, `AUTO_FILL_REQUEST` outcomes (vault + onboarding-staging fallback), `TOTP_SECRET_FROM_PAGE` staging, STAGE/CLEAR_ONBOARDING_CREDENTIALS, ONBOARDING_REOPEN_CUNY_TAB |
+| `src/vaultSession/snapshot.test.ts` | `loadVaultSessionSnapshot` — setup/locked/unlocked branching (injected storage mocks) |
+| `src/onboarding/state.test.ts` | 17-state enum + bead mapping exhaustiveness |
+| `src/onboarding/transitions.test.ts` | `TRANSITION_TABLE` reachability + back/forward contracts |
+| `src/onboarding/controller.test.ts` | Subscribe/dispatch semantics, dedup, credentialError snapshot |
+| `src/onboarding/messages.test.ts` | Per-type guards + default-reject envelope |
+| `src/onboarding/beadHeader.test.ts` | Bead rendering for each state (jsdom) |
+| `src/onboarding/render.test.ts` | Shell mount/unmount, `applyOnboardingMessage`, bridge registration |
+| `src/onboarding/screens/{welcome,emailEntry,passwordEntry,openingCuny}.test.ts` | Per-screen mount/interaction (jsdom) |
+| `src/onboarding/screens/extPasswordSetup.test.ts` | `computePasswordStrength` (Weak/Fair/Strong), DOM validation gating, match indicator, unmount (jsdom) |
+
+Prefer colocated `*.utils.ts` for testable logic when the main file is an IIFE or otherwise hard to import (`sidebar/sidebar.utils.ts`, `content.utils.ts`).
+
+## Vitest environment
+
+- **Node (default):** `vault.test.ts`, `ssoSite.test.ts`, `service-worker.test.ts`, `vaultSession/snapshot.test.ts`, and the pure-logic onboarding suites (`state`, `transitions`, `messages`) — Node provides `globalThis.crypto.subtle` on supported versions.
+- **jsdom:** Add `// @vitest-environment jsdom` as the **first line** of any file that needs `document` / DOM APIs (`sidebar.utils.test.ts`, `content.test.ts`, `onboarding/controller.test.ts`, `onboarding/beadHeader.test.ts`, `onboarding/render.test.ts`, and every file under `onboarding/screens/`).
+
+## Mocking `webextension-polyfill`
+
+`sidebar.utils.test.ts` and `service-worker.test.ts` call `vi.mock("webextension-polyfill", () => ({ default: { … } }))` so `browser.storage` / `browser.runtime` are in-memory fakes.
+
+For `service-worker.test.ts`, the module under test registers `onMessage` at import time — use `beforeAll(async () => { await import("./service-worker"); … })` and read the listener from `vi.mocked(browser.runtime.onMessage.addListener).mock.calls`.
+
+Reset mock state in `beforeEach` / `afterEach` as appropriate so one test cannot rely on another test's call history.
+
+## Result unwrapping
+
+**Never** use `_unsafeUnwrap()` or `_unsafeUnwrapErr()` directly in test assertions. When a test fails, these throw an opaque `UnsafeUnwrapError` with no indication of the actual value. Define `unwrap` / `unwrapErr` helpers in each test file:
+
+```typescript
+function unwrap<T, E>(result: Result<T, E>): T {
+  if (result.isErr()) throw new Error(`Expected Ok, got err(${JSON.stringify(result.error)})`);
+  return result.value;
+}
+
+function unwrapErr<T, E>(result: Result<T, E>): E {
+  if (result.isOk()) throw new Error(`Expected Err, got ok(${JSON.stringify(result.value)})`);
+  return result.error;
+}
+```
+
+Failures then read `Expected Ok, got err("decrypt_failed")` — immediately actionable.
+
+## Bypassing serialisation to test parsing branches
+
+When a function both serialises and parses (e.g. `encryptVault` JSON-encodes, `decryptVault` JSON-decodes), test the parsing error branches with a raw helper that writes **arbitrary bytes** into the encrypted blob, bypassing the production serialisation path. This keeps the two branches independently exercised and ensures the parser is tested against genuinely malformed input.
+
+See `encryptRaw` in `src/crypto/vault.test.ts` for the pattern. If you duplicate private constants from the source file (salt length, IV length, key bits), add a comment noting that the helper must be updated if those constants change.
+
+## Shared setup in describe blocks
+
+Use `beforeEach` + a `let` variable when multiple tests in the same `describe` block need the same freshly-created value. Do not repeat the setup call in every test body.
+
+```typescript
+describe("tampered StoredVault → decrypt_failed", () => {
+  let stored: StoredVault;
+  beforeEach(async () => {
+    stored = unwrap(await encryptVault(PAYLOAD, MASTER));
+  });
+  // each test mutates a spread of `stored` without re-encrypting
+});
+```
+
+## Mocking WebCrypto
+
+Use `vi.spyOn(globalThis.crypto.subtle, "deriveKey").mockRejectedValueOnce(...)` to force crypto failures. Always pair with `afterEach(() => vi.restoreAllMocks())` so spies don't bleed between tests.
+
+## Pure-function modules
+
+Modules that export only pure string/boolean functions (e.g. `ssoSite.ts`) need no mocking, no `beforeEach`, and no async setup. Use flat `describe` blocks with inline inputs — see `src/cuny/ssoSite.test.ts` as the reference.
+
+Always include a `constants` describe block that pins the literal values of exported strings/arrays that the rest of the extension depends on. A typo in a constant breaks autofill silently; a pinned assertion catches it immediately.
+
+## Test naming
+
+Same rule as E2E: plain sentences describing observable behavior, no "should":
+
+```typescript
+// Good
+test("wrong master password returns decrypt_failed", async () => { ... });
+test("missing totpSecret field returns invalid_payload", async () => { ... });
+test("URL contains /oaa-totp-factor/ → true", () => { ... });
+```

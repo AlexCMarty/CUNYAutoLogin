@@ -1,0 +1,101 @@
+---
+description: Playwright E2E testing conventions for the e2e/ directory. For unit tests (src/**/*.test.ts) see unit-testing.mdc.
+globs: "e2e/**"
+alwaysApply: false
+---
+
+# E2E testing conventions
+
+## Before running tests
+
+Always run `npm run build:e2e` before `npm run test:e2e`. The Playwright specs load the built extension from `dist/` — stale build artifacts cause false failures.
+
+`build:e2e` is a dev build with `manifest.e2e.json` substituted for `manifest.json`. The E2E manifest adds `http://127.0.0.1:4173/*` to both `host_permissions` and `content_scripts.matches` so the content script is injected into fixture pages served by the local fixture server.
+
+## How the test infrastructure works
+
+- **Fixture server** (`e2e/fixtures-server.mjs`): A local HTTP server on `FIXTURE_PORT` (see `e2e/constants.ts`) serving static HTML pages from `e2e/fixtures/`. Pages mimic specific CUNY SSO screens. Current fixtures and their routes:
+  - `credential.html` — `/oam/server/obrareq.cgi` (supports `?advance=1`, `?wrong=1`, `?wrong=redirect`)
+  - `credential-error.html` — `/oam/server/auth_cred_submit` (default)
+  - `credential-success-transient.html` — `/oam/server/auth_cred_submit?outcome=success`
+  - `totp.html` — `/oaa-totp-factor/` (supports `?next=<url>` to redirect after auto-fill)
+  - `self-service.html` — `/oaa/rui/index.html` (supports `?view=home|factors|secret|verify|post-enroll|post-enroll-unverified`; no `?view` = legacy enroll behavior).
+    `?view=home` auto-clicks Manage 1500ms after the overlay highlights it (lets `setupToExtPasswordSetup` drive the flow without an explicit locator click).
+    `?view=secret` Verify Now appends `&autoSubmit=1` to the verify URL; `?view=verify&autoSubmit=1` suppresses the empty-OTP error and auto-submits once the extension fills a 6-digit code.
+  - `allow-gate.html` — `/cunylogin/pages/mfaConsent.jsp` (supports `?next=<url>` on Allow click)
+- **Extension loader** (`e2e/extension-fixture.ts`): Extends Playwright's `test` with a `context` fixture that launches Chromium via `chromium.launchPersistentContext` with `--load-extension=dist/`. Also provides the `extensionId` fixture (parsed from the service worker URL).
+- **Firefox is not supported** in E2E — Firefox does not allow loading temporary extensions via CLI flags in the same way. Test manually via `about:debugging`.
+
+## Full Playwright suite
+
+`npm run test:e2e` runs **all** E2E specs (after `build:e2e`). There is no environment-variable gate.
+
+Spec files:
+- `e2e/onboarding.spec.ts` — first-run, screens 1–4, credential errors
+- `e2e/onboarding-guided.spec.ts` — overlay, guided self-service, verify / set-default
+- `e2e/onboarding-completion.spec.ts` — extension password through smoke / post-onboarding UI
+- `e2e/locked.spec.ts`, `e2e/unlocked.spec.ts` — vault modes and autofill
+
+Use `test.describe` from the shared `extension-fixture` (or plain Playwright) for new suites.
+
+## Test isolation and concurrency
+
+`playwright.config.ts` sets `workers: 6` and `fullyParallel: true`. Each worker launches its own isolated browser context with a fresh extension instance, so tests can run concurrently. Extension state (`browser.storage.local`, `browser.storage.session`) is isolated per browser context.
+
+Each spec's `beforeEach` clears the vault via the debug panel button (`#clear-vault-debug-btn`) when it is visible. This button is only rendered in dev builds (`build:e2e` uses dev mode). Do not assume a clean vault state at the start of a test without this reset step.
+
+State-oriented specs are split by concern (see list above).
+
+Prefer shared setup helpers from `e2e/helpers.ts`:
+- `gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault` — vault lifecycle
+- `walkToPasswordEntry` — walks sidebar Welcome → Email → Password (fills E2E_EMAIL / E2E_PASSWORD)
+- `onboardingHashWith(cunyUrl)` — builds `#onboarding=1&cuny=<encoded>` hash for sidebar
+- `gotoPrimarySurface` — loads `sidebar.html#vault=1` so vault helpers work on an empty profile
+
+## Adding fixture pages
+
+Add new HTML pages to `e2e/fixtures/` and expose their URLs as named constants in `e2e/constants.ts`. Do not construct fixture URLs inline inside specs — keep all fixture URLs in one place so they are easy to update.
+
+```typescript
+// e2e/constants.ts
+export const CREDENTIAL_FIXTURE_URL = `${FIXTURE_ORIGIN}/oam/server/obrareq.cgi`;
+export const TOTP_FIXTURE_URL = `${FIXTURE_ORIGIN}/oaa-totp-factor/`;
+export const SELF_SERVICE_FIXTURE_URL = `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_ra=1`;
+
+// spec — import the constant, don't hardcode
+await fixturePage.goto(CREDENTIAL_FIXTURE_URL);
+```
+
+## Test naming
+
+Test names describe observable behavior, written as plain sentences:
+
+```typescript
+// Bad
+test("test fill", async () => { ... });
+test("locked vault test", async () => { ... });
+
+// Good
+test("fills credential page via AUTO_FILL_REQUEST on load", async () => { ... });
+test("does not fill credential page when vault is locked", async () => { ... });
+```
+
+## Test behavior, not implementation
+
+Assert what the user (or extension) observes — filled inputs, page state changes, submitted forms. Do not inspect internal module state or variables.
+
+```typescript
+// Bad — reaches into implementation internals
+expect((content as any)._lastFilledEmail).toBe(E2E_EMAIL);
+
+// Good — observes the DOM outcome the user would see
+await expect(fixturePage.locator(`#${CREDENTIAL_INPUT_IDS.username}`)).toHaveValue(E2E_EMAIL);
+```
+
+## DOM element IDs and constants
+
+Import element IDs and TOTP parameters from `src/cuny/ssoSite.ts` in specs — the same constants the extension itself uses. This guarantees specs break immediately if a constant is renamed, rather than silently testing the wrong element.
+
+```typescript
+import { CREDENTIAL_INPUT_IDS, TOTP_OTP_INPUT_ID } from "../src/cuny/ssoSite";
+```

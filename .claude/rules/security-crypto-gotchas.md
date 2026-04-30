@@ -1,0 +1,33 @@
+---
+description: Security invariants, crypto parameters, extension gotchas
+alwaysApply: true
+---
+
+> **Security stakes**: This extension stores institutional login credentials for 275,000+ CUNY students. It is subject to CUNY IT security review and Chrome Web Store scrutiny. A credential exposure is institutional-scale — extensions get removed and developers face discipline. **Never suggest `localStorage`, unencrypted `storage.local`, or any on-disk store for sensitive plaintext data.** The only permitted locations are `browser.storage.session` (in-memory, cleared on browser close) and encrypted `browser.storage.local` (vault ciphertext only).
+
+# Security, crypto, and gotchas
+
+The master password used to derive the encryption key is **never written to `storage.local` or disk**. It is held only in `browser.storage.session` (in-memory, cleared on browser restart) and in JS module memory while the side panel is open.
+
+## Key constraints and gotchas
+
+- **`novalidate` on the side panel form** — Keep JS validation on `<form>` in `sidebar.html`; this avoids browser-specific native validation inconsistencies in extension surfaces.
+- **Content script must be a single IIFE** — MV3 does not support ES module content scripts reliably across browsers. Use `vite.content.config.ts` (IIFE format) for anything in `src/content/`. Dependencies used there are bundled into `content.js` (not shared with sidebar/background chunks).
+- **`crossorigin` on built assets** — Vite injects `crossorigin` on `<script>` and `<link>` tags in the built HTML. These can cause silent failures under `moz-extension://`. Avoid adding new module preload links or external scripts.
+- **Master password never in `storage.local`** — `decryptVault` / `encryptVault` accept it as a parameter. Never write it to `storage.local` or logs. `storage.session` is the only permitted persistence location.
+- **`browser` import via `webextension-polyfill`** — always `import browser from "webextension-polyfill"`, never use `chrome.*` directly.
+- **Minimum browser versions** — `storage.session` requires Firefox 115+ and Chrome 114+ (set in `src/manifest.json`: `minimum_chrome_version: "114"`, `gecko.strict_min_version: "115.0"`). Do not lower these without adding a fallback.
+- **Setup draft in `browser.storage.session`** — While in `setup` mode **only**, email/password/TOTP secret drafts are mirrored to `browser.storage.session` (key: `cuny_form_draft`) so a half-filled form survives side panel close/reopen within the same browser session. `localStorage` is **explicitly forbidden** for this data — it was a prior security audit finding (plaintext credentials persisted to disk indefinitely). Input listeners in `sidebar/vaultController.ts` check `currentMode === "setup"` before calling `saveDraft`. The draft is cleared immediately on successful vault save or reset.
+- **Onboarding credential staging (pre-vault)** — During onboarding, the sidebar sends `STAGE_ONBOARDING_CREDENTIALS { email, password }` to the service worker when Screen 4 opens a CUNY tab, so the content script's `AUTO_FILL_REQUEST` fallback can fill the form before a vault exists. The service worker holds this in a **module-level variable only** — never in `storage.local` or `storage.session`. The sidebar unmount path fires `CLEAR_ONBOARDING_CREDENTIALS`. The `onboarding/controller.ts` drafts also live only in closure memory. `onboarding/messages.ts` restricts *onboarding-protocol* messages (STAGE_DETECTED, CREDENTIAL_ERROR, OVERLAY_COMMAND, etc.) to metadata only — credential payloads are deliberately routed through the core STAGE/CLEAR messages so the "no secrets in onboarding messages" boundary stays clear.
+- **`PENDING_TOTP_SECRET_SESSION_KEY`** — The Base32 TOTP secret scraped from the Oracle enroll page is staged in `browser.storage.session` only (`cunyPendingTotpSecretFromSso`). Never write it to `storage.local`, logs, or any persistent store; the side panel reads and immediately clears it.
+
+## Crypto details (`src/crypto/vault.ts`)
+
+| Parameter | Value |
+|---|---|
+| KDF | PBKDF2-SHA-256 |
+| Iterations | 310 000 |
+| Salt | 32 bytes (random per save) |
+| IV | 12 bytes (random per save) |
+| Cipher | AES-GCM-256 |
+| Storage format | `{ version: 1, saltB64, ivB64, ciphertextB64 }` |
