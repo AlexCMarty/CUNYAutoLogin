@@ -471,15 +471,14 @@ test.describe("verify login code: OTP fill", () => {
     expect(candidates).toContain(typedValue);
   });
 
-  // The overlay stays anchored on otp|input; we don't shift to the
-  // Verify-and-Save button because it has no stable selector on the live
-  // CUNY page. The user sees the filled code and clicks Save themselves.
-  test("otp|input stays highlighted after OTP fill (overlay does not vanish)", async () => {
+  test("Verify and Save button is highlighted after OTP fill", async () => {
+    // Wait for OTP to be filled first, then the overlay should be on the button.
     await expect(
-      cunyTab.locator(
-        `[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"][data-cuny-autologin-highlight='true']`
-      )
-    ).toBeVisible({ timeout: 10_000 });
+      cunyTab.locator(`[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"]`)
+    ).toHaveValue(/^\d{6}$/, { timeout: 10_000 });
+    await expect(
+      cunyTab.locator(`button[data-cuny-autologin-highlight='true']`)
+    ).toContainText("Verify and Save");
   });
 });
 

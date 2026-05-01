@@ -1,7 +1,6 @@
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
-
-const OTP_INPUT_SELECTOR = '[id="otp|input"]';
+import { RUI_VERIFY_BTN_LABEL } from "../../cuny/ssoSite";
 
 export const mountVerifyLoginCodeScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root } = ctx;
@@ -36,8 +35,8 @@ export const mountVerifyLoginCodeScreen: ScreenMount = (ctx: OnboardingScreenCon
   root.appendChild(container);
 
   sendShowOverlayCommand({
-    targetSpec: { type: "css", selector: OTP_INPUT_SELECTOR },
-    tooltipText: "Check this 6-digit code field",
+    targetSpec: { type: "a11y", text: RUI_VERIFY_BTN_LABEL },
+    tooltipText: "Click to save your code",
     stepIndex: 4,
     stepTotal: 5,
   });
