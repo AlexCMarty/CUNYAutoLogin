@@ -1,87 +1,48 @@
-# CUNYAutoLogin — Claude Code guidance
+# CUNYAutoLogin
 
-## What this project is
+MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storage.local` via PBKDF2 + AES-GCM, auto-fills `ssologin.cuny.edu` via content script, guides students through an 18-state onboarding flow.
 
-A Manifest V3 browser extension (Firefox + Chromium) that:
+## Hard rules — never violate
 
-1. Stores CUNY login credentials (email, password, TOTP secret) encrypted in `browser.storage.local` using PBKDF2 + AES-GCM.
-2. Keeps the vault unlocked across side panel opens for the lifetime of the browser session using `browser.storage.session`.
-3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid.
-4. Guides a first-time student through an 18-state onboarding flow.
+- `browser.*` only — `import browser from "webextension-polyfill"`, never `chrome.*`
+- Master password never in `storage.local` or logs — `browser.storage.session` only
+- Saved email must end with `@login.cuny.edu` (enforced in `sidebar/sidebar.utils.ts`)
+- All CUNY page constants (selectors, URL paths, timing) go in `src/cuny/ssoSite.ts` only
+- Content script must stay a single IIFE — never add ESM imports to `src/content/`
+- No `console.log`/`console.debug` outside `if (import.meta.env.DEV)` guards
+- No single-letter variable names (enforced by `id-length` in `eslint.config.js`)
+- `void promise` must chain `.catch()` — never wrap in `try/catch`
+- `npm run lint` must pass zero errors and zero warnings before any merge
 
-Saved email must end with **`@login.cuny.edu`** (enforced via `sidebar/sidebar.utils.ts` in the vault controller flow).
-
-## Rule files
-
-Detailed guidance lives in `.cursor/rules/`. Run `nu sync.nu` after editing any rule file — it
-copies `.cursor/rules/*.mdc` → `.claude/rules/*.md` for Claude Code.
-**Never edit `.claude/rules/` directly.**
-
-| Rule file | `alwaysApply` | Covers |
-|---|---|---|
-| `cunyautologin-overview.mdc` | true | Project layout, build, loading, dependencies |
-| `security-crypto-gotchas.mdc` | true | Security invariants, crypto params, key gotchas |
-| `flows-vault-and-autofill.mdc` | true | Session unlock, auto-fill, TOTP enroll, onboarding bridge |
-| `code-quality.mdc` | true | Prime directives, pre-merge checklist |
-| `typescript-style.mdc` | false (`**/*.ts`) | TS conventions, neverthrow, naming, comments |
-| `unit-testing.mdc` | false (`src/**/*.test.ts`) | Vitest unit test conventions |
-| `testing.mdc` | false (`e2e/**`) | Playwright E2E test conventions |
-
-## Current state
-
-The onboarding flow (18 states in `onboarding/state.ts`; `CREDENTIAL_ERROR` routes to correction screens) ships via
-`onboarding/render.ts`. Post-onboarding vault management lives in `sidebar/vaultController.ts`.
-The URL hash `#onboarding=1` is a dev/e2e-only escape hatch; `#vault=1` forces the vault setup
-form on an empty profile (e2e only).
-
-## Build commands
+## Build
 
 ```bash
-npm install
-npm run lint           # eslint src e2e — must pass before build/merge
-npm run build          # production: lint → tsc --noEmit → vite build → vite content
-npm run build:dev      # development mode; sidebar includes debug panel
-npm run build:e2e      # dev build with manifest.e2e.json
-npm run build:content  # rebuild only the content script (no lint gate)
-npm run watch          # vite build --watch --mode development (no lint gate)
-npm run typecheck      # tsc --noEmit only
-npm run test           # runs unit then e2e
-npm run test:unit      # vitest run (no build step needed)
-npm run test:watch     # vitest watch mode
-npm run test:e2e       # build:e2e then playwright test
+npm run lint        # must pass before build/merge
+npm run build       # production (lint → tsc → vite build → vite content)
+npm run build:dev   # development (sidebar includes debug panel)
+npm run build:e2e   # dev + manifest.e2e.json for Playwright
+npm run test        # unit + e2e
+npm run test:unit   # vitest run (no build step needed)
+npm run test:e2e    # build:e2e + playwright
+npm run typecheck   # tsc --noEmit
 ```
 
-The two-step Vite build is intentional: `vite.config.ts` bundles the sidebar and background as
-ES modules; `vite.content.config.ts` produces a single-file IIFE with `inlineDynamicImports` —
-required for reliable MV3 content script injection and to ship `totp-generator` + `neverthrow`
-inside the content bundle.
+## Git
 
-## Loading the extension
+Always run `git status` before writing code — never start on uncommitted changes you don't know about.
 
-**Firefox:** `about:debugging` → Load Temporary Add-on → select `dist/manifest.json`
-**Chrome/Chromium:** `chrome://extensions` → Developer mode → Load unpacked → select `dist/`
-
-Rebuild and reload the extension after any source change.
-
-## Runtime dependencies
-
-- `webextension-polyfill` — unified `browser` API (never use `chrome.*` directly)
-- `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `sidebar/vaultController.ts`, and content flow modules
-- `totp-generator` — TOTP codes in the content script (bundled into the content IIFE)
-
-## Git etiquette
-
-- always check `git status` to see any untracked changes before writing code. Do not start writing code on uncommitted changes that you don't know about. 
-
-### Commit style
-
-<type>(<scope>): short summary (50 chars or less).
-
-Optional longer body explaining *why* the change was made, not just what. Wrap at ~72 characters.
-
-Optional footer for issue references, breaking changes, etc.
+Commit format: `<type>(<scope>): short summary (≤50 chars)` — body explains *why*, not what.
 
 ## Documentation
 
-`README.md` is oriented toward less technically inclined college students. Put technical
-documentation in `CONTRIBUTING.md` or inline comments, not the README.
+`README.md` is for Github. Technical docs go in `CONTRIBUTING.md` or inline comments, not README.
+
+## Domain rules — load when relevant
+
+- Project layout, file tree, key modules → `.agents/rules/overview.md`
+- Security details, crypto params, storage invariants → `.agents/rules/security.md`
+- Session unlock, auto-fill, TOTP enroll, onboarding flows → `.agents/rules/flows.md`
+- TypeScript style, naming, neverthrow, async patterns → `.agents/rules/typescript.md`
+- Writing or running unit tests (`src/**/*.test.ts`) → `.agents/rules/unit-testing.md`
+- Writing or running E2E tests (`e2e/`) → `.agents/rules/e2e-testing.md`
+- Prime directives, pre-merge quality checklist → `.agents/rules/code-quality.md`
