@@ -84,9 +84,10 @@ const resolveTarget = (spec: TargetSpec): Element | null => {
   // Checks [role="menuitem"] first (required for oj-option items that have
   // display:none in the live DOM), then falls back to plain button elements
   // (required for JET buttons that render without IDs, e.g. "Verify Now").
+  const textLower = spec.text.toLowerCase();
   const menuItems = document.querySelectorAll('[role="menuitem"]');
   for (const el of menuItems) {
-    if (el.textContent?.trim() !== spec.text) continue;
+    if (el.textContent?.trim().toLowerCase() !== textLower) continue;
     if (isDisabledOverlayTarget(el)) return null;
     // Prefer the oj-option host so e2e can assert on #ChallengeOMATOTP.
     const host = el.closest("oj-option");
@@ -94,7 +95,7 @@ const resolveTarget = (spec: TargetSpec): Element | null => {
   }
   const buttons = document.querySelectorAll("button");
   for (const el of buttons) {
-    if (el.textContent?.trim() !== spec.text) continue;
+    if (el.textContent?.trim().toLowerCase() !== textLower) continue;
     if (isDisabledOverlayTarget(el)) return null;
     return el;
   }
