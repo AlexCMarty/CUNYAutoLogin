@@ -69,6 +69,18 @@ Rebuild and reload the extension after any source change.
 - `neverthrow` — `Result` / `ResultAsync` / `ok` / `err` in `vault.ts`, `sidebar/vaultController.ts`, and content flow modules
 - `totp-generator` — TOTP codes in the content script (bundled into the content IIFE)
 
+## Git etiquette
+
+- always check `git status` to see any untracked changes before writing code. Do not start writing code on uncommitted changes that you don't know about. 
+
+### Commit style
+
+<type>(<scope>): short summary (50 chars or less).
+
+Optional longer body explaining *why* the change was made, not just what. Wrap at ~72 characters.
+
+Optional footer for issue references, breaking changes, etc.
+
 ## Documentation
 
 `README.md` is oriented toward less technically inclined college students. Put technical
