@@ -64,7 +64,7 @@ test.describe("onboarding screens 1-3", () => {
     await emailForward.click();
 
     await expect(
-      page.locator("[data-onboarding-screen='E2E_PASSWORD_ENTRY']")
+      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
     ).toBeVisible();
     await expect(
       page.locator("[data-onboarding-bead='true']").nth(0)
@@ -120,7 +120,7 @@ test.describe("onboarding screens 1-3", () => {
     await page.locator("[data-onboarding-email-forward='true']").click();
 
     await expect(
-      page.locator("[data-onboarding-screen='E2E_PASSWORD_ENTRY']")
+      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
     ).toBeVisible();
 
     await page.locator("[data-onboarding-password-back='true']").click();
@@ -278,7 +278,7 @@ test.describe("onboarding — wrong credentials", () => {
 
     // Sidebar lands on E2E_PASSWORD_ENTRY with the inline credential-error banner.
     await expect(
-      page.locator("[data-onboarding-screen='E2E_PASSWORD_ENTRY']")
+      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.locator("[data-onboarding-password-credential-error='true']")
@@ -335,7 +335,7 @@ test.describe("onboarding — wrong credentials", () => {
 
     // Sidebar routes back to E2E_PASSWORD_ENTRY with the banner visible.
     await expect(
-      page.locator("[data-onboarding-screen='E2E_PASSWORD_ENTRY']")
+      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.locator("[data-onboarding-password-credential-error='true']")
