@@ -8,7 +8,7 @@
 
 import browser from "webextension-polyfill";
 
-export const ONBOARDING_COMPLETED_STORAGE_KEY = "cunyOnboardingCompleted" as const;
+const ONBOARDING_COMPLETED_STORAGE_KEY = "cunyOnboardingCompleted" as const;
 
 const LEGACY_ONBOARDING_COMPLETED_STORAGE_KEY = "cunyOnboardingV2CompletedV1" as const;
 

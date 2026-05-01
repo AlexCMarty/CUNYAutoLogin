@@ -154,3 +154,65 @@ export function normalizeTotpSecretCandidate(raw: string): string | null {
   }
   return normalized;
 }
+
+// ── Allow-gate ────────────────────────────────────────────────────────────────
+
+/** The allow-gate button selector used across overlay, reporter, and screen modules. */
+export const CUNY_ALLOW_GATE_BTN_SELECTOR = 'button[onclick="allow()"]' as const;
+
+// ── Oracle RUI / JET selectors ─────────────────────────────────────────────────
+
+/** Container element for each enrolled factor in the RUI SPA. */
+export const RUI_FACTOR_PANEL_SELECTOR = "factor-panel" as const;
+
+/** Option element for the CUNY TOTP challenge type in the RUI add-factor flow. */
+export const RUI_TOTP_OPTION_SELECTOR = "oj-option#ChallengeOMATOTP" as const;
+
+/** Kebab/actions button on a factor panel (smaller variant). */
+export const RUI_KEBAB_BTN_SELECTOR = "oj-menu-button.oj-button-sm" as const;
+
+/** Button inside the add-factor or set-default menu. */
+export const RUI_KEBAB_MENU_BTN_SELECTOR = "oj-menu-button.menu-button button" as const;
+
+/** Trigger button for the add-factor / set-default dropdown menu. */
+export const RUI_ADD_MENU_SELECTOR = "oj-menu-button.menu-button" as const;
+
+/** Name input field id when setting the TOTP factor alias (contains `|` — use getElementById). */
+export const RUI_FACTOR_NAME_INPUT_ID = "name|input" as const;
+
+/** Oracle inline validation error container shown on failed OTP submission. */
+export const RUI_MFA_INLINE_ERROR_SELECTOR =
+  ".oj-messaging-inline-container .oj-message-detail" as const;
+
+// ── RUI text markers ───────────────────────────────────────────────────────────
+
+/** Button label for the final verify-and-save step in the MFA enroll-verify flow. */
+export const RUI_VERIFY_BTN_LABEL = "Verify and Save" as const;
+
+/** Client-side validation text shown when OTP field is empty. */
+export const RUI_CLIENT_OTP_ERROR = "Enter a OTP code" as const;
+
+/** Server-side error text shown when the submitted OTP is wrong. */
+export const RUI_SERVER_OTP_ERROR = "Incorrect code" as const;
+
+// ── Timing ─────────────────────────────────────────────────────────────────────
+
+/** How often the overlay is refreshed while the TOTP enroll page is open. */
+export const ENROLL_OVERLAY_REFRESH_INTERVAL_MS = 600;
+
+/** Poll interval for the guided RUI onboarding SPA state checks. */
+export const RUI_ONBOARDING_POLL_INTERVAL_MS = 400;
+
+/** How long the overlay engine waits for a target element to appear in the DOM. */
+export const OVERLAY_TARGET_TIMEOUT_MS = 5_000;
+
+/** Default timeout for waiting on a generic DOM element to appear. */
+export const WAIT_FOR_ELEMENT_TIMEOUT_MS = 10_000;
+
+/** Extended timeout for waiting on the TOTP secret element during enrollment. */
+export const WAIT_FOR_TOTP_SECRET_TIMEOUT_MS = 120_000;
+
+// ── Extension identity ─────────────────────────────────────────────────────────
+
+/** Display name used as the TOTP factor alias, banner label, and WebAuthn RP name. */
+export const EXTENSION_NAME = "CUNYAutoLogin" as const;
