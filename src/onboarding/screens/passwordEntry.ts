@@ -118,6 +118,7 @@ export const mountPasswordEntryScreen: ScreenMount = (
   container.appendChild(reassurance);
   container.appendChild(actions);
   root.appendChild(container);
+  input.focus();
 
   const refreshForwardDisabled = (): void => {
     forward.disabled = input.value.length === 0;

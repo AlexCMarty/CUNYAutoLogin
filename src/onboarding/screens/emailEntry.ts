@@ -183,6 +183,7 @@ export const mountEmailEntryScreen: ScreenMount = (
   // Prime the in-memory snapshot so the next screen sees whatever the student
   // types, even if they never fire an input event in unit tests.
   setEmail(input.value);
+  input.focus();
 
   return {
     unmount: () => {

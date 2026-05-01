@@ -154,8 +154,18 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
     confirmToggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
   };
 
+  const handlePwKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Enter") confirmInput.focus();
+  };
+
+  const handleConfirmKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Enter") forwardBtn.click();
+  };
+
   pwInput.addEventListener("input", syncValidation);
+  pwInput.addEventListener("keydown", handlePwKeydown);
   confirmInput.addEventListener("input", syncValidation);
+  confirmInput.addEventListener("keydown", handleConfirmKeydown);
   pwToggle.addEventListener("click", handlePwToggle);
   confirmToggle.addEventListener("click", handleConfirmToggle);
 
@@ -197,5 +207,6 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
   });
 
   root.appendChild(container);
+  pwInput.focus();
   return { unmount: () => container.remove() };
 };
