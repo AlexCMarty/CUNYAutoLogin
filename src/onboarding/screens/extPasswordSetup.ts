@@ -49,12 +49,24 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
   pwLabel.textContent = "Choose a password";
   container.appendChild(pwLabel);
 
+  const pwWrap = doc.createElement("div");
+  pwWrap.className = "onboarding-input-wrap";
+
   const pwInput = doc.createElement("input");
   pwInput.type = "password";
   pwInput.className = "onboarding-input";
   pwInput.dataset.onboardingExtPasswordInput = "true";
   pwInput.autocomplete = "new-password";
-  container.appendChild(pwInput);
+
+  const pwToggle = doc.createElement("button");
+  pwToggle.type = "button";
+  pwToggle.className = "onboarding-input-toggle";
+  pwToggle.setAttribute("aria-label", "Show password");
+  pwToggle.textContent = "\u{1F441}";
+
+  pwWrap.appendChild(pwInput);
+  pwWrap.appendChild(pwToggle);
+  container.appendChild(pwWrap);
 
   const strengthSpan = doc.createElement("span");
   strengthSpan.className = "onboarding-ext-password-strength";
@@ -67,12 +79,24 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
   confirmLabel.textContent = "Confirm password";
   container.appendChild(confirmLabel);
 
+  const confirmWrap = doc.createElement("div");
+  confirmWrap.className = "onboarding-input-wrap";
+
   const confirmInput = doc.createElement("input");
   confirmInput.type = "password";
   confirmInput.className = "onboarding-input";
   confirmInput.dataset.onboardingExtPasswordConfirm = "true";
   confirmInput.autocomplete = "new-password";
-  container.appendChild(confirmInput);
+
+  const confirmToggle = doc.createElement("button");
+  confirmToggle.type = "button";
+  confirmToggle.className = "onboarding-input-toggle";
+  confirmToggle.setAttribute("aria-label", "Show password");
+  confirmToggle.textContent = "\u{1F441}";
+
+  confirmWrap.appendChild(confirmInput);
+  confirmWrap.appendChild(confirmToggle);
+  container.appendChild(confirmWrap);
 
   const matchIndicator = doc.createElement("span");
   matchIndicator.className = "onboarding-ext-password-match";
@@ -118,8 +142,22 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
     forwardBtn.disabled = !canAdvance;
   };
 
+  const handlePwToggle = (): void => {
+    const showing = pwInput.type === "text";
+    pwInput.type = showing ? "password" : "text";
+    pwToggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+  };
+
+  const handleConfirmToggle = (): void => {
+    const showing = confirmInput.type === "text";
+    confirmInput.type = showing ? "password" : "text";
+    confirmToggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+  };
+
   pwInput.addEventListener("input", syncValidation);
   confirmInput.addEventListener("input", syncValidation);
+  pwToggle.addEventListener("click", handlePwToggle);
+  confirmToggle.addEventListener("click", handleConfirmToggle);
 
   forwardBtn.addEventListener("click", () => {
     const extensionPassword = pwInput.value;
