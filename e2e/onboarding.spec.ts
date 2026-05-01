@@ -195,13 +195,13 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
     await cunyTab.close();
   });
 
-  test("screen 4 → ALLOW_GATE once the fixture advances to /oaa-totp-factor/", async ({
+  test("screen 4 → CUNY_TOTP once the fixture advances to /oaa-totp-factor/", async ({
     page,
     context,
     extensionId,
   }) => {
     // `?advance=1` makes the credential fixture navigate to /oaa-totp-factor/
-    // on submit — the content script's signal that CUNY accepted the creds.
+    // on submit — the content script fires cuny_totp_challenge from the TOTP page.
     await page.goto(
       `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(
         CREDENTIAL_FIXTURE_ADVANCE_URL
@@ -216,8 +216,67 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
 
     await expect(cunyTab).toHaveURL(/\/oaa-totp-factor\//, { timeout: 15_000 });
     await expect(
-      page.locator("[data-onboarding-screen='ALLOW_GATE']")
+      page.locator("[data-onboarding-screen='CUNY_TOTP']")
     ).toBeVisible({ timeout: 15_000 });
+
+    await cunyTab.close();
+  });
+
+  test("CUNY_TOTP screen shows the enter-code body copy", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(
+        CREDENTIAL_FIXTURE_ADVANCE_URL
+      )}`
+    );
+    await walkToPasswordEntry(page);
+
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-password-forward='true']").click();
+    const cunyTab = await tabPromise;
+    await cunyTab.waitForLoadState("domcontentloaded");
+
+    await expect(page.locator("[data-onboarding-screen='CUNY_TOTP']")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(
+      page.locator("[data-onboarding-screen='CUNY_TOTP'] .onboarding-body")
+    ).toContainText("Enter your six-digit code");
+    // Must NOT show the old combined message that bled Allow instructions into this screen.
+    await expect(
+      page.locator("[data-onboarding-screen='CUNY_TOTP'] .onboarding-body")
+    ).not.toContainText("click Allow");
+
+    await cunyTab.close();
+  });
+
+  test("CUNY_TOTP Back button returns to PASSWORD_ENTRY", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(
+        CREDENTIAL_FIXTURE_ADVANCE_URL
+      )}`
+    );
+    await walkToPasswordEntry(page);
+
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-password-forward='true']").click();
+    const cunyTab = await tabPromise;
+    await cunyTab.waitForLoadState("domcontentloaded");
+
+    await expect(page.locator("[data-onboarding-screen='CUNY_TOTP']")).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.locator("[data-onboarding-cuny-totp-back='true']").click();
+    await expect(
+      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
+    ).toBeVisible({ timeout: 5_000 });
 
     await cunyTab.close();
   });

@@ -36,11 +36,11 @@ export const reportCredentialError = async (): Promise<void> => {
   }
 };
 
-/** Plan-05 hook: tell the sidebar to advance OPENING_CUNY -> ALLOW_GATE. */
-export const announceCredentialsAccepted = async (): Promise<void> => {
+/** Tell the sidebar to advance OPENING_CUNY -> CUNY_TOTP (CUNY showed TOTP challenge). */
+export const announceCunyTotpChallenge = async (): Promise<void> => {
   const message: OnboardingStageDetected = {
     type: "ONBOARDING_STAGE_DETECTED",
-    stage: "allow_gate",
+    stage: "cuny_totp_challenge",
   };
   try {
     await browser.runtime.sendMessage(message);

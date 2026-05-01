@@ -17,7 +17,7 @@ import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const SCREEN_HEADLINE = "One tap on the CUNY tab, then we keep going.";
 const SCREEN_BODY =
-  "Enter your six-digit code on the CUNY tab to verify it's you. If CUNY then asks for consent, click Allow.";
+  "Click Allow on the CUNY tab to continue.";
 const WAITING_LABEL =
   "Waiting for you to finish the CUNY verification step\u2026";
 const RECOVERY_COPY =

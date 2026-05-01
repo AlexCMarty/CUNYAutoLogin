@@ -61,9 +61,15 @@ async function setupToAllowGate(
   const cunyTab = await tabPromise;
   await cunyTab.waitForLoadState("domcontentloaded");
 
-  // Wait for sidebar to reach ALLOW_GATE (content script fires stage from TOTP page).
-  await expect(page.locator("[data-onboarding-screen='ALLOW_GATE']")).toBeVisible({
+  // TOTP page fires cuny_totp_challenge → sidebar shows CUNY_TOTP.
+  await expect(page.locator("[data-onboarding-screen='CUNY_TOTP']")).toBeVisible({
     timeout: 15_000,
+  });
+
+  // Navigate to mfaConsent fixture — fires allow_gate stage → CUNY_TOTP → ALLOW_GATE.
+  await cunyTab.goto(ALLOW_GATE_FIXTURE_URL);
+  await expect(page.locator("[data-onboarding-screen='ALLOW_GATE']")).toBeVisible({
+    timeout: 10_000,
   });
 
   return cunyTab;
@@ -183,6 +189,16 @@ test.describe("guided: allow gate", () => {
 
   test.afterEach(async () => {
     await cunyTab.close().catch(() => {});
+  });
+
+  test("ALLOW_GATE screen shows the click-allow body copy", async ({ page }) => {
+    await expect(
+      page.locator("[data-onboarding-screen='ALLOW_GATE'] .onboarding-body")
+    ).toContainText("Click Allow");
+    // Must NOT bleed the TOTP instruction into the Allow screen.
+    await expect(
+      page.locator("[data-onboarding-screen='ALLOW_GATE'] .onboarding-body")
+    ).not.toContainText("six-digit code");
   });
 
   test("Allow button on CUNY tab gets highlighted when sidebar is in ALLOW_GATE", async () => {

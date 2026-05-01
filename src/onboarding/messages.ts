@@ -117,6 +117,7 @@ export type TargetSpec = CssTarget | A11yTarget;
 /** Recognised CUNY-side page stages the content script can announce. */
 export const ONBOARDING_PAGE_STAGES = [
   "credential_page",
+  "cuny_totp_challenge",
   "allow_gate",
   "allow_button_clicked",
   "oaa_spa_home",

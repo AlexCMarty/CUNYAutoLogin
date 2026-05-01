@@ -17,8 +17,8 @@ import {
 // ──── constants (pinned) ──────────────────────────────────────────────────────
 
 describe("constants", () => {
-  test("18 onboarding states declared", () => {
-    expect(ONBOARDING_STATES.length).toBe(18);
+  test("19 onboarding states declared", () => {
+    expect(ONBOARDING_STATES.length).toBe(19);
   });
 
   test("ONBOARDING_STATES values are unique", () => {

@@ -3,12 +3,21 @@ import { CUNY_ALLOW_GATE_BTN_SELECTOR } from "../cuny/ssoSite";
 import type { OnboardingStageDetected } from "../onboarding/messages";
 
 /**
- * OAuth consent (Allow) — report click so the sidebar can leave ALLOW_GATE even
- * when the fixture does not navigate (no `?next=`).
+ * OAuth consent (Allow) — announce page load so the sidebar advances to
+ * ALLOW_GATE, and report click so it can leave ALLOW_GATE even when the
+ * fixture does not navigate (no `?next=`).
  */
 export const installAllowConsentClickReporter = (): void => {
   const href = window.location.href;
   if (!href.includes("mfaConsent")) return;
+
+  // Advance sidebar CUNY_TOTP → ALLOW_GATE now that the consent page is visible.
+  const pageLoadMessage: OnboardingStageDetected = {
+    type: "ONBOARDING_STAGE_DETECTED",
+    stage: "allow_gate",
+  };
+  void browser.runtime.sendMessage(pageLoadMessage).catch(() => undefined);
+
   document.addEventListener(
     "click",
     (event) => {

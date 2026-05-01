@@ -7,8 +7,10 @@
  *   - `ONBOARDING_CREDENTIAL_ERROR { culprit }` → route to EMAIL_ENTRY (if
  *     the email is the likely culprit) or PASSWORD_ENTRY (default), with a
  *     red inline banner surfaced above the affected input.
+ *   - `ONBOARDING_STAGE_DETECTED { stage: "cuny_totp_challenge" }` → advance from
+ *     OPENING_CUNY to CUNY_TOTP (CUNY is showing the TOTP challenge).
  *   - `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advance from
- *     OPENING_CUNY to ALLOW_GATE.
+ *     CUNY_TOTP to ALLOW_GATE (mfaConsent.jsp loaded).
  *
  * Security: this module holds the email/password drafts only via the
  * controller closure. Nothing written to `browser.storage.*`. The sidebar
@@ -29,6 +31,7 @@ import {
   isOnboardingMessage,
 } from "./messages";
 import { mountAllowGateScreen } from "./screens/allowGate";
+import { mountCunyTotpScreen } from "./screens/cunyTotp";
 import { mountEmailEntryScreen } from "./screens/emailEntry";
 import { mountBiometricOfferScreen } from "./screens/biometricOffer";
 import { mountBiometricPrepScreen } from "./screens/biometricPrep";
@@ -102,6 +105,7 @@ const SCREEN_MOUNTS: Partial<Record<OnboardingState, ScreenMount>> = {
   EMAIL_ENTRY: mountEmailEntryScreen,
   PASSWORD_ENTRY: mountPasswordEntryScreen,
   OPENING_CUNY: mountOpeningCunyScreen,
+  CUNY_TOTP: mountCunyTotpScreen,
   ALLOW_GATE: mountAllowGateScreen,
   OAA_SPA_HOME: mountOaaSpaHomeScreen,
   GUIDED_MANAGE: mountGuidedManageScreen,
@@ -213,6 +217,7 @@ const renderActiveScreen = (
 // the current state to the single event that advances it one step closer to
 // VERIFY_LOGIN_CODE. States not in this table are terminal for the loop.
 const FAST_FORWARD_EVENTS: Partial<Record<OnboardingState, OnboardingEvent>> = {
+  CUNY_TOTP: "TOTP_DONE",
   ALLOW_GATE: "ALLOW_CLICKED",
   OAA_SPA_HOME: "FACTORS_LIST_READY",
   GUIDED_MANAGE: "GUIDED_STEP_DONE",
@@ -255,8 +260,17 @@ const dispatchSequence = (
   for (const event of events) controller.dispatch(event);
 };
 
+const handleCunyTotpChallenge = (controller: OnboardingController): void => {
+  controller.dispatch("CREDENTIALS_ACCEPTED"); // OPENING_CUNY → CUNY_TOTP
+};
+
 const handleAllowGate = (controller: OnboardingController): void => {
-  controller.dispatch("CREDENTIALS_ACCEPTED");
+  // mfaConsent.jsp loaded. Advance from OPENING_CUNY (CUNY skipped TOTP) or
+  // CUNY_TOTP (normal flow where TOTP was shown first).
+  if (controller.getSnapshot().state === "OPENING_CUNY") {
+    controller.dispatch("CREDENTIALS_ACCEPTED"); // → CUNY_TOTP
+  }
+  dispatchIfState(controller, "CUNY_TOTP", "TOTP_DONE"); // → ALLOW_GATE
 };
 
 const handleAllowButtonClicked = (controller: OnboardingController): void => {
@@ -264,6 +278,9 @@ const handleAllowButtonClicked = (controller: OnboardingController): void => {
 };
 
 const handleOaaSpaHome = (controller: OnboardingController): void => {
+  if (controller.getSnapshot().state === "CUNY_TOTP") {
+    controller.dispatch("TOTP_DONE");
+  }
   dispatchIfState(controller, "ALLOW_GATE", "ALLOW_CLICKED");
 };
 
@@ -285,6 +302,10 @@ const handleFactorTypeSelect = (controller: OnboardingController): void => {
 
 const handleFactorsList = (controller: OnboardingController): void => {
   const state = controller.getSnapshot().state;
+  if (state === "CUNY_TOTP") {
+    dispatchSequence(controller, ["TOTP_DONE", "ALLOW_CLICKED", "FACTORS_LIST_READY", "GUIDED_STEP_DONE"]);
+    return;
+  }
   if (state === "ALLOW_GATE") {
     dispatchSequence(controller, ["ALLOW_CLICKED", "FACTORS_LIST_READY", "GUIDED_STEP_DONE"]);
     return;
@@ -296,6 +317,17 @@ const handleFactorsList = (controller: OnboardingController): void => {
 
 const handleTotpEnrollSecret = (controller: OnboardingController): void => {
   let state = controller.getSnapshot().state;
+  if (state === "CUNY_TOTP") {
+    dispatchSequence(controller, [
+      "TOTP_DONE",
+      "ALLOW_CLICKED",
+      "FACTORS_LIST_READY",
+      "GUIDED_STEP_DONE",
+      "GUIDED_STEP_DONE",
+      "GUIDED_STEP_DONE",
+    ]);
+    return;
+  }
   if (state === "ALLOW_GATE") {
     dispatchSequence(controller, [
       "ALLOW_CLICKED",
@@ -321,7 +353,7 @@ const handleTotpEnrollVerify = (controller: OnboardingController): void => {
     controller.dispatch("SECRET_CAPTURED");
     return;
   }
-  if (state === "ALLOW_GATE" || state === "OAA_SPA_HOME") {
+  if (state === "CUNY_TOTP" || state === "ALLOW_GATE" || state === "OAA_SPA_HOME") {
     fastForwardToVerifyLogin(controller);
   }
 };
@@ -333,6 +365,7 @@ const handleFactorsListAfterEnroll = (controller: OnboardingController): void =>
     return;
   }
   if (
+    state === "CUNY_TOTP" ||
     state === "ALLOW_GATE" ||
     state === "OAA_SPA_HOME" ||
     state === "GUIDED_MANAGE" ||
@@ -378,6 +411,7 @@ export const applyOnboardingMessage = (
   if (message.type === "ONBOARDING_STAGE_DETECTED") {
     const stageDetectedHandlers = Object.freeze({
       credential_page: noopHandler,
+      cuny_totp_challenge: handleCunyTotpChallenge,
       allow_gate: handleAllowGate,
       allow_button_clicked: handleAllowButtonClicked,
       oaa_spa_home: handleOaaSpaHome,

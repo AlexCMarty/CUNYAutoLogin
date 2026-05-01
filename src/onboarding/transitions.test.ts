@@ -57,6 +57,7 @@ describe("forward chain", () => {
       { from: "EMAIL_ENTRY", event: "NEXT" },
       { from: "PASSWORD_ENTRY", event: "NEXT" },
       { from: "OPENING_CUNY", event: "CREDENTIALS_ACCEPTED" },
+      { from: "CUNY_TOTP", event: "TOTP_DONE" },
       { from: "ALLOW_GATE", event: "ALLOW_CLICKED" },
       { from: "OAA_SPA_HOME", event: "FACTORS_LIST_READY" },
       { from: "GUIDED_MANAGE", event: "GUIDED_STEP_DONE" },
@@ -111,8 +112,9 @@ describe("back-button contract", () => {
     expect(backStateFor("PASSWORD_ENTRY")).toBe("EMAIL_ENTRY");
   });
 
-  test("OPENING_CUNY + ALLOW_GATE + OAA_SPA_HOME return to PASSWORD_ENTRY (spec Screen 4/5)", () => {
+  test("OPENING_CUNY + CUNY_TOTP + ALLOW_GATE + OAA_SPA_HOME return to PASSWORD_ENTRY (spec Screen 4/5)", () => {
     expect(backStateFor("OPENING_CUNY")).toBe("PASSWORD_ENTRY");
+    expect(backStateFor("CUNY_TOTP")).toBe("PASSWORD_ENTRY");
     expect(backStateFor("ALLOW_GATE")).toBe("PASSWORD_ENTRY");
     expect(backStateFor("OAA_SPA_HOME")).toBe("PASSWORD_ENTRY");
   });
@@ -166,7 +168,12 @@ describe("advance + canTransition", () => {
 
   test("OPENING_CUNY splits on credential outcome", () => {
     expect(advance("OPENING_CUNY", "CREDENTIAL_ERROR_DETECTED")).toBe("CREDENTIAL_ERROR");
-    expect(advance("OPENING_CUNY", "CREDENTIALS_ACCEPTED")).toBe("ALLOW_GATE");
+    expect(advance("OPENING_CUNY", "CREDENTIALS_ACCEPTED")).toBe("CUNY_TOTP");
+  });
+
+  test("CUNY_TOTP advances to ALLOW_GATE on TOTP_DONE", () => {
+    expect(advance("CUNY_TOTP", "TOTP_DONE")).toBe("ALLOW_GATE");
+    expect(advance("CUNY_TOTP", "BACK")).toBe("PASSWORD_ENTRY");
   });
 
   test("COMPLETE_DEMO accepts a DEMO_REQUESTED self-loop without advancing", () => {

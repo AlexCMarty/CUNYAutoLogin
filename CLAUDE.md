@@ -13,6 +13,7 @@ MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storag
 - No single-letter variable names (enforced by `id-length` in `eslint.config.js`)
 - `void promise` must chain `.catch()` — never wrap in `try/catch`
 - `npm run lint` must pass zero errors and zero warnings before any merge
+- Do NOT assume completion just because unit tests pass. Run full `npm run test`. 
 
 ## Build
 

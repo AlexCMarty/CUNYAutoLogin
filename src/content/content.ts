@@ -15,7 +15,7 @@ import {
 import { startRuiOnboardingObservers } from "./ruiOnboarding";
 import type { AutoFillRequest, AutoFillResponse } from "../onboarding/messages";
 import {
-  announceCredentialsAccepted,
+  announceCunyTotpChallenge,
   handleAutoFillFailureCredentialError,
   handleCredentialPageFlow,
 } from "./credentialFlow";
@@ -43,9 +43,9 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
   }
 
   if (matchesTotpPage(url)) {
-    // We only reach the TOTP page (or the Allow page post-TOTP) after CUNY
-    // accepted the credentials. Tell the sidebar to advance Screen 4 → 5.
-    await announceCredentialsAccepted();
+    // CUNY accepted the credentials and is now asking for the TOTP challenge.
+    // Tell the sidebar to advance OPENING_CUNY → CUNY_TOTP.
+    await announceCunyTotpChallenge();
     if (payload.totpSecret.length > 0) {
       const result = await fillTotp(payload.totpSecret);
       if (result.isErr()) log("error:", result.error);

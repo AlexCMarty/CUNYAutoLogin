@@ -3,6 +3,7 @@
  */
 import type { Page } from "@playwright/test";
 import {
+  ALLOW_GATE_FIXTURE_URL,
   ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL,
   CREDENTIAL_FIXTURE_ADVANCE_URL,
   CREDENTIAL_FIXTURE_URL,
@@ -34,8 +35,14 @@ async function setupToAllowGate(
   await page.locator("[data-onboarding-password-forward='true']").click();
   const cunyTab = await tabPromise;
   await cunyTab.waitForLoadState("domcontentloaded");
-  await expect(page.locator("[data-onboarding-screen='ALLOW_GATE']")).toBeVisible({
+  // TOTP page fires cuny_totp_challenge → sidebar shows CUNY_TOTP.
+  await expect(page.locator("[data-onboarding-screen='CUNY_TOTP']")).toBeVisible({
     timeout: 15_000,
+  });
+  // Navigate to mfaConsent fixture — fires allow_gate stage → CUNY_TOTP → ALLOW_GATE.
+  await cunyTab.goto(ALLOW_GATE_FIXTURE_URL);
+  await expect(page.locator("[data-onboarding-screen='ALLOW_GATE']")).toBeVisible({
+    timeout: 10_000,
   });
   return cunyTab;
 }
@@ -507,17 +514,20 @@ test.describe("smoke: full happy path Screen 1 → Screen 13", () => {
     // ── Screens 1-3 ──────────────────────────────────────────────────────────
     await walkToPasswordEntry(page);
 
-    // ── Screen 4 → ALLOW_GATE ────────────────────────────────────────────────
+    // ── Screen 4 → CUNY_TOTP → ALLOW_GATE ───────────────────────────────────
     const tabPromise = context.waitForEvent("page");
     await page.locator("[data-onboarding-password-forward='true']").click();
     const cunyTab = await tabPromise;
     await cunyTab.waitForLoadState("domcontentloaded");
-    await expect(page.locator("[data-onboarding-screen='ALLOW_GATE']")).toBeVisible({
+    await expect(page.locator("[data-onboarding-screen='CUNY_TOTP']")).toBeVisible({
       timeout: 15_000,
+    });
+    await cunyTab.goto(ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL);
+    await expect(page.locator("[data-onboarding-screen='ALLOW_GATE']")).toBeVisible({
+      timeout: 10_000,
     });
 
     // ── Allow gate → oaa-spa-home → factors-list ─────────────────────────────
-    await cunyTab.goto(ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL);
     await cunyTab.getByRole("button", { name: "Allow" }).click({ timeout: 5_000 });
     await expect(cunyTab).toHaveURL(/view=factors/, { timeout: 15_000 });
 

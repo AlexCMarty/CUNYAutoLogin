@@ -27,6 +27,7 @@ export const ONBOARDING_EVENTS = [
   "CREDENTIAL_ERROR_DETECTED",
   "CREDENTIAL_ERROR_ROUTE_TO_EMAIL",
   "CREDENTIALS_ACCEPTED",
+  "TOTP_DONE",
   "ALLOW_CLICKED",
   "FACTORS_LIST_READY",
   "GUIDED_STEP_DONE",
@@ -68,7 +69,11 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
   OPENING_CUNY: Object.freeze({
     BACK: "PASSWORD_ENTRY",
     CREDENTIAL_ERROR_DETECTED: "CREDENTIAL_ERROR",
-    CREDENTIALS_ACCEPTED: "ALLOW_GATE",
+    CREDENTIALS_ACCEPTED: "CUNY_TOTP",
+  }),
+  CUNY_TOTP: Object.freeze({
+    BACK: "PASSWORD_ENTRY",
+    TOTP_DONE: "ALLOW_GATE",
   }),
   CREDENTIAL_ERROR: Object.freeze({
     // Per spec (`overhaul-onboarding.md §Screen 4-error`) the sidebar lands on
