@@ -29,6 +29,28 @@ const usernameInput = document.getElementById("CUNYLoginUsernameDisplay");
 async function handleAutoFillRequest(message: unknown) { ... }
 ```
 
+### Single-letter names are banned
+
+This rule is enforced by `id-length` in `eslint.config.js`. The only allowed single-character identifiers are `_` (intentionally unused), `i` (indexed `for` loop counter), and generic type parameters (`T`, `E`, `K`, `V`, `R`).
+
+If you find yourself reaching for a short name, use this lookup table:
+
+| Tempting name | What it probably is | Better name |
+|---|---|---|
+| `el` | A DOM element | `<purpose>El` — e.g. `statusEl`, `usernameInputEl` |
+| `e` | A caught error or event | `error`, `submitEvent`, `clickEvent` |
+| `m` | A message or match | `message`, `match` |
+| `j` | Parsed JSON | `parsed<Type>` — e.g. `parsedFactor` |
+| `v` | Some value | Name after what it contains — e.g. `storedVaultCandidate` |
+| `s` | Some storage or string | `resolvedStorage`, `rawString`, etc. |
+| `d` | Some data or draft | `rawDraft`, `responseData`, etc. |
+| `o` | An object | Name after its domain — e.g. `parsedPayload` |
+| `t` | A target or temp | `clickTarget`, `resolvedTarget`, etc. |
+| `r` | A result | `result`, `vaultResult`, etc. |
+| `p` | A payload or param | `payload`, `rawPayload`, etc. |
+
+Boolean variables must read as predicates: `isPasswordVisible`, not `showing`. `found` for a value typed as `Element | null` is wrong — `resolvedTarget` is right.
+
 Concrete naming patterns used in this codebase:
 - Predicates: `matchesCredentialPage`, `matchesTotpPage`, `isStoredVault` — not `check`, `test`, `verify`
 - Waiters: `waitForInputById`, `waitForEnrollTotpSecret` — not `getEl`, `findInput`
@@ -94,6 +116,37 @@ Real examples in this codebase worth reading:
 - `vite.content.config.ts` comment — why IIFE format instead of ESM for MV3 content scripts
 
 Never leave commented-out code in `main` or any committed branch. If it matters, it belongs in git history.
+
+## Async fire-and-forget
+
+When you want to call an async function without awaiting it, use `void` on the Promise — but you **must** still handle rejection on the Promise chain. `try/catch` does not catch async rejections from a `void`-ed Promise because `void` discards the Promise reference before the rejection can surface.
+
+```typescript
+// Wrong — the catch block is unreachable for async errors; rejection is silently dropped
+try {
+  void browser.runtime.sendMessage(message);
+} catch (error) {
+  handleError(error); // never called for async failures
+}
+
+// Correct — rejection handled on the chain
+void browser.runtime.sendMessage(message).catch((error) => handleError(error));
+
+// Also correct — if you genuinely don't care about failure
+void browser.runtime.sendMessage(message).catch(() => undefined);
+```
+
+An `async` IIFE or arrow function that contains no `await` expressions should not be `async`. Remove the keyword — it misleads readers into expecting async work.
+
+```typescript
+// Wrong — async keyword serves no purpose
+void (async () => {
+  setupOverlay(spec);
+})();
+
+// Correct
+setupOverlay(spec);
+```
 
 ## neverthrow patterns
 
