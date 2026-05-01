@@ -150,7 +150,12 @@ export const mountPasswordEntryScreen: ScreenMount = (
     dispatch("BACK");
   };
 
+  const handleKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Enter") handleForward();
+  };
+
   input.addEventListener("input", handleInput);
+  input.addEventListener("keydown", handleKeydown);
   toggle.addEventListener("click", handleToggle);
   forward.addEventListener("click", handleForward);
   back.addEventListener("click", handleBack);
@@ -158,6 +163,7 @@ export const mountPasswordEntryScreen: ScreenMount = (
   return {
     unmount: () => {
       input.removeEventListener("input", handleInput);
+      input.removeEventListener("keydown", handleKeydown);
       toggle.removeEventListener("click", handleToggle);
       forward.removeEventListener("click", handleForward);
       back.removeEventListener("click", handleBack);

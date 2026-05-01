@@ -169,9 +169,14 @@ export const mountEmailEntryScreen: ScreenMount = (
     dispatch("BACK");
   };
 
+  const handleKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Enter") handleForward();
+  };
+
   input.addEventListener("focus", handleFocus);
   input.addEventListener("input", handleInput);
   input.addEventListener("blur", handleBlur);
+  input.addEventListener("keydown", handleKeydown);
   forward.addEventListener("click", handleForward);
   back.addEventListener("click", handleBack);
 
@@ -184,6 +189,7 @@ export const mountEmailEntryScreen: ScreenMount = (
       input.removeEventListener("focus", handleFocus);
       input.removeEventListener("input", handleInput);
       input.removeEventListener("blur", handleBlur);
+      input.removeEventListener("keydown", handleKeydown);
       forward.removeEventListener("click", handleForward);
       back.removeEventListener("click", handleBack);
       container.remove();
