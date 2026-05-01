@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build && vite build -c vite.content.config.ts",
-    "build:dev": "tsc --noEmit && vite build --mode development && vite build -c vite.content.config.ts --mode development",
+    "lint": "eslint src e2e",
+    "build": "npm run lint && tsc --noEmit && vite build && vite build -c vite.content.config.ts",
+    "build:dev": "npm run lint && tsc --noEmit && vite build --mode development && vite build -c vite.content.config.ts --mode development",
     "build:e2e": "cross-env E2E_MANIFEST=1 npm run build:dev",
     "watch": "vite build --watch --mode development",
     "build:content": "vite build -c vite.content.config.ts",
@@ -24,8 +25,10 @@
     "@types/totp-generator": "^0.0.8",
     "@types/webextension-polyfill": "^0.12.5",
     "cross-env": "^7.0.3",
+    "eslint": "^10.2.1",
     "jsdom": "^29.0.1",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.59.1",
     "vite": "^6.4.2",
     "vite-plugin-static-copy": "^2.2.0",
     "vitest": "^4.1.2"

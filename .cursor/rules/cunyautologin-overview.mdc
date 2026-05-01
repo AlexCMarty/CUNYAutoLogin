@@ -158,17 +158,22 @@ e2e/
                                 Four Oracle RUI views share one URL (/oaa/rui/index.html?h_ra=1) —
                                 differentiate by DOM content only (see .map/README.md).
 dist/                           Built extension — load this folder in the browser
+eslint.config.js                ESLint flat config — single no-restricted-syntax rule that bans
+                                .then() and enforces async/await. Covers src/**/*.ts + e2e/**/*.ts.
+                                typescript-eslint provides the TypeScript parser; no other rules
+                                are enabled so this never blocks unrelated work.
 ```
 
 ## Build
 
 ```bash
 npm install
-npm run build          # production: tsc --noEmit → vite build → vite content
+npm run lint           # eslint src e2e — must pass before build/merge
+npm run build          # production: lint → tsc --noEmit → vite build → vite content
 npm run build:dev      # development mode on both Vite steps; sidebar includes debug panel
 npm run build:e2e      # dev build with manifest.e2e.json
-npm run build:content  # rebuild only the content script
-npm run watch          # vite build --watch --mode development
+npm run build:content  # rebuild only the content script (no lint gate)
+npm run watch          # vite build --watch --mode development (no lint gate)
 npm run typecheck      # tsc --noEmit only
 npm run test           # runs unit then e2e
 npm run test:unit      # vitest run (no build step needed)

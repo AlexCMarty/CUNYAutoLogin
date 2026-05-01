@@ -94,7 +94,7 @@ export const startMfaEnrollVerifyOtpPolling = (): void => {
       pollIntervalId = null;
     }
   };
-  pollIntervalId = window.setInterval(() => {
+  pollIntervalId = window.setInterval(async () => {
     const currentError = readInlineVerifyError();
     if (currentError.includes(CLIENT_VERIFY_ERROR_TEXT)) {
       automationPaused = true;
@@ -139,16 +139,15 @@ export const startMfaEnrollVerifyOtpPolling = (): void => {
     }
 
     vaultRequestInFlight = true;
-    void tryFillMfaEnrollVerifyOtp(otpField).then((didFill) => {
-      vaultRequestInFlight = false;
-      if (didFill) {
-        sendVerifyStatus("pending");
-        if (shouldAutoSubmit) {
-          const verifyBtn = findVerifyAndSaveButton();
-          verifyBtn?.click();
-        }
-        otpFilled = true;
+    const didFill = await tryFillMfaEnrollVerifyOtp(otpField);
+    vaultRequestInFlight = false;
+    if (didFill) {
+      sendVerifyStatus("pending");
+      if (shouldAutoSubmit) {
+        const verifyBtn = findVerifyAndSaveButton();
+        verifyBtn?.click();
       }
-    });
+      otpFilled = true;
+    }
   }, RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS);
 };

@@ -38,11 +38,12 @@ form on an empty profile (e2e only).
 
 ```bash
 npm install
-npm run build          # production: tsc --noEmit → vite build → vite content
+npm run lint           # eslint src e2e — must pass before build/merge
+npm run build          # production: lint → tsc --noEmit → vite build → vite content
 npm run build:dev      # development mode; sidebar includes debug panel
 npm run build:e2e      # dev build with manifest.e2e.json
-npm run build:content  # rebuild only the content script
-npm run watch          # vite build --watch --mode development
+npm run build:content  # rebuild only the content script (no lint gate)
+npm run watch          # vite build --watch --mode development (no lint gate)
 npm run typecheck      # tsc --noEmit only
 npm run test           # runs unit then e2e
 npm run test:unit      # vitest run (no build step needed)

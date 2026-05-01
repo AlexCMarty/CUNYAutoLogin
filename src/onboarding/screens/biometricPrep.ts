@@ -66,7 +66,7 @@ export const mountBiometricPrepScreen: ScreenMount = (ctx: OnboardingScreenConte
 
   let fallbackMode = false;
 
-  continueBtn.addEventListener("click", () => {
+  continueBtn.addEventListener("click", async () => {
     if (fallbackMode) {
       dispatch("BIOMETRIC_PREP_DONE");
       return;
@@ -75,18 +75,17 @@ export const mountBiometricPrepScreen: ScreenMount = (ctx: OnboardingScreenConte
     continueBtn.disabled = true;
     backBtn.hidden = true;
 
-    void triggerPlatformAuthenticator().then((result) => {
-      if (result === "success") {
-        dispatch("BIOMETRIC_PREP_DONE");
-        return;
-      }
+    const result = await triggerPlatformAuthenticator();
+    if (result === "success") {
+      dispatch("BIOMETRIC_PREP_DONE");
+      return;
+    }
 
-      statusMsg.hidden = false;
-      statusMsg.textContent = "No problem -- you'll use your extension password to unlock.";
-      continueBtn.disabled = false;
-      continueBtn.textContent = "Continue anyway";
-      fallbackMode = true;
-    });
+    statusMsg.hidden = false;
+    statusMsg.textContent = "No problem -- you'll use your extension password to unlock.";
+    continueBtn.disabled = false;
+    continueBtn.textContent = "Continue anyway";
+    fallbackMode = true;
   });
 
   root.appendChild(container);

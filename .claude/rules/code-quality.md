@@ -31,6 +31,7 @@ Never leave commented-out code in a committed branch. Git history is the archive
 
 Before requesting a review or considering a task done:
 
+- [ ] Does `npm run lint` pass with zero errors?
 - [ ] Does every function do exactly one thing?
 - [ ] Can a stranger understand each variable's purpose from its name alone?
 - [ ] Are all error paths handled explicitly (typed, not swallowed)?

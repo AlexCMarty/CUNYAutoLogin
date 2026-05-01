@@ -17,7 +17,8 @@ export const mountBiometricOfferScreen: ScreenMount = (ctx: OnboardingScreenCont
   container.className = "onboarding-screen onboarding-screen-biometric-offer";
   root.appendChild(container);
 
-  void isPlatformAuthenticatorAvailable().then((available) => {
+  void (async () => {
+    const available = await isPlatformAuthenticatorAvailable();
     if (!available) {
       dispatch("BIOMETRIC_DECLINED");
       return;
@@ -49,7 +50,7 @@ export const mountBiometricOfferScreen: ScreenMount = (ctx: OnboardingScreenCont
     skipBtn.textContent = "Type my password each time";
     skipBtn.addEventListener("click", () => dispatch("BIOMETRIC_DECLINED"));
     container.appendChild(skipBtn);
-  });
+  })();
 
   return { unmount: () => container.remove() };
 };

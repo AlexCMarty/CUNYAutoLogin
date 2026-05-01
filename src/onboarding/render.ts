@@ -635,7 +635,8 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   }
 
   repaint();
-  void loadResumeSnapshotFromSession().then((snapshot) => {
+  void (async () => {
+    const snapshot = await loadResumeSnapshotFromSession();
     if (!snapshot) return;
     pendingResumeSnapshot = {
       state: snapshot.state,
@@ -643,7 +644,7 @@ export const mountOnboarding = (doc: Document): (() => void) => {
       password: snapshot.password ?? "",
     };
     repaintInterruptionActions();
-  });
+  })();
 
   return () => {
     unsubscribe();

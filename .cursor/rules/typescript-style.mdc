@@ -11,7 +11,7 @@ alwaysApply: false
 - Strongly prefer arrow functions
 - No `any` types — use precise union types or generics
 - Named exports by default; config entrypoints may use default exports when required by tooling (`vite.config.ts`, `vite.content.config.ts`, `vitest.config.ts`, `playwright.config.ts`)
-- `async`/`await` only; no `.then()`
+- `async`/`await` only; no `.then()` — enforced by ESLint (`eslint.config.js`)
 - Avoid `throw`. Use neverthrow to return `Result` / `ResultAsync` where practical. A `throw` **requires** a comment explaining why neverthrow was unsuitable here.
 - Always maintain the same level of security as a password manager
 
@@ -97,7 +97,7 @@ Never leave commented-out code in `main` or any committed branch. If it matters,
 
 ## neverthrow patterns
 
-`vault.ts` exposes `encryptVault` / `decryptVault` as `ResultAsync<T, VaultError>`. Callers use `.match()` — never unwrap with try/catch.
+`vault.ts` exposes `encryptVault` / `decryptVault` as `ResultAsync<T, VaultError>`. Callers use `.match()` or the `isErr()` / `value` guard pattern — never unwrap with try/catch.
 
 ```typescript
 // Bad — silently swallows errors, caller has no typed contract

@@ -71,15 +71,17 @@ export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScree
   });
 
   const revealIfSecret = (): void => {
-    void browser.storage.session
-      ?.get(PENDING_TOTP_SECRET_SESSION_KEY)
-      .then((got) => {
+    void (async () => {
+      try {
+        const got = await browser.storage.session?.get(PENDING_TOTP_SECRET_SESSION_KEY);
         const v = got?.[PENDING_TOTP_SECRET_SESSION_KEY];
         if (typeof v === "string" && v.length > 0) {
           secretOk.hidden = false;
         }
-      })
-      .catch(() => undefined);
+      } catch {
+        // storage.session unavailable — ignore
+      }
+    })();
   };
   revealIfSecret();
   const intervalId = window.setInterval(() => {
