@@ -1,5 +1,5 @@
 import browser from "webextension-polyfill";
-import { CUNY_ALLOW_GATE_BTN_SELECTOR } from "../cuny/ssoSite";
+import { CUNY_ALLOW_GATE_BTN_SELECTOR, MFA_CONSENT_PAGE_PATH_MARKER } from "../cuny/ssoSite";
 import type { OnboardingStageDetected } from "../onboarding/messages";
 
 /**
@@ -9,7 +9,7 @@ import type { OnboardingStageDetected } from "../onboarding/messages";
  */
 export const installAllowConsentClickReporter = (): void => {
   const href = window.location.href;
-  if (!href.includes("mfaConsent")) return;
+  if (!href.includes(MFA_CONSENT_PAGE_PATH_MARKER)) return;
 
   // Advance sidebar CUNY_TOTP → ALLOW_GATE now that the consent page is visible.
   const pageLoadMessage: OnboardingStageDetected = {

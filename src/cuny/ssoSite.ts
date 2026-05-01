@@ -74,6 +74,12 @@ export const TOTP_ENROLL_PAGE_PATH_MARKER = "/oaa/rui/" as const;
 export const matchesTotpEnrollPage = (url: string): boolean =>
   url.includes(TOTP_ENROLL_PAGE_PATH_MARKER);
 
+export const MFA_CONSENT_PAGE_PATH_MARKER = "mfaConsent" as const;
+
+/** True for the OAuth Allow/Deny consent page (/cunylogin/pages/mfaConsent.jsp). */
+export const matchesMfaConsentPage = (url: string): boolean =>
+  url.includes(MFA_CONSENT_PAGE_PATH_MARKER);
+
 /**
  * MFA Self-Service “verify new TOTP factor” step: same path as other RUI screens, but `h_ra=1`
  * identifies the post-enrollment verification UI. Match pathname + query so local E2E fixtures

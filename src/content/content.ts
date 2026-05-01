@@ -4,6 +4,7 @@ import {
   CREDENTIAL_ERROR_ELEMENT_ID,
   CREDENTIAL_ERROR_TEXT_MARKER,
   ENROLL_OVERLAY_REFRESH_INTERVAL_MS,
+  matchesMfaConsentPage,
   matchesRuiMfaEnrollVerifyPage,
   matchesTotpEnrollPage,
   matchesTotpPage,
@@ -84,6 +85,15 @@ installAllowConsentClickReporter();
 if (matchesTotpEnrollPage(window.location.href)) {
   startRuiOnboardingObservers();
   void watchTotpSecretOnEnrollPage();
+  window.setInterval(() => {
+    void requestAndExecuteOverlayCommand();
+  }, ENROLL_OVERLAY_REFRESH_INTERVAL_MS);
+}
+
+// mfaConsent.jsp: the allow_gate stage is sent on this page load, so the
+// sidebar processes it and stores the overlay command shortly after the
+// content script starts. Poll until the command arrives and is applied.
+if (matchesMfaConsentPage(window.location.href)) {
   window.setInterval(() => {
     void requestAndExecuteOverlayCommand();
   }, ENROLL_OVERLAY_REFRESH_INTERVAL_MS);

@@ -177,6 +177,28 @@ test.describe("overlay: TARGET_NOT_FOUND fallback", () => {
   });
 });
 
+// ─── Allow gate overlay timing ───────────────────────────────────────────────
+// Regression: the overlay command is stored by the sidebar *after* mfaConsent
+// fires the allow_gate stage. Without a polling loop the content script's
+// one-shot requestAndExecuteOverlayCommand() fires before the command arrives,
+// so the Allow button never gets highlighted. Verify highlight on first arrive.
+
+test.describe("guided: allow gate overlay timing", () => {
+  test("Allow button is highlighted on first arrive at mfaConsent (no second navigate)", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    // setupToAllowGate navigates to ALLOW_GATE_FIXTURE_URL exactly once and
+    // waits for ALLOW_GATE — the overlay must appear WITHOUT a second navigate.
+    const cunyTab = await setupToAllowGate(page, context, extensionId);
+    await expect(
+      cunyTab.locator("button[data-cuny-autologin-highlight='true']")
+    ).toContainText("Allow", { timeout: 10_000 });
+    await cunyTab.close();
+  });
+});
+
 // ─── Allow gate ──────────────────────────────────────────────────────────────
 
 test.describe("guided: allow gate", () => {
