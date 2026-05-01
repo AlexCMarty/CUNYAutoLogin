@@ -1,0 +1,202 @@
+---
+name: smell-hunt
+description: Spawn parallel subagents that aggressively audit the codebase for spaghetti code, code smells, and non-senior-dev patterns. Produces a severity-ranked findings report with exact file/line citations.
+disable-model-invocation: true
+---
+
+# Smell Hunt
+
+## Purpose
+
+Hunt ruthlessly for code that a senior engineer would flag in review. Treat the bar as high: code that merely works is not enough — it must be readable, typed, single-responsibility, and defensively correct. File a finding for everything that falls short, no matter how small.
+
+## Core Rules
+
+1. **Code is guilty until proven innocent.** Every smell gets a finding unless there is a documented reason for the pattern.
+2. **Cite exactly.** Every finding includes file path, line number(s), and the offending code snippet.
+3. **No false passes.** If a pattern *looks* like a smell but is actually fine, explain why in a "Not a finding" note — do not silently skip it.
+4. **Severity is not optional.** Every finding is rated `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW`.
+5. **Fix, don't just flag.** Every finding includes a concrete corrective action (rename, split, add type, etc.).
+
+## Severity Scale
+
+| Level | When to use |
+|---|---|
+| **CRITICAL** | Bug likely in production: wrong logic, security leak, data loss, broken async, uncaught rejection that silently eats errors |
+| **HIGH** | Code a senior would send back in review: `any` types, god functions, deep nesting, missing error path, swallowed errors, test asserting internals |
+| **MEDIUM** | Maintainability debt: vague names, magic literals, function does two things, missing early return, unnecessary mutation |
+| **LOW** | Style or polish: inconsistent naming convention, dead import, redundant comment, single-use variable with a bad name |
+
+---
+
+## Smell Taxonomy
+
+Each subagent focuses on one category. These are the canonical smells for this TypeScript/MV3 extension:
+
+### 1. Type Safety
+- `any` types (explicit or implicit via unsafe cast)
+- `as X` casts that bypass the type system without a comment explaining why
+- `_unsafeUnwrap()` / `_unsafeUnwrapErr()` in non-test code
+- Functions with return type `void` that actually return meaningful values
+- Parameters typed as `unknown` then immediately cast without a guard
+
+### 2. Function Complexity
+- Functions longer than ~80 lines (hard cap per style rule)
+- Functions that do two things ("and" in the description)
+- Nesting deeper than 2 levels when early returns would flatten it
+- `if/else` chains that should be a lookup table or `match`
+- Long argument lists (≥ 4 params that aren't grouped into an object)
+
+### 3. Naming
+- Single-letter or cryptic variable names outside tight loop counters (`el`, `m`, `msg`, `r`, `e`, `cb`, `fn`, `val`, `obj`, `data`, `res`, `ret`)
+- Boolean variables that don't read as predicates (`const ready = …` vs `const isReady = …`)
+- Event handler names that start with `handle` when a more specific verb exists (`handleMsg` → `routeRuntimeMessage`)
+- Functions named after their implementation rather than their contract (`getData`, `doStuff`, `processItem`)
+- Constants that are not `SCREAMING_SNAKE_CASE`
+
+### 4. Error Handling
+- `try/catch` blocks with an empty body or a bare `console.error`
+- `catch (e)` where `e` is used as `any` — should be `unknown` + type-narrowed
+- Promises without rejection handling (no `.catch`, no `try/await`, no `ResultAsync`)
+- `.then()` usage anywhere in `src/` or `e2e/` (banned by ESLint — flag remaining instances if lint was bypassed)
+- `Result`/`ResultAsync` `.value` accessed without an `isErr()` guard (unsafe)
+- Error strings that are not typed union literals (bare string returns from functions that can fail)
+
+### 5. Coupling & Cohesion
+- A module that imports from more than ~5 other source modules (potential god module)
+- Circular or back-edge imports (A imports B imports A)
+- A function that reaches across module boundaries for DOM state it shouldn't own
+- Business logic embedded in a UI event handler instead of a pure function
+- Hardcoded paths, URLs, DOM IDs, or timing constants outside `src/cuny/ssoSite.ts` (single source of truth for SSO constants)
+
+### 6. Async / Concurrency
+- `async` functions that never `await` anything
+- `await` on a non-Promise value
+- `Promise.all` without considering partial failure
+- Fire-and-forget `async` calls where the rejection is silently dropped
+- `setInterval` / `setTimeout` with a magic number that should be a named constant
+- Race conditions: reading then writing storage without atomicity where order matters
+
+### 7. Test Quality
+- Tests that assert on internal state (`(module as any)._privateVar`) instead of observable behavior
+- Tests with no assertions at all (or only `expect(true).toBe(true)`)
+- Tests with `_unsafeUnwrap()` / `_unsafeUnwrapErr()` directly (should use the `unwrap`/`unwrapErr` helper pattern)
+- Setup code duplicated across test cases that belongs in `beforeEach`
+- Test name that starts with "test", "should", or is a generic phrase instead of a plain behavior sentence
+- Mocks that silently return `undefined` for methods that can meaningfully fail (hides error paths)
+- E2E tests that hardcode fixture URLs instead of importing constants from `e2e/constants.ts`
+
+### 8. Dead & Vestigial Code
+- Commented-out code blocks (any committed commented-out code is a finding)
+- Imports that are never used
+- Variables assigned but never read
+- `console.log` / `console.debug` left in production code paths (not guarded by `import.meta.env.DEV`)
+- Exports that are never imported by any other module
+- TODO/FIXME comments that have been sitting long enough to become permanent fixtures
+
+### 9. Magic Values
+- Numeric literals in logic outside a named constant
+- String literals repeated more than once across different files
+- Timeout/interval values not named
+- Storage key strings defined inline instead of imported from the module that owns them
+
+### 10. Security Smells (non-crypto)
+- `console.log` of anything that *might* carry credential-shaped data (email, password, secret)
+- Storage writes of non-vault data to `browser.storage.local` (should be `storage.session` or in-memory)
+- Any use of `localStorage` in extension code (persists to disk — critical finding per the security rule)
+- Message handlers that return sensitive data without checking sender identity
+- Content script code that writes credential values into the DOM in readable form
+
+---
+
+## Workflow
+
+### Step 1 — Inventory the codebase
+
+Before spawning subagents, collect the file list and rough line counts so subagents can be scoped efficiently:
+
+```bash
+find src e2e -name "*.ts" | sort
+rg --files src -g "*.ts" | xargs wc -l | sort -rn | head -20
+```
+
+### Step 2 — Spawn parallel subagents
+
+Divide the taxonomy into **four parallel subagent bundles**. Each agent receives:
+- Its assigned smell categories (from the taxonomy above)
+- The full `src/` and `e2e/` trees to read
+- The severity scale
+- The "cite exactly" rule
+- Instructions to return a structured findings list
+
+**Bundle A — Types & Errors** (categories 1, 4)
+**Bundle B — Shape & Complexity** (categories 2, 3, 5)
+**Bundle C — Async & Dead Code** (categories 6, 8, 9)
+**Bundle D — Tests & Security Smells** (categories 7, 10)
+
+Each subagent must:
+1. `grep` / `rg` the codebase for canonical smell patterns before reading full files
+2. Read the files most likely to have findings (largest files, files with multiple grep hits)
+3. Return findings as a structured list: `[SEVERITY] file:line — smell description — fix`
+
+### Step 3 — Synthesize
+
+After all four bundles complete:
+1. Merge all findings
+2. De-duplicate (same line flagged by two agents → one finding, higher severity wins)
+3. Re-rank: if a finding touches both a complexity smell and a type-safety smell, escalate one level
+4. Group by file for the final report
+
+### Step 4 — Spot-check top findings
+
+Before reporting, directly read the top 5 CRITICAL/HIGH findings to confirm they are real, not grep false-positives. Downgrade any that turn out to be fine (and explain why).
+
+---
+
+## Output Format
+
+```
+## Smell Hunt Report — <date>
+
+### Summary
+- Files scanned: N
+- Total findings: N (C critical / H high / M medium / L low)
+- Hottest file: <file> (N findings)
+
+### CRITICAL
+[file:line] <offending snippet>
+Smell: <category>
+Why: <one sentence on why this is a real problem>
+Fix: <concrete corrective action>
+
+### HIGH
+... (same format)
+
+### MEDIUM
+... (same format)
+
+### LOW
+... (same format, grouped by file for brevity)
+
+### Not findings (looked suspicious, actually fine)
+- <pattern> in <file> — fine because <reason>
+```
+
+---
+
+## Project Context
+
+This is a TypeScript MV3 browser extension. Conventions enforced by `code-quality.mdc`, `typescript-style.mdc`, `unit-testing.mdc` (in `.cursor/rules/` or `.claude/rules/`):
+
+- `neverthrow` `Result`/`ResultAsync` for fallible functions — no raw `throw` without a comment
+- `async`/`await` only — no `.then()`
+- No `any` types
+- Named exports by default
+- Arrow functions preferred
+- Functions ≤ 80 lines; single responsibility
+- SSO URL/DOM constants only in `src/cuny/ssoSite.ts`
+- Test names are plain behavior sentences (no "should", no "test X")
+- `unwrap`/`unwrapErr` helpers in tests, never `_unsafeUnwrap`
+- `import.meta.env.DEV` guards for dev-only code paths
+
+Violations of the above are **always** findings — no exceptions unless a comment in the source explains the deviation.
