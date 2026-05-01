@@ -65,8 +65,8 @@ describe("mountBiometricPrepScreen — DOM structure", () => {
 
   test("status message is hidden initially", () => {
     const msgs = root.querySelectorAll<HTMLElement>(".onboarding-subtext");
-    for (const m of msgs) {
-      expect(m.hidden).toBe(true);
+    for (const msgEl of msgs) {
+      expect(msgEl.hidden).toBe(true);
     }
   });
 });

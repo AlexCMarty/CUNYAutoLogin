@@ -96,6 +96,7 @@ const reportScreen4Failure = (where: string, error: unknown): void => {
     typeof console !== "undefined" &&
     (DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE)
   ) {
+    // eslint-disable-next-line no-console
     console.warn(`[onboarding/opening-cuny] ${where} failed:`, error);
   }
 };

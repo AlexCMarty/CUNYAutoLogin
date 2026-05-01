@@ -33,6 +33,7 @@ const logTransition = (
   cause: string
 ): void => {
   if (!isDevMode()) return;
+  // eslint-disable-next-line no-console
   console.log(`[CUNYAutoLogin onboarding] ${from} -> ${to} (${cause})`);
 };
 

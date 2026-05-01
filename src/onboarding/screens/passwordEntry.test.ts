@@ -45,6 +45,7 @@ const buildCtx = (
   };
 };
 
+// eslint-disable-next-line max-lines-per-function
 describe("mountPasswordEntryScreen", () => {
   let root: HTMLElement;
 

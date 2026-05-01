@@ -29,24 +29,26 @@ export interface SidebarDom {
   credentialFields: HTMLElement;
   masterPasswordField: HTMLElement;
   changeMasterSection: HTMLElement;
+  readonly emailLabel: HTMLElement | null;
+  readonly passwordLabel: HTMLElement | null;
 }
 
 export const validateEmail = (email: string): boolean =>
   email.trim().toLowerCase().endsWith(LOGIN_EMAIL_SUFFIX);
 
-export const decryptStatusMessage = (e: VaultError): string =>
-  e === "decrypt_failed"
+export const decryptStatusMessage = (vaultError: VaultError): string =>
+  vaultError === "decrypt_failed"
     ? "Wrong master password or corrupted vault."
     : "Could not decrypt vault.";
 
 /** Coerce an already-parsed unknown value into a FormDraft, or return null. */
 export function coerceDraft(value: unknown): FormDraft | null {
   if (typeof value !== "object" || value === null) return null;
-  const d = value as Record<string, unknown>;
+  const rawDraft = value as Record<string, unknown>;
   return {
-    email: typeof d.email === "string" ? d.email : "",
-    password: typeof d.password === "string" ? d.password : "",
-    totpSecret: typeof d.totpSecret === "string" ? d.totpSecret : "",
+    email: typeof rawDraft.email === "string" ? rawDraft.email : "",
+    password: typeof rawDraft.password === "string" ? rawDraft.password : "",
+    totpSecret: typeof rawDraft.totpSecret === "string" ? rawDraft.totpSecret : "",
   };
 }
 
@@ -62,10 +64,10 @@ export function parseDraft(raw: string): FormDraft | null {
 }
 
 export function setStatus(message: string, ok = false): void {
-  const el = document.getElementById("status");
-  if (!el) return;
-  el.textContent = message;
-  el.classList.toggle("ok", ok);
+  const statusEl = document.getElementById("status");
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.classList.toggle("ok", ok);
 }
 
 export function hideTotpSecretSourceHint(els: SidebarDom): void {

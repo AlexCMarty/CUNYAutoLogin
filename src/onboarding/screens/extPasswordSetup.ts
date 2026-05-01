@@ -1,19 +1,24 @@
 import browser from "webextension-polyfill";
 import { PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../../cuny/ssoSite";
 import { VAULT_STORAGE_KEY, encryptVault } from "../../crypto/vault";
+import { MIN_MASTER_PASSWORD_LENGTH } from "../../sidebar/sidebar.utils";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 export type PasswordStrength = "Weak" | "Fair" | "Strong";
 
+/** Passwords up to this length are considered Weak regardless of variety. */
+const WEAK_PASSWORD_MAX_LENGTH = 8;
+
 export const computePasswordStrength = (pw: string): PasswordStrength => {
-  if (pw.length < 8) return "Weak";
+  if (pw.length < WEAK_PASSWORD_MAX_LENGTH) return "Weak";
   const variety = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/]
     .filter((re) => re.test(pw)).length;
   if (variety < 3) return "Weak";
-  if (pw.length >= 12) return "Strong";
+  if (pw.length >= MIN_MASTER_PASSWORD_LENGTH) return "Strong";
   return "Fair";
 };
 
+// eslint-disable-next-line max-lines-per-function
 export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root, dispatch, getSnapshot } = ctx;
 
@@ -127,10 +132,8 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
         const sessionResult = await browser.storage.session?.get(
           PENDING_TOTP_SECRET_SESSION_KEY
         );
-        const totpSecret =
-          typeof sessionResult?.[PENDING_TOTP_SECRET_SESSION_KEY] === "string"
-            ? (sessionResult[PENDING_TOTP_SECRET_SESSION_KEY] as string)
-            : "";
+        const rawSecret = sessionResult?.[PENDING_TOTP_SECRET_SESSION_KEY];
+        const totpSecret = typeof rawSecret === "string" ? rawSecret : "";
 
         const encResult = await encryptVault({ email, password, totpSecret }, extensionPassword);
         if (encResult.isErr()) {
@@ -144,7 +147,11 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
         await browser.storage.session?.remove(PENDING_TOTP_SECRET_SESSION_KEY);
 
         dispatch("EXT_PASSWORD_SAVED");
-      } catch {
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn("[CUNYAutoLogin] extPasswordSetup: unexpected vault save error", error);
+        }
         errorMsg.hidden = false;
         syncValidation();
       }

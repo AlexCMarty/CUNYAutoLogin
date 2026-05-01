@@ -1,4 +1,8 @@
 import { parseTotpSecretFromEnrollDom } from "./content.utils";
+import {
+  WAIT_FOR_ELEMENT_TIMEOUT_MS,
+  WAIT_FOR_TOTP_SECRET_TIMEOUT_MS,
+} from "../cuny/ssoSite";
 
 /**
  * Waits for a DOM element to appear by repeatedly calling `find()` on every
@@ -11,7 +15,7 @@ import { parseTotpSecretFromEnrollDom } from "./content.utils";
  */
 export const waitForElement = <T extends HTMLElement>(
   find: () => T | null,
-  timeoutMs = 10000
+  timeoutMs = WAIT_FOR_ELEMENT_TIMEOUT_MS
 ): Promise<T | null> =>
   new Promise((resolve) => {
     const existing = find();
@@ -45,7 +49,7 @@ export const waitForElement = <T extends HTMLElement>(
  */
 export const waitForInputById = (
   id: string,
-  timeoutMs = 10000
+  timeoutMs = WAIT_FOR_ELEMENT_TIMEOUT_MS
 ): Promise<HTMLInputElement | null> =>
   waitForElement(() => {
     const el = document.getElementById(id);
@@ -53,7 +57,7 @@ export const waitForInputById = (
   }, timeoutMs);
 
 /** Waits until the enroll page injects a plausible Base32 secret into the labelled node. */
-export const waitForEnrollTotpSecret = (timeoutMs = 120000): Promise<string | null> =>
+export const waitForEnrollTotpSecret = (timeoutMs = WAIT_FOR_TOTP_SECRET_TIMEOUT_MS): Promise<string | null> =>
   new Promise((resolve) => {
     const existing = parseTotpSecretFromEnrollDom();
     if (existing) {

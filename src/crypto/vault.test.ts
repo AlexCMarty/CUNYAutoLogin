@@ -99,6 +99,7 @@ async function encryptRaw(
 
 // ──── encryptVault + decryptVault ─────────────────────────────────────────────
 
+// eslint-disable-next-line max-lines-per-function
 describe("encryptVault + decryptVault", () => {
   describe("round-trip correctness", () => {
     test("standard payload", async () => {
@@ -252,21 +253,21 @@ describe("encryptVault + decryptVault", () => {
 
   describe("randomness — each encryption is unique", () => {
     test("two encryptions of the same payload produce different saltB64", async () => {
-      const a = unwrap(await encryptVault(PAYLOAD, MASTER));
-      const b = unwrap(await encryptVault(PAYLOAD, MASTER));
-      expect(a.saltB64).not.toBe(b.saltB64);
+      const first = unwrap(await encryptVault(PAYLOAD, MASTER));
+      const second = unwrap(await encryptVault(PAYLOAD, MASTER));
+      expect(first.saltB64).not.toBe(second.saltB64);
     });
 
     test("two encryptions produce different ivB64", async () => {
-      const a = unwrap(await encryptVault(PAYLOAD, MASTER));
-      const b = unwrap(await encryptVault(PAYLOAD, MASTER));
-      expect(a.ivB64).not.toBe(b.ivB64);
+      const first = unwrap(await encryptVault(PAYLOAD, MASTER));
+      const second = unwrap(await encryptVault(PAYLOAD, MASTER));
+      expect(first.ivB64).not.toBe(second.ivB64);
     });
 
     test("two encryptions produce different ciphertextB64", async () => {
-      const a = unwrap(await encryptVault(PAYLOAD, MASTER));
-      const b = unwrap(await encryptVault(PAYLOAD, MASTER));
-      expect(a.ciphertextB64).not.toBe(b.ciphertextB64);
+      const first = unwrap(await encryptVault(PAYLOAD, MASTER));
+      const second = unwrap(await encryptVault(PAYLOAD, MASTER));
+      expect(first.ciphertextB64).not.toBe(second.ciphertextB64);
     });
   });
 

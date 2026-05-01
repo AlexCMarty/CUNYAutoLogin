@@ -16,15 +16,22 @@
  */
 
 import type { CssTarget, A11yTarget, TargetSpec } from "../onboarding/messages";
+import {
+  CUNY_ALLOW_GATE_BTN_SELECTOR,
+  OVERLAY_TARGET_TIMEOUT_MS,
+} from "../cuny/ssoSite";
 
 export type { CssTarget, A11yTarget, TargetSpec };
+export { OVERLAY_TARGET_TIMEOUT_MS };
 
 const DIM_ATTR = "data-cuny-autologin-overlay";
 const HIGHLIGHT_ATTR = "data-cuny-autologin-highlight";
 const TOOLTIP_ATTR = "data-cuny-autologin-tooltip";
 const CHIP_ATTR = "data-cuny-autologin-step-chip";
 
-export const OVERLAY_TARGET_TIMEOUT_MS = 5000;
+const OVERLAY_DIM_Z_INDEX     = 2_147_483_640;
+const OVERLAY_TOOLTIP_Z_INDEX = 2_147_483_645;
+const OVERLAY_CHIP_Z_INDEX    = 2_147_483_646;
 
 let dimEl: HTMLDivElement | null = null;
 let tooltipEl: HTMLDivElement | null = null;
@@ -102,7 +109,7 @@ const renderOverlay = (
   // Dim layer — pointer-events:none so the target remains clickable
   dimEl = document.createElement("div");
   dimEl.setAttribute(DIM_ATTR, "true");
-  dimEl.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:2147483640";
+  dimEl.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:${OVERLAY_DIM_Z_INDEX}`;
   dimEl.style.pointerEvents = "none";
   document.body.appendChild(dimEl);
 
@@ -117,7 +124,7 @@ const renderOverlay = (
   tooltipEl.setAttribute(TOOLTIP_ATTR, "true");
   tooltipEl.textContent = tooltipText;
   tooltipEl.style.cssText =
-    "position:fixed;z-index:2147483645;background:#1a1a2e;color:#fff;" +
+    `position:fixed;z-index:${OVERLAY_TOOLTIP_Z_INDEX};background:#1a1a2e;color:#fff;` +
     "padding:8px 12px;border-radius:6px;font-size:14px;pointer-events:none";
   document.body.appendChild(tooltipEl);
   positionTooltip(el);
@@ -126,7 +133,7 @@ const renderOverlay = (
   chipEl.setAttribute(CHIP_ATTR, "true");
   chipEl.textContent = `Step ${stepIndex} of ${stepTotal}`;
   chipEl.style.cssText =
-    "position:fixed;top:16px;right:16px;z-index:2147483646;background:#fff;" +
+    `position:fixed;top:16px;right:16px;z-index:${OVERLAY_CHIP_Z_INDEX};background:#fff;` +
     "color:#1a1a2e;padding:4px 10px;border-radius:20px;font-size:12px;" +
     "pointer-events:none";
   document.body.appendChild(chipEl);
@@ -137,9 +144,6 @@ const renderOverlay = (
  * DOM yet, waits for it via MutationObserver. If it never appears within
  * OVERLAY_TARGET_TIMEOUT_MS, calls onNotFound so the sidebar can recover.
  */
-/** Allow-gate button (`.map/pages/allow-gate.md`) — used for fast-fail when the tab is already past consent. */
-const CUNY_ALLOW_OVERLAY_SELECTOR = 'button[onclick="allow()"]';
-
 export const showOverlay = (
   spec: TargetSpec,
   tooltipText: string,
@@ -154,8 +158,8 @@ export const showOverlay = (
   // `factors_list` and replaces the screen (which would cancel the 5s timer).
   if (
     spec.type === "css" &&
-    spec.selector === CUNY_ALLOW_OVERLAY_SELECTOR &&
-    !document.querySelector(CUNY_ALLOW_OVERLAY_SELECTOR) &&
+    spec.selector === CUNY_ALLOW_GATE_BTN_SELECTOR &&
+    !document.querySelector(CUNY_ALLOW_GATE_BTN_SELECTOR) &&
     document.querySelector("factor-panel")
   ) {
     queueMicrotask(() => onNotFound());
@@ -174,10 +178,10 @@ export const showOverlay = (
   }, OVERLAY_TARGET_TIMEOUT_MS);
 
   pendingObserver = new MutationObserver(() => {
-    const found = resolveTarget(spec);
-    if (!found) return;
+    const resolvedTarget = resolveTarget(spec);
+    if (!resolvedTarget) return;
     clearPending();
-    renderOverlay(found, tooltipText, stepIndex, stepTotal);
+    renderOverlay(resolvedTarget, tooltipText, stepIndex, stepTotal);
   });
   pendingObserver.observe(document.documentElement, {
     childList: true,

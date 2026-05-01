@@ -1,3 +1,4 @@
+import { EXTENSION_NAME } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const triggerPlatformAuthenticator = async (): Promise<"success" | "failed"> => {
@@ -7,11 +8,11 @@ const triggerPlatformAuthenticator = async (): Promise<"success" | "failed"> => 
     await navigator.credentials.create({
       publicKey: {
         challenge,
-        rp: { name: "CUNYAutoLogin" },
+        rp: { name: EXTENSION_NAME },
         user: { id: userId, name: "cuny-user", displayName: "CUNY User" },
         pubKeyCredParams: [
-          { type: "public-key", alg: -7 },
-          { type: "public-key", alg: -257 },
+          { type: "public-key", alg: -7 },   // COSE ES256 (ECDSA P-256)
+          { type: "public-key", alg: -257 }, // COSE RS256 (RSA PKCS#1 v1.5)
         ],
         authenticatorSelection: {
           authenticatorAttachment: "platform",

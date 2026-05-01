@@ -14,8 +14,8 @@ import {
   SELF_SERVICE_INVALID_SECRET_FIXTURE_URL,
 } from "./constants";
 import { expect, test } from "./extension-fixture";
-import { clearVaultIfPossible, gotoPrimarySurface, setupVault } from "./helpers";
-import { E2E_TOTP_SECRET } from "./test-credentials";
+import { clearVaultIfPossible, gotoPrimarySurface, onboardingHashWith, setupVault, walkToPasswordEntry } from "./helpers";
+import { E2E_PASSWORD, E2E_TOTP_SECRET } from "./test-credentials";
 import { CREDENTIAL_ERROR_BANNER_ID } from "../src/content/banner";
 
 const FIXTURE_SECRET = "UU7UV2G7UCS5LETS";
@@ -25,6 +25,7 @@ const ONBOARDING_HASH = "#onboarding=1";
 // Plan-04 exercises the onboarding shell through the dev-only `#onboarding=1`
 // URL hash (see `src/sidebar/sidebar.ts`). `build:e2e` uses `--mode development`
 // so that hash branch is live for these specs.
+// eslint-disable-next-line max-lines-per-function
 test.describe("onboarding screens 1-3", () => {
   test.beforeEach(async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/sidebar.html${ONBOARDING_HASH}`);
@@ -63,7 +64,7 @@ test.describe("onboarding screens 1-3", () => {
     await emailForward.click();
 
     await expect(
-      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
+      page.locator("[data-onboarding-screen='E2E_PASSWORD_ENTRY']")
     ).toBeVisible();
     await expect(
       page.locator("[data-onboarding-bead='true']").nth(0)
@@ -119,7 +120,7 @@ test.describe("onboarding screens 1-3", () => {
     await page.locator("[data-onboarding-email-forward='true']").click();
 
     await expect(
-      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
+      page.locator("[data-onboarding-screen='E2E_PASSWORD_ENTRY']")
     ).toBeVisible();
 
     await page.locator("[data-onboarding-password-back='true']").click();
@@ -151,23 +152,11 @@ test.describe("onboarding screens 1-3", () => {
 // Validation gate:
 //   - screen 4: sidebar mounts OPENING_CUNY, a new tab opens at the fixture.
 //   - wrong credentials: content script detects the failure, inserts the
-//     extension banner, and the sidebar routes to PASSWORD_ENTRY without any
+//     extension banner, and the sidebar routes to E2E_PASSWORD_ENTRY without any
 //     automatic retry (single submit only).
 //   - allow gate: successful credential submission advances the sidebar to
 //     ALLOW_GATE once the fixture redirects to /oaa-totp-factor/.
 
-const EMAIL = "e2e.student@login.cuny.edu";
-const PASSWORD = "hunter2-e2e";
-
-const onboardingHashWith = (cunyUrl: string): string =>
-  `#onboarding=1&cuny=${encodeURIComponent(cunyUrl)}`;
-
-const walkToPasswordEntry = async (page: import("@playwright/test").Page) => {
-  await page.locator("[data-onboarding-welcome-cta='true']").click();
-  await page.locator("[data-onboarding-email-input='true']").fill(EMAIL);
-  await page.locator("[data-onboarding-email-forward='true']").click();
-  await page.locator("[data-onboarding-password-input='true']").fill(PASSWORD);
-};
 
 test.describe("onboarding screen 4 — opening CUNY", () => {
   test("advancing to screen 4 opens the CUNY fixture tab and shows the waiting copy", async ({
@@ -259,7 +248,7 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
     await cunyTab.waitForTimeout(1500);
     await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toHaveCount(0);
 
-    // Sidebar must not have routed backward to PASSWORD_ENTRY with an error.
+    // Sidebar must not have routed backward to E2E_PASSWORD_ENTRY with an error.
     await expect(
       page.locator("[data-onboarding-password-credential-error='true']")
     ).toHaveCount(0);
@@ -268,8 +257,9 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
   });
 });
 
+// eslint-disable-next-line max-lines-per-function
 test.describe("onboarding — wrong credentials", () => {
-  test("inline #serverError render: sidebar routes to PASSWORD_ENTRY with the inline banner; no auto-retry", async ({
+  test("inline #serverError render: sidebar routes to E2E_PASSWORD_ENTRY with the inline banner; no auto-retry", async ({
     page,
     context,
     extensionId,
@@ -286,9 +276,9 @@ test.describe("onboarding — wrong credentials", () => {
     const cunyTab = await tabPromise;
     await cunyTab.waitForLoadState("domcontentloaded");
 
-    // Sidebar lands on PASSWORD_ENTRY with the inline credential-error banner.
+    // Sidebar lands on E2E_PASSWORD_ENTRY with the inline credential-error banner.
     await expect(
-      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
+      page.locator("[data-onboarding-screen='E2E_PASSWORD_ENTRY']")
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.locator("[data-onboarding-password-credential-error='true']")
@@ -300,7 +290,7 @@ test.describe("onboarding — wrong credentials", () => {
     // Pre-filled credentials survive the round-trip.
     await expect(
       page.locator("[data-onboarding-password-input='true']")
-    ).toHaveValue(PASSWORD);
+    ).toHaveValue(E2E_PASSWORD);
 
     // Extension-branded banner is mounted in the CUNY tab.
     await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toBeVisible();
@@ -321,7 +311,7 @@ test.describe("onboarding — wrong credentials", () => {
     await cunyTab.close();
   });
 
-  test("redirect to /auth_cred_submit: sidebar routes back to PASSWORD_ENTRY with banner", async ({
+  test("redirect to /auth_cred_submit: sidebar routes back to E2E_PASSWORD_ENTRY with banner", async ({
     page,
     context,
     extensionId,
@@ -343,9 +333,9 @@ test.describe("onboarding — wrong credentials", () => {
       timeout: 15_000,
     });
 
-    // Sidebar routes back to PASSWORD_ENTRY with the banner visible.
+    // Sidebar routes back to E2E_PASSWORD_ENTRY with the banner visible.
     await expect(
-      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
+      page.locator("[data-onboarding-screen='E2E_PASSWORD_ENTRY']")
     ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.locator("[data-onboarding-password-credential-error='true']")
@@ -382,7 +372,7 @@ test.describe("onboarding — wrong credentials", () => {
     // Per spec, once the student edits the password the red banner hides.
     await page
       .locator("[data-onboarding-password-input='true']")
-      .fill(`${PASSWORD}-edit`);
+      .fill(`${E2E_PASSWORD}-edit`);
     await expect(banner).toBeHidden();
 
     await cunyTab.close();

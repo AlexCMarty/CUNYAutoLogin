@@ -19,16 +19,19 @@ export const executeOverlayCommand = (command: OnboardingOverlayCommand): void =
     command.targetSpec ??
     (command.target ? ({ type: "css" as const, selector: command.target } as const) : null);
   if (!spec) return;
-  void (async () => {
-    const stageMessage: OnboardingStageDetected = {
-      type: "ONBOARDING_STAGE_DETECTED",
-      stage: "target_not_found",
-    };
-    showOverlay(spec, command.tooltipText ?? "", command.stepIndex ?? 1, command.stepTotal ?? 1, () => {
-      void browser.runtime.sendMessage(stageMessage).catch(() => undefined);
-    });
-  })();
+  const stageMessage: OnboardingStageDetected = {
+    type: "ONBOARDING_STAGE_DETECTED",
+    stage: "target_not_found",
+  };
+  showOverlay(spec, command.tooltipText ?? "", command.stepIndex ?? 1, command.stepTotal ?? 1, () => {
+    void browser.runtime.sendMessage(stageMessage).catch(() => undefined);
+  });
 };
+
+const isOverlayCommandResponse = (
+  value: unknown
+): value is { overlayCommand: OnboardingOverlayCommand | null } =>
+  typeof value === "object" && value !== null && "overlayCommand" in value;
 
 /**
  * Plan-06: pull the current overlay command from the service worker when the
@@ -37,10 +40,11 @@ export const executeOverlayCommand = (command: OnboardingOverlayCommand): void =
  */
 export const requestAndExecuteOverlayCommand = async (): Promise<void> => {
   try {
-    const response = (await browser.runtime.sendMessage({
+    const response = await browser.runtime.sendMessage({
       type: "ONBOARDING_CONTENT_SCRIPT_READY",
-    })) as { overlayCommand: OnboardingOverlayCommand | null } | undefined;
-    if (response?.overlayCommand) {
+    });
+    if (!isOverlayCommandResponse(response)) return;
+    if (response.overlayCommand) {
       executeOverlayCommand(response.overlayCommand);
     }
   } catch {

@@ -11,6 +11,7 @@
  */
 
 import browser from "webextension-polyfill";
+import { CUNY_ALLOW_GATE_BTN_SELECTOR } from "../../cuny/ssoSite";
 import type { OnboardingOverlayCommand } from "../messages";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
@@ -23,8 +24,6 @@ const RECOVERY_COPY =
   "We couldn\u2019t find the Allow button. Please check the CUNY tab and click Allow manually, or go back and try again.";
 const BACK_LABEL = "Back";
 
-/** CSS selector for the CUNY allow-gate Allow button (.map/pages/allow-gate.md). */
-const ALLOW_BTN_SELECTOR = 'button[onclick="allow()"]';
 const ALLOW_TOOLTIP = "Click Allow to continue";
 const ALLOW_STEP_INDEX = 1;
 const ALLOW_STEP_TOTAL = 1;
@@ -33,7 +32,7 @@ const sendShowOverlayCommand = (): void => {
   const command: OnboardingOverlayCommand = {
     type: "ONBOARDING_OVERLAY_COMMAND",
     action: "show",
-    targetSpec: { type: "css", selector: ALLOW_BTN_SELECTOR },
+    targetSpec: { type: "css", selector: CUNY_ALLOW_GATE_BTN_SELECTOR },
     tooltipText: ALLOW_TOOLTIP,
     stepIndex: ALLOW_STEP_INDEX,
     stepTotal: ALLOW_STEP_TOTAL,

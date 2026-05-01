@@ -46,8 +46,8 @@ async function extensionStorage(): Promise<SnapshotStorage> {
 async function readSessionMaster(storage: SnapshotStorage): Promise<string | null> {
   try {
     const result = await storage.session?.get(SESSION_MASTER_KEY);
-    const val = result?.[SESSION_MASTER_KEY];
-    return typeof val === "string" ? val : null;
+    const sessionMasterCandidate = result?.[SESSION_MASTER_KEY];
+    return typeof sessionMasterCandidate === "string" ? sessionMasterCandidate : null;
   } catch {
     return null;
   }
@@ -67,8 +67,8 @@ async function clearBadSessionMaster(storage: SnapshotStorage): Promise<void> {
 export async function loadVaultSessionSnapshot(
   storage?: SnapshotStorage
 ): Promise<VaultSessionSnapshot> {
-  const s = storage ?? (await extensionStorage());
-  const localResult = await s.local.get(VAULT_STORAGE_KEY);
+  const resolvedStorage = storage ?? (await extensionStorage());
+  const localResult = await resolvedStorage.local.get(VAULT_STORAGE_KEY);
   const raw = localResult[VAULT_STORAGE_KEY];
   let storedVault: StoredVault | null = null;
   if (raw !== undefined && raw !== null && isStoredVault(raw)) {
@@ -84,7 +84,7 @@ export async function loadVaultSessionSnapshot(
     };
   }
 
-  const savedMaster = await readSessionMaster(s);
+  const savedMaster = await readSessionMaster(resolvedStorage);
   if (!savedMaster) {
     return {
       mode: "locked",
@@ -104,7 +104,7 @@ export async function loadVaultSessionSnapshot(
     };
   }
 
-  await clearBadSessionMaster(s);
+  await clearBadSessionMaster(resolvedStorage);
   return {
     mode: "locked",
     storedVault,

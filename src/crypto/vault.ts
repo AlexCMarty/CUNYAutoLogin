@@ -85,10 +85,10 @@ function parseDecryptedPayload(plaintext: ArrayBuffer): Result<VaultPayload, Vau
   ) {
     return err("invalid_payload");
   }
-  const o = parsed as Record<string, unknown>;
-  const email = o.email;
-  const password = o.password;
-  const totpSecret = o.totpSecret;
+  const parsedPayload = parsed as Record<string, unknown>;
+  const email = parsedPayload.email;
+  const password = parsedPayload.password;
+  const totpSecret = parsedPayload.totpSecret;
   if (
     typeof email !== "string" ||
     typeof password !== "string" ||
@@ -146,11 +146,11 @@ export const decryptVault = (
 
 export const isStoredVault = (value: unknown): value is StoredVault => {
   if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
+  const storedVaultCandidate = value as Record<string, unknown>;
   return (
-    v.version === 1 &&
-    typeof v.saltB64 === "string" &&
-    typeof v.ivB64 === "string" &&
-    typeof v.ciphertextB64 === "string"
+    storedVaultCandidate.version === 1 &&
+    typeof storedVaultCandidate.saltB64 === "string" &&
+    typeof storedVaultCandidate.ivB64 === "string" &&
+    typeof storedVaultCandidate.ciphertextB64 === "string"
   );
 };

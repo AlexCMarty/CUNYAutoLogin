@@ -116,6 +116,8 @@ function getEls(): Result<SidebarDom, "missing_dom"> {
   const credentialFields = document.getElementById("credential-fields");
   const masterPasswordField = document.getElementById("master-password-field");
   const changeMasterSection = document.getElementById("change-master-section");
+  const emailLabel = document.getElementById("vault-email-label");
+  const passwordLabel = document.getElementById("vault-password-label");
 
   if (
     !(form instanceof HTMLFormElement) ||
@@ -153,9 +155,43 @@ function getEls(): Result<SidebarDom, "missing_dom"> {
     credentialFields,
     masterPasswordField,
     changeMasterSection,
+    emailLabel,
+    passwordLabel,
   });
 }
 
+
+const renderUnlockedMode = (
+  els: SidebarDom,
+  isManagement: boolean,
+  payload: VaultPayload | null
+): void => {
+  els.credentialFields.classList.remove("hidden");
+  els.masterPasswordField.classList.add("hidden");
+  els.changeMasterSection.classList.remove("hidden");
+  els.lockBtn.classList.remove("hidden");
+  els.masterLabel.textContent = "Extension master password";
+  if (isManagement) {
+    els.modeHint.textContent =
+      "Change your CUNY login email or password below, then save. To change your extension master password, use the optional fields at the bottom.";
+    els.submitBtn.textContent = "Save changes";
+    if (els.emailLabel) els.emailLabel.textContent = "Change email";
+    if (els.passwordLabel) els.passwordLabel.textContent = "Change password";
+  } else {
+    els.modeHint.textContent =
+      "Your credentials are unlocked. Edit any field and save. To change your master password, fill the optional fields below.";
+    els.submitBtn.textContent = "Save changes";
+    if (els.emailLabel) els.emailLabel.textContent = "CUNY email";
+    if (els.passwordLabel) els.passwordLabel.textContent = "Password";
+  }
+
+  // Pre-fill credential fields from session
+  if (payload) {
+    els.email.value = payload.email;
+    els.password.value = payload.password;
+    els.totpSecret.value = payload.totpSecret;
+  }
+};
 
 function renderMode(els: SidebarDom): void {
   const { credentialFields, masterPasswordField, changeMasterSection } = els;
@@ -179,64 +215,36 @@ function renderMode(els: SidebarDom): void {
       "Credentials are saved. Enter your master password to unlock and view them.";
     els.submitBtn.textContent = "Unlock";
   } else {
-    // unlocked
-    credentialFields.classList.remove("hidden");
-    masterPasswordField.classList.add("hidden");
-    changeMasterSection.classList.remove("hidden");
-    els.lockBtn.classList.remove("hidden");
-    els.masterLabel.textContent = "Extension master password";
-    if (isSidebarVaultManagement()) {
-      els.modeHint.textContent =
-        "Change your CUNY login email or password below, then save. To change your extension master password, use the optional fields at the bottom.";
-      els.submitBtn.textContent = "Save changes";
-      const emailLabel = document.getElementById("vault-email-label");
-      const passwordLabel = document.getElementById("vault-password-label");
-      if (emailLabel) emailLabel.textContent = "Change email";
-      if (passwordLabel) passwordLabel.textContent = "Change password";
-    } else {
-      els.modeHint.textContent =
-        "Your credentials are unlocked. Edit any field and save. To change your master password, fill the optional fields below.";
-      els.submitBtn.textContent = "Save changes";
-      const emailLabel = document.getElementById("vault-email-label");
-      const passwordLabel = document.getElementById("vault-password-label");
-      if (emailLabel) emailLabel.textContent = "CUNY email";
-      if (passwordLabel) passwordLabel.textContent = "Password";
-    }
-
-    // Pre-fill credential fields from session
-    if (sessionPayload) {
-      els.email.value = sessionPayload.email;
-      els.password.value = sessionPayload.password;
-      els.totpSecret.value = sessionPayload.totpSecret;
-    }
+    renderUnlockedMode(els, isSidebarVaultManagement(), sessionPayload);
   }
 }
 
-async function handleSetup(els: SidebarDom): Promise<void> {
+/** Returns a user-visible error string, or null if the setup form is valid. */
+const validateSetupForm = (els: SidebarDom): string | null => {
   const email = els.email.value.trim();
   const password = els.password.value;
   const totpSecret = els.totpSecret.value.trim().replace(/\s+/g, "");
   const masterPassword = els.masterPassword.value;
 
-  if (!validateEmail(email)) {
-    setStatus(`Email must end with ${LOGIN_EMAIL_SUFFIX}`);
-    return;
-  }
-  if (!password.length) {
-    setStatus("Password is required.");
-    return;
-  }
-  if (!totpSecret.length) {
-    setStatus("TOTP secret is required.");
-    return;
-  }
+  if (!validateEmail(email)) return `Email must end with ${LOGIN_EMAIL_SUFFIX}`;
+  if (!password.length) return "Password is required.";
+  if (!totpSecret.length) return "TOTP secret is required.";
   if (masterPassword.length < MIN_MASTER_PASSWORD_LENGTH) {
-    setStatus(`Master password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`);
-    return;
+    return `Master password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`;
   }
+  return null;
+};
 
+/** Encrypts and persists the vault, updates session state, and re-renders. */
+const commitNewVault = async (
+  els: SidebarDom,
+  email: string,
+  password: string,
+  totpSecret: string,
+  master: string
+): Promise<void> => {
   els.submitBtn.disabled = true;
-  const encResult = await encryptVault({ email, password, totpSecret }, masterPassword);
+  const encResult = await encryptVault({ email, password, totpSecret }, master);
   if (encResult.isErr()) {
     setStatus("Save failed. Try again.");
     els.submitBtn.disabled = false;
@@ -246,8 +254,8 @@ async function handleSetup(els: SidebarDom): Promise<void> {
   await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
   storedVault = newVault;
   sessionPayload = { email, password, totpSecret };
-  sessionMasterPassword = masterPassword;
-  await saveSessionMaster(masterPassword);
+  sessionMasterPassword = master;
+  await saveSessionMaster(master);
   await clearDraft();
   hideTotpSecretSourceHint(els);
   els.masterPassword.value = "";
@@ -255,6 +263,20 @@ async function handleSetup(els: SidebarDom): Promise<void> {
   renderMode(els);
   setStatus("Saved. Secrets are encrypted locally.", true);
   els.submitBtn.disabled = false;
+};
+
+async function handleSetup(els: SidebarDom): Promise<void> {
+  const validationError = validateSetupForm(els);
+  if (validationError) {
+    setStatus(validationError);
+    return;
+  }
+
+  const email = els.email.value.trim();
+  const password = els.password.value;
+  const totpSecret = els.totpSecret.value.trim().replace(/\s+/g, "");
+  const masterPassword = els.masterPassword.value;
+  await commitNewVault(els, email, password, totpSecret, masterPassword);
 }
 
 async function handleLocked(els: SidebarDom): Promise<void> {
@@ -284,6 +306,36 @@ async function handleLocked(els: SidebarDom): Promise<void> {
   els.submitBtn.disabled = false;
 }
 
+/**
+ * Returns the master password to use for re-encryption, or an Err with a user-visible message.
+ * When both new-master fields are empty, the existing session master is kept.
+ * When both are filled, they must match and meet the minimum length.
+ */
+const resolveMasterPasswordForSave = (
+  els: SidebarDom,
+  currentSessionMaster: string | null
+): Result<string, string> => {
+  const newMaster = els.newMasterPassword.value;
+  const confirmMaster = els.confirmNewMasterPassword.value;
+
+  if (newMaster.length === 0 && confirmMaster.length === 0) {
+    if (!currentSessionMaster) {
+      return err("Session expired. Please close and reopen the extension.");
+    }
+    return ok(currentSessionMaster);
+  }
+
+  if (newMaster.length > 0 && confirmMaster.length > 0) {
+    if (newMaster !== confirmMaster) return err("New master passwords do not match.");
+    if (newMaster.length < MIN_MASTER_PASSWORD_LENGTH) {
+      return err(`New master password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`);
+    }
+    return ok(newMaster);
+  }
+
+  return err("Fill both new master password fields, or leave both empty.");
+};
+
 async function handleUnlocked(els: SidebarDom): Promise<void> {
   const email = els.email.value.trim();
   const password = els.password.value;
@@ -292,8 +344,6 @@ async function handleUnlocked(els: SidebarDom): Promise<void> {
     sessionPayload?.totpSecret,
     isSidebarVaultManagement()
   );
-  const newMaster = els.newMasterPassword.value;
-  const confirmMaster = els.confirmNewMasterPassword.value;
 
   if (!validateEmail(email)) {
     setStatus(`Email must end with ${LOGIN_EMAIL_SUFFIX}`);
@@ -312,29 +362,12 @@ async function handleUnlocked(els: SidebarDom): Promise<void> {
     return;
   }
 
-  // Determine which master password to use for re-encryption
-  let masterPasswordToUse: string;
-  if (newMaster.length === 0 && confirmMaster.length === 0) {
-    // Keep current master password (from session memory)
-    if (!sessionMasterPassword) {
-      setStatus("Session expired. Please close and reopen the extension.");
-      return;
-    }
-    masterPasswordToUse = sessionMasterPassword;
-  } else if (newMaster.length > 0 && confirmMaster.length > 0) {
-    if (newMaster !== confirmMaster) {
-      setStatus("New master passwords do not match.");
-      return;
-    }
-    if (newMaster.length < MIN_MASTER_PASSWORD_LENGTH) {
-      setStatus(`New master password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`);
-      return;
-    }
-    masterPasswordToUse = newMaster;
-  } else {
-    setStatus("Fill both new master password fields, or leave both empty.");
+  const masterResult = resolveMasterPasswordForSave(els, sessionMasterPassword);
+  if (masterResult.isErr()) {
+    setStatus(masterResult.error);
     return;
   }
+  const masterPasswordToUse = masterResult.value;
 
   els.submitBtn.disabled = true;
   const encResult = await encryptVault(
@@ -402,7 +435,10 @@ async function resetToFreshInstall(els: SidebarDom): Promise<void> {
 async function init(): Promise<void> {
   const elsResult = getEls();
   if (elsResult.isErr()) {
-    console.error("[CUNYAutoLogin] sidebar DOM incomplete");
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error("[CUNYAutoLogin] sidebar DOM incomplete");
+    }
     return;
   }
   const els = elsResult.value;
@@ -450,8 +486,8 @@ async function init(): Promise<void> {
 
   els.totpSecret.addEventListener("input", () => hideTotpSecretSourceHint(els));
 
-  els.form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  els.form.addEventListener("submit", async (submitEvent: SubmitEvent) => {
+    submitEvent.preventDefault();
     setStatus("");
 
     if (currentMode === "setup") {

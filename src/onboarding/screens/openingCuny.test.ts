@@ -64,6 +64,7 @@ const flush = async (): Promise<void> => {
   await Promise.resolve();
 };
 
+// eslint-disable-next-line max-lines-per-function
 describe("mountOpeningCunyScreen", () => {
   let root: HTMLElement;
 

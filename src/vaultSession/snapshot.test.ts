@@ -11,10 +11,10 @@ const PAYLOAD = {
 const MASTER = "correct-horse-battery-staple";
 
 async function encryptOk(): Promise<StoredVault> {
-  const r = await encryptVault(PAYLOAD, MASTER);
-  expect(r.isOk()).toBe(true);
-  if (r.isErr()) throw new Error("encryptVault");
-  return r.value;
+  const result = await encryptVault(PAYLOAD, MASTER);
+  expect(result.isOk()).toBe(true);
+  if (result.isErr()) throw new Error("encryptVault");
+  return result.value;
 }
 
 function makeStorage(mocks: {

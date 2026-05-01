@@ -13,7 +13,9 @@ export const getOtp = async (secret: string): Promise<string> => {
   return otp;
 };
 
-export const fillTotp = async (totpSecret: string): Promise<Result<true, string>> => {
+type FillTotpError = "otp_input_not_found" | "verify_button_not_found";
+
+export const fillTotp = async (totpSecret: string): Promise<Result<true, FillTotpError>> => {
   const [totpElm, verifyBtn] = await Promise.all([
     waitForInputById(TOTP_OTP_INPUT_ID),
     waitForElement(
@@ -24,8 +26,8 @@ export const fillTotp = async (totpSecret: string): Promise<Result<true, string>
     ),
   ]);
 
-  if (!totpElm) return err("TOTP page: OTP input not found");
-  if (!verifyBtn) return err("TOTP page: Verify button not found");
+  if (!totpElm) return err("otp_input_not_found");
+  if (!verifyBtn) return err("verify_button_not_found");
 
   const otp = await getOtp(totpSecret);
   setInputValue(totpElm, otp);

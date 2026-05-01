@@ -39,6 +39,10 @@ export const EMAIL_INLINE_HINT_SELECTOR =
 export const EMAIL_CREDENTIAL_ERROR_SELECTOR =
   "[data-onboarding-email-credential-error='true']";
 
+// Screen mount functions are intentionally long: they build DOM, register all
+// event listeners, and return a single cleanup handle. Splitting by concern
+// would require threading many refs across helper functions.
+// eslint-disable-next-line max-lines-per-function
 export const mountEmailEntryScreen: ScreenMount = (
   ctx: OnboardingScreenContext
 ) => {

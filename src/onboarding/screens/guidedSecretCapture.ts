@@ -70,12 +70,15 @@ export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScree
     stepTotal: 4,
   });
 
+  const GUIDED_SECRET_POLL_INTERVAL_MS = 400;
+  const GUIDED_SECRET_POLL_TIMEOUT_MS  = 10_000;
+
   const revealIfSecret = (): void => {
     void (async () => {
       try {
         const got = await browser.storage.session?.get(PENDING_TOTP_SECRET_SESSION_KEY);
-        const v = got?.[PENDING_TOTP_SECRET_SESSION_KEY];
-        if (typeof v === "string" && v.length > 0) {
+        const pendingSecret = got?.[PENDING_TOTP_SECRET_SESSION_KEY];
+        if (typeof pendingSecret === "string" && pendingSecret.length > 0) {
           secretOk.hidden = false;
         }
       } catch {
@@ -86,10 +89,10 @@ export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScree
   revealIfSecret();
   const intervalId = window.setInterval(() => {
     revealIfSecret();
-  }, 400);
+  }, GUIDED_SECRET_POLL_INTERVAL_MS);
   const timeoutId = window.setTimeout(() => {
     window.clearInterval(intervalId);
-  }, 10_000);
+  }, GUIDED_SECRET_POLL_TIMEOUT_MS);
 
   return {
     unmount: () => {

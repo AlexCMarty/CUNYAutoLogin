@@ -422,10 +422,10 @@ test.describe("plan-08 — verify login code: OTP fill", () => {
     const now = Date.now();
     const period = 30_000;
     const candidates = await Promise.all(
-      [now - period, now, now + period].map(async (t) => {
+      [now - period, now, now + period].map(async (timestamp) => {
         const { otp } = await TOTP.generate(E2E_TOTP_SECRET, {
           ...TOTP_GENERATION_OPTIONS,
-          timestamp: t,
+          timestamp,
         });
         return otp;
       })

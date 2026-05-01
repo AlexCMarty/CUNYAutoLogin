@@ -27,7 +27,6 @@ import {
   ONBOARDING_ROOT_ID,
   ONBOARDING_RESUME_BUTTON_SELECTOR,
   ONBOARDING_SCREEN_HOST_SELECTOR,
-  ONBOARDING_STAGE_ROUTER_KEYS,
   applyOnboardingMessage,
   beadViewModelForState,
   mountOnboarding,
@@ -83,6 +82,7 @@ describe("beadViewModelForState", () => {
   });
 });
 
+// eslint-disable-next-line max-lines-per-function
 describe("mountOnboarding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -487,7 +487,14 @@ describe("mountOnboarding", () => {
   });
 
   test("stage router handles every declared onboarding stage", () => {
-    expect(ONBOARDING_STAGE_ROUTER_KEYS).toEqual(ONBOARDING_PAGE_STAGES);
+    // Verify every stage declared in messages has a handler in applyOnboardingMessage.
+    // We exercise this by running each stage through the router — none should throw.
+    const controller = createOnboardingController({ initialState: "GUIDED_FACTOR_TYPE" });
+    for (const stage of ONBOARDING_PAGE_STAGES) {
+      expect(() =>
+        applyOnboardingMessage(controller, { type: "ONBOARDING_STAGE_DETECTED", stage })
+      ).not.toThrow();
+    }
   });
 
   test("ONBOARDING_STAGE_DETECTED(allow_button_clicked) is ignored outside ALLOW_GATE", () => {

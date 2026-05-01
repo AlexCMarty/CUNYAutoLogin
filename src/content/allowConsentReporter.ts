@@ -1,4 +1,5 @@
 import browser from "webextension-polyfill";
+import { CUNY_ALLOW_GATE_BTN_SELECTOR } from "../cuny/ssoSite";
 import type { OnboardingStageDetected } from "../onboarding/messages";
 
 /**
@@ -13,7 +14,7 @@ export const installAllowConsentClickReporter = (): void => {
     (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      if (!target.closest('button[onclick="allow()"]')) return;
+      if (!target.closest(CUNY_ALLOW_GATE_BTN_SELECTOR)) return;
       const message: OnboardingStageDetected = {
         type: "ONBOARDING_STAGE_DETECTED",
         stage: "allow_button_clicked",

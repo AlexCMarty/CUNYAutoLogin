@@ -21,6 +21,8 @@
  *   - Z-index is `2147483647` (INT_MAX) so CUNY overlays can't hide it.
  */
 
+import { EXTENSION_NAME } from "../cuny/ssoSite";
+
 export const CREDENTIAL_ERROR_BANNER_ID =
   "cunyautologin-credential-error-banner" as const;
 
@@ -30,7 +32,7 @@ export const CREDENTIAL_ERROR_BANNER_TEXT_SELECTOR =
 export const CREDENTIAL_ERROR_BANNER_COPY =
   "CUNYAutoLogin: your email or password didn't work. Fix it in the sidebar to keep going." as const;
 
-const BANNER_ICON_TEXT = "CUNYAutoLogin";
+const BANNER_ICON_TEXT = EXTENSION_NAME;
 
 type BannerStyle = Partial<CSSStyleDeclaration>;
 

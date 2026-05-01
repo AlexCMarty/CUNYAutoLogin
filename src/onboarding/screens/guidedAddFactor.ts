@@ -2,10 +2,9 @@
  * Student opens the Add Authentication Factor menu (overlay on same control as manage step).
  */
 
+import { RUI_ADD_MENU_SELECTOR } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
-
-const ADD_MENU_SELECTOR = "oj-menu-button.menu-button";
 
 const HEADLINE = "Open the add menu";
 const BODY =
@@ -55,7 +54,7 @@ export const mountGuidedAddFactorScreen: ScreenMount = (ctx: OnboardingScreenCon
   root.appendChild(container);
 
   sendShowOverlayCommand({
-    targetSpec: { type: "css", selector: ADD_MENU_SELECTOR },
+    targetSpec: { type: "css", selector: RUI_ADD_MENU_SELECTOR },
     tooltipText: "Add Authentication Factor",
     stepIndex: 2,
     stepTotal: 4,

@@ -26,7 +26,6 @@ import {
 } from "./controller";
 import {
   type ClearOnboardingCredentials,
-  ONBOARDING_PAGE_STAGES,
   type OnboardingMessage,
   type OnboardingPageStage,
   isOnboardingMessage,
@@ -91,12 +90,12 @@ export type BeadViewModel = {
 export const beadViewModelForState = (
   state: OnboardingState
 ): readonly BeadViewModel[] => {
-  const active = beadForState(state);
+  const activeBead = beadForState(state);
   const stages: readonly BeadStage[] = [1, 2, 3, 4, 5];
   return stages.map((stage) => ({
     stage,
     label: BEAD_LABELS[stage],
-    status: stage < active ? "completed" : stage === active ? "active" : "pending",
+    status: stage < activeBead ? "completed" : stage === activeBead ? "active" : "pending",
   }));
 };
 
@@ -144,6 +143,7 @@ const isDevMode = (): boolean =>
 
 const reportOnboardingFailure = (where: string, error: unknown): void => {
   if (!isDevMode()) return;
+  // eslint-disable-next-line no-console
   console.warn(`[onboarding/render] ${where} failed:`, error);
 };
 
@@ -214,6 +214,153 @@ const renderActiveScreen = (
   return mount(ctx);
 };
 
+// Lookup table for the fast-forward-to-verify-login loop. Each entry maps
+// the current state to the single event that advances it one step closer to
+// VERIFY_LOGIN_CODE. States not in this table are terminal for the loop.
+const FAST_FORWARD_EVENTS: Partial<Record<OnboardingState, OnboardingEvent>> = {
+  ALLOW_GATE: "ALLOW_CLICKED",
+  OAA_SPA_HOME: "FACTORS_LIST_READY",
+  GUIDED_MANAGE: "GUIDED_STEP_DONE",
+  GUIDED_ADD_FACTOR: "GUIDED_STEP_DONE",
+  GUIDED_FACTOR_TYPE: "GUIDED_STEP_DONE",
+  GUIDED_SECRET_CAPTURE: "SECRET_CAPTURED",
+};
+
+const fastForwardToVerifyLogin = (controller: OnboardingController): void => {
+  let guard = 0;
+  while (controller.getSnapshot().state !== "VERIFY_LOGIN_CODE" && guard < 10) {
+    guard += 1;
+    const event = FAST_FORWARD_EVENTS[controller.getSnapshot().state];
+    if (!event) break;
+    controller.dispatch(event);
+  }
+};
+
+const fastForwardToSetDefault = (controller: OnboardingController): void => {
+  fastForwardToVerifyLogin(controller);
+  if (controller.getSnapshot().state === "VERIFY_LOGIN_CODE") {
+    controller.dispatch("VERIFY_SUCCEEDED");
+  }
+};
+
+const dispatchIfState = (
+  controller: OnboardingController,
+  state: OnboardingState,
+  event: OnboardingEvent
+): void => {
+  if (controller.getSnapshot().state === state) {
+    controller.dispatch(event);
+  }
+};
+
+const dispatchSequence = (
+  controller: OnboardingController,
+  events: readonly OnboardingEvent[]
+): void => {
+  for (const event of events) controller.dispatch(event);
+};
+
+const handleAllowGate = (controller: OnboardingController): void => {
+  controller.dispatch("CREDENTIALS_ACCEPTED");
+};
+
+const handleAllowButtonClicked = (controller: OnboardingController): void => {
+  dispatchIfState(controller, "ALLOW_GATE", "ALLOW_CLICKED");
+};
+
+const handleOaaSpaHome = (controller: OnboardingController): void => {
+  dispatchIfState(controller, "ALLOW_GATE", "ALLOW_CLICKED");
+};
+
+const handleAddFactor = (controller: OnboardingController): void => {
+  const state = controller.getSnapshot().state;
+  if (state === "GUIDED_MANAGE") {
+    controller.dispatch("GUIDED_STEP_DONE");
+    dispatchIfState(controller, "GUIDED_ADD_FACTOR", "GUIDED_STEP_DONE");
+    return;
+  }
+  if (state === "GUIDED_ADD_FACTOR") {
+    controller.dispatch("GUIDED_STEP_DONE");
+  }
+};
+
+const handleFactorTypeSelect = (controller: OnboardingController): void => {
+  dispatchIfState(controller, "GUIDED_ADD_FACTOR", "GUIDED_STEP_DONE");
+};
+
+const handleFactorsList = (controller: OnboardingController): void => {
+  const state = controller.getSnapshot().state;
+  if (state === "ALLOW_GATE") {
+    dispatchSequence(controller, ["ALLOW_CLICKED", "FACTORS_LIST_READY", "GUIDED_STEP_DONE"]);
+    return;
+  }
+  if (state === "OAA_SPA_HOME") {
+    controller.dispatch("FACTORS_LIST_READY");
+  }
+};
+
+const handleTotpEnrollSecret = (controller: OnboardingController): void => {
+  let state = controller.getSnapshot().state;
+  if (state === "ALLOW_GATE") {
+    dispatchSequence(controller, [
+      "ALLOW_CLICKED",
+      "FACTORS_LIST_READY",
+      "GUIDED_STEP_DONE",
+      "GUIDED_STEP_DONE",
+      "GUIDED_STEP_DONE",
+    ]);
+    return;
+  }
+  if (state === "GUIDED_ADD_FACTOR") {
+    controller.dispatch("GUIDED_STEP_DONE");
+    state = controller.getSnapshot().state;
+  }
+  if (state === "GUIDED_FACTOR_TYPE") {
+    controller.dispatch("GUIDED_STEP_DONE");
+  }
+};
+
+const handleTotpEnrollVerify = (controller: OnboardingController): void => {
+  const state = controller.getSnapshot().state;
+  if (state === "GUIDED_SECRET_CAPTURE") {
+    controller.dispatch("SECRET_CAPTURED");
+    return;
+  }
+  if (state === "ALLOW_GATE" || state === "OAA_SPA_HOME") {
+    fastForwardToVerifyLogin(controller);
+  }
+};
+
+const handleFactorsListAfterEnroll = (controller: OnboardingController): void => {
+  const state = controller.getSnapshot().state;
+  if (state === "VERIFY_LOGIN_CODE") {
+    controller.dispatch("VERIFY_SUCCEEDED");
+    return;
+  }
+  if (
+    state === "ALLOW_GATE" ||
+    state === "OAA_SPA_HOME" ||
+    state === "GUIDED_MANAGE" ||
+    state === "GUIDED_ADD_FACTOR" ||
+    state === "GUIDED_FACTOR_TYPE" ||
+    state === "GUIDED_SECRET_CAPTURE"
+  ) {
+    fastForwardToSetDefault(controller);
+  }
+};
+
+const handleSetDefaultMenuOpened = (controller: OnboardingController): void => {
+  if (controller.getSnapshot().state === "SET_DEFAULT") {
+    showSetDefaultOptionOverlay();
+  }
+};
+
+const handleSetDefaultConfirmed = (controller: OnboardingController): void => {
+  dispatchIfState(controller, "SET_DEFAULT", "SET_DEFAULT_COMPLETED");
+};
+
+const noopHandler = (_controller: OnboardingController): void => undefined;
+
 /**
  * Applies an onboarding wire message to the controller. Exported for unit
  * tests so we can exercise the routing logic without standing up a full
@@ -228,152 +375,6 @@ export const applyOnboardingMessage = (
   controller: OnboardingController,
   message: OnboardingMessage
 ): void => {
-  const fastForwardToVerifyLogin = (): void => {
-    let guard = 0;
-    while (controller.getSnapshot().state !== "VERIFY_LOGIN_CODE" && guard < 10) {
-      guard += 1;
-      const state = controller.getSnapshot().state;
-      if (state === "ALLOW_GATE") {
-        controller.dispatch("ALLOW_CLICKED");
-      } else if (state === "OAA_SPA_HOME") {
-        controller.dispatch("FACTORS_LIST_READY");
-      } else if (
-        state === "GUIDED_MANAGE" ||
-        state === "GUIDED_ADD_FACTOR" ||
-        state === "GUIDED_FACTOR_TYPE"
-      ) {
-        controller.dispatch("GUIDED_STEP_DONE");
-      } else if (state === "GUIDED_SECRET_CAPTURE") {
-        controller.dispatch("SECRET_CAPTURED");
-      } else {
-        break;
-      }
-    }
-  };
-  const fastForwardToSetDefault = (): void => {
-    fastForwardToVerifyLogin();
-    if (controller.getSnapshot().state === "VERIFY_LOGIN_CODE") {
-      controller.dispatch("VERIFY_SUCCEEDED");
-    }
-  };
-  const dispatchIfState = (
-    state: OnboardingState,
-    event: OnboardingEvent
-  ): void => {
-    if (controller.getSnapshot().state === state) {
-      controller.dispatch(event);
-    }
-  };
-  const dispatchSequence = (events: readonly OnboardingEvent[]): void => {
-    for (const event of events) controller.dispatch(event);
-  };
-  const handleAllowGate = (): void => {
-    controller.dispatch("CREDENTIALS_ACCEPTED");
-  };
-  const handleAllowButtonClicked = (): void => {
-    dispatchIfState("ALLOW_GATE", "ALLOW_CLICKED");
-  };
-  const handleOaaSpaHome = (): void => {
-    dispatchIfState("ALLOW_GATE", "ALLOW_CLICKED");
-  };
-  const handleAddFactor = (): void => {
-    const state = controller.getSnapshot().state;
-    if (state === "GUIDED_MANAGE") {
-      controller.dispatch("GUIDED_STEP_DONE");
-      dispatchIfState("GUIDED_ADD_FACTOR", "GUIDED_STEP_DONE");
-      return;
-    }
-    if (state === "GUIDED_ADD_FACTOR") {
-      controller.dispatch("GUIDED_STEP_DONE");
-    }
-  };
-  const handleFactorTypeSelect = (): void => {
-    dispatchIfState("GUIDED_ADD_FACTOR", "GUIDED_STEP_DONE");
-  };
-  const handleFactorsList = (): void => {
-    const state = controller.getSnapshot().state;
-    if (state === "ALLOW_GATE") {
-      dispatchSequence(["ALLOW_CLICKED", "FACTORS_LIST_READY", "GUIDED_STEP_DONE"]);
-      return;
-    }
-    if (state === "OAA_SPA_HOME") {
-      controller.dispatch("FACTORS_LIST_READY");
-    }
-  };
-  const handleTotpEnrollSecret = (): void => {
-    let state = controller.getSnapshot().state;
-    if (state === "ALLOW_GATE") {
-      dispatchSequence([
-        "ALLOW_CLICKED",
-        "FACTORS_LIST_READY",
-        "GUIDED_STEP_DONE",
-        "GUIDED_STEP_DONE",
-        "GUIDED_STEP_DONE",
-      ]);
-      return;
-    }
-    if (state === "GUIDED_ADD_FACTOR") {
-      controller.dispatch("GUIDED_STEP_DONE");
-      state = controller.getSnapshot().state;
-    }
-    if (state === "GUIDED_FACTOR_TYPE") {
-      controller.dispatch("GUIDED_STEP_DONE");
-    }
-  };
-  const handleTotpEnrollVerify = (): void => {
-    const state = controller.getSnapshot().state;
-    if (state === "GUIDED_SECRET_CAPTURE") {
-      controller.dispatch("SECRET_CAPTURED");
-      return;
-    }
-    if (state === "ALLOW_GATE" || state === "OAA_SPA_HOME") {
-      fastForwardToVerifyLogin();
-    }
-  };
-  const handleFactorsListAfterEnroll = (): void => {
-    const state = controller.getSnapshot().state;
-    if (state === "VERIFY_LOGIN_CODE") {
-      controller.dispatch("VERIFY_SUCCEEDED");
-      return;
-    }
-    if (
-      state === "ALLOW_GATE" ||
-      state === "OAA_SPA_HOME" ||
-      state === "GUIDED_MANAGE" ||
-      state === "GUIDED_ADD_FACTOR" ||
-      state === "GUIDED_FACTOR_TYPE" ||
-      state === "GUIDED_SECRET_CAPTURE"
-    ) {
-      fastForwardToSetDefault();
-    }
-  };
-  const handleSetDefaultMenuOpened = (): void => {
-    if (controller.getSnapshot().state === "SET_DEFAULT") {
-      showSetDefaultOptionOverlay();
-    }
-  };
-  const handleSetDefaultConfirmed = (): void => {
-    dispatchIfState("SET_DEFAULT", "SET_DEFAULT_COMPLETED");
-  };
-  const noopHandler = (): void => undefined;
-  const stageDetectedHandlers = Object.freeze({
-    credential_page: noopHandler,
-    allow_gate: handleAllowGate,
-    allow_button_clicked: handleAllowButtonClicked,
-    oaa_spa_home: handleOaaSpaHome,
-    factors_list: handleFactorsList,
-    add_factor: handleAddFactor,
-    factor_type_select: handleFactorTypeSelect,
-    totp_enroll_secret: handleTotpEnrollSecret,
-    totp_enroll_verify: handleTotpEnrollVerify,
-    factors_list_after_enroll: handleFactorsListAfterEnroll,
-    set_default_menu_opened: handleSetDefaultMenuOpened,
-    set_default_confirmed: handleSetDefaultConfirmed,
-    unverified_cunyautologin: noopHandler,
-    totp_factor_limit: noopHandler,
-    access_denied: noopHandler,
-    target_not_found: noopHandler,
-  } satisfies Record<OnboardingPageStage, () => void>);
   if (message.type === "ONBOARDING_CREDENTIAL_ERROR") {
     controller.setCredentialError({ culprit: message.culprit });
     controller.dispatch("CREDENTIAL_ERROR_DETECTED");
@@ -385,14 +386,30 @@ export const applyOnboardingMessage = (
     return;
   }
   if (message.type === "ONBOARDING_STAGE_DETECTED") {
-    stageDetectedHandlers[message.stage]();
+    const stageDetectedHandlers = Object.freeze({
+      credential_page: noopHandler,
+      allow_gate: handleAllowGate,
+      allow_button_clicked: handleAllowButtonClicked,
+      oaa_spa_home: handleOaaSpaHome,
+      factors_list: handleFactorsList,
+      add_factor: handleAddFactor,
+      factor_type_select: handleFactorTypeSelect,
+      totp_enroll_secret: handleTotpEnrollSecret,
+      totp_enroll_verify: handleTotpEnrollVerify,
+      factors_list_after_enroll: handleFactorsListAfterEnroll,
+      set_default_menu_opened: handleSetDefaultMenuOpened,
+      set_default_confirmed: handleSetDefaultConfirmed,
+      unverified_cunyautologin: noopHandler,
+      totp_factor_limit: noopHandler,
+      access_denied: noopHandler,
+      target_not_found: noopHandler,
+    } satisfies Record<OnboardingPageStage, (c: OnboardingController) => void>);
+    stageDetectedHandlers[message.stage](controller);
     return;
   }
   // ONBOARDING_OVERLAY_COMMAND / VERIFY_STATUS / REOPEN_CUNY_TAB /
   // TAB_REATTACHED land in plan-06+.
 };
-
-export const ONBOARDING_STAGE_ROUTER_KEYS = ONBOARDING_PAGE_STAGES;
 
 const showFirstVisible = (
   screenHost: HTMLElement,
@@ -423,6 +440,7 @@ const installRuntimeMessageBridge = (
   ): void => {
     if (!isOnboardingMessage(message)) return;
     if (isDevMode()) {
+      // eslint-disable-next-line no-console
       console.log(`[onboarding/render] runtime message: ${message.type}`);
     }
     const senderTabId = sender?.tab?.id;
@@ -473,12 +491,9 @@ const clearStagedOnboardingCredentials = (): void => {
   const message: ClearOnboardingCredentials = {
     type: "CLEAR_ONBOARDING_CREDENTIALS",
   };
-  try {
-    void browser.runtime.sendMessage(message);
-  } catch (error) {
-    // Extension reloaded — SW memory is already gone.
-    reportOnboardingFailure("runtime.sendMessage(CLEAR_ONBOARDING_CREDENTIALS)", error);
-  }
+  void browser.runtime.sendMessage(message).catch((error) =>
+    reportOnboardingFailure("runtime.sendMessage(CLEAR_ONBOARDING_CREDENTIALS)", error)
+  );
 };
 
 const saveResumeSnapshot = async (
@@ -500,16 +515,21 @@ const saveResumeSnapshot = async (
   });
 };
 
-export const mountOnboarding = (doc: Document): (() => void) => {
-  const { host, hideLegacy, restoreLegacy } = resolveScreenHost(doc);
-  hideLegacy();
-
+// Builds the skeleton DOM nodes for the onboarding shell.
+// Returns the refs needed by the rest of mountOnboarding.
+const buildOnboardingShell = (
+  doc: Document,
+  host: HTMLElement
+): {
+  shell: HTMLElement;
+  screenHost: HTMLElement;
+  resumeButton: HTMLButtonElement;
+  reopenCunyButton: HTMLButtonElement;
+} => {
   const shell = doc.createElement("div");
   shell.dataset.onboardingShell = "true";
   shell.className = "onboarding-shell";
   host.appendChild(shell);
-
-  const header = mountBeadHeader(doc, shell);
 
   const screenHost = doc.createElement("div");
   screenHost.dataset.onboardingScreenHost = "true";
@@ -536,11 +556,76 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   reopenCunyButton.hidden = true;
   interruptionActions.appendChild(reopenCunyButton);
 
+  return { shell, screenHost, resumeButton, reopenCunyButton };
+};
+
+// Registers the browser.tabs.onRemoved listener that shows the "tab closed"
+// interruption UI. Returns an unlisten function for cleanup.
+const wireTabCloseDetection = (
+  activeCunyTabIdRef: { value: number | null },
+  onTabClosed: () => void
+): (() => void) => {
+  const tabsOnRemoved = (browser.tabs as unknown as {
+    onRemoved?: {
+      addListener?: (listener: (tabId: number, removeInfo: unknown) => void) => void;
+      removeListener?: (listener: (tabId: number, removeInfo: unknown) => void) => void;
+    };
+  }).onRemoved;
+  const onTabRemoved = (tabId: number): void => {
+    if (activeCunyTabIdRef.value === null) return;
+    if (tabId !== activeCunyTabIdRef.value) return;
+    activeCunyTabIdRef.value = null;
+    onTabClosed();
+  };
+  try {
+    tabsOnRemoved?.addListener?.(onTabRemoved);
+  } catch (error) {
+    // Ignore when tabs API is unavailable.
+    reportOnboardingFailure("tabs.onRemoved.addListener", error);
+  }
+  return () => {
+    try {
+      tabsOnRemoved?.removeListener?.(onTabRemoved);
+    } catch (error) {
+      // Ignore remove failures in non-extension contexts.
+      reportOnboardingFailure("tabs.onRemoved.removeListener", error);
+    }
+  };
+};
+
+// Reads the session resume snapshot and, if present, stores it as a pending
+// resume so the resume button becomes visible.
+const loadAndApplyResumeSnapshot = async (
+  setPendingResumeSnapshot: (snapshot: PendingResumeSnapshot) => void,
+  repaintInterruptionActions: () => void
+): Promise<void> => {
+  const snapshot = await loadResumeSnapshotFromSession();
+  if (!snapshot) return;
+  setPendingResumeSnapshot({
+    state: snapshot.state,
+    email: snapshot.email ?? "",
+    password: snapshot.password ?? "",
+  });
+  repaintInterruptionActions();
+};
+
+// Sequential orchestration: DOM setup, controller wiring, bridge install, tab-close
+// detection, and snapshot load cannot be split without creating parameter-heavy helpers.
+// eslint-disable-next-line max-lines-per-function
+export const mountOnboarding = (doc: Document): (() => void) => {
+  const { host, hideLegacy, restoreLegacy } = resolveScreenHost(doc);
+  hideLegacy();
+
+  const { shell, screenHost, resumeButton, reopenCunyButton } =
+    buildOnboardingShell(doc, host);
+
+  const header = mountBeadHeader(doc, shell);
+
   const controller = createOnboardingController();
   let currentHandle: ScreenHandle | null = null;
   let pendingResumeSnapshot: PendingResumeSnapshot | null = null;
   let isCunyTabMissing = false;
-  let activeCunyTabId: number | null = null;
+  const activeCunyTabIdRef = { value: null as number | null };
   const CUNY_REATTACHABLE_STATES = new Set<OnboardingState>([
     "OPENING_CUNY",
     "ALLOW_GATE",
@@ -590,7 +675,7 @@ export const mountOnboarding = (doc: Document): (() => void) => {
     controller,
     screenHost,
     (tabId) => {
-      activeCunyTabId = tabId;
+      activeCunyTabIdRef.value = tabId;
       isCunyTabMissing = false;
       repaintInterruptionActions();
     }
@@ -614,47 +699,21 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   };
   reopenCunyButton.addEventListener("click", handleReopenCuny);
 
-  const tabsOnRemoved = (browser.tabs as unknown as {
-    onRemoved?: {
-      addListener?: (listener: (tabId: number, removeInfo: unknown) => void) => void;
-      removeListener?: (listener: (tabId: number, removeInfo: unknown) => void) => void;
-    };
-  }).onRemoved;
-  const onTabRemoved = (tabId: number): void => {
-    if (activeCunyTabId === null) return;
-    if (tabId !== activeCunyTabId) return;
-    activeCunyTabId = null;
+  const unwireTabClose = wireTabCloseDetection(activeCunyTabIdRef, () => {
     isCunyTabMissing = true;
     repaintInterruptionActions();
-  };
-  try {
-    tabsOnRemoved?.addListener?.(onTabRemoved);
-  } catch (error) {
-    // Ignore when tabs API is unavailable.
-    reportOnboardingFailure("tabs.onRemoved.addListener", error);
-  }
+  });
 
   repaint();
-  void (async () => {
-    const snapshot = await loadResumeSnapshotFromSession();
-    if (!snapshot) return;
-    pendingResumeSnapshot = {
-      state: snapshot.state,
-      email: snapshot.email ?? "",
-      password: snapshot.password ?? "",
-    };
-    repaintInterruptionActions();
-  })();
+  void loadAndApplyResumeSnapshot(
+    (snapshot) => { pendingResumeSnapshot = snapshot; },
+    repaintInterruptionActions
+  );
 
   return () => {
     unsubscribe();
     uninstallBridge();
-    try {
-      tabsOnRemoved?.removeListener?.(onTabRemoved);
-    } catch (error) {
-      // Ignore remove failures in non-extension contexts.
-      reportOnboardingFailure("tabs.onRemoved.removeListener", error);
-    }
+    unwireTabClose();
     resumeButton.removeEventListener("click", handleResume);
     reopenCunyButton.removeEventListener("click", handleReopenCuny);
     void saveResumeSnapshot(controller.getSnapshot());

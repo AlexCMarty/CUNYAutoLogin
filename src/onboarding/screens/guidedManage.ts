@@ -2,15 +2,13 @@
  * First guided step on factors list — student adds a factor next.
  */
 
+import { RUI_ADD_MENU_SELECTOR } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
 const HEADLINE = "Add a login code on the CUNY tab";
 const BODY =
   "On the CUNY tab, click Add Authentication Factor to continue.";
-
-/** Add control on factors list — highlight the `oj-menu-button` (e2e asserts on host). */
-const ADD_MENU_SELECTOR = "oj-menu-button.menu-button";
 
 export const mountGuidedManageScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root } = ctx;
@@ -56,7 +54,7 @@ export const mountGuidedManageScreen: ScreenMount = (ctx: OnboardingScreenContex
   root.appendChild(container);
 
   sendShowOverlayCommand({
-    targetSpec: { type: "css", selector: ADD_MENU_SELECTOR },
+    targetSpec: { type: "css", selector: RUI_ADD_MENU_SELECTOR },
     tooltipText: "Click Add Authentication Factor",
     stepIndex: 1,
     stepTotal: 4,

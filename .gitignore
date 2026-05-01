@@ -30,3 +30,6 @@ agent_screenshots/
 
 # Agent reports
 .reports/
+
+# Agent worktrees (temporary isolated sandboxes, not source)
+.claude/worktrees/

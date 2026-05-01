@@ -63,6 +63,7 @@ maybeEnableSidebarActionOnToolbarClick();
 
 browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType) => {
   if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
     console.log("[CUNYAutoLogin] installed/updated:", details.reason);
   }
 });
@@ -173,127 +174,145 @@ const handleClearOnboardingCredentials = (
   return { ok: true };
 };
 
-browser.runtime.onMessage.addListener((message: unknown) => {
-  const routed = routeByType(message, {
-    TOTP_SECRET_FROM_PAGE: (typedMessage) =>
-      (async () => {
-        const secret = typedMessage.secret;
-        if (typeof secret !== "string" || !secret.length) {
-          return { ok: false as const };
-        }
-        const normalized = normalizeTotpSecretCandidate(secret);
-        if (!normalized) {
-          return { ok: false as const };
-        }
-        try {
-          await browser.storage.session?.set({
-            [PENDING_TOTP_SECRET_SESSION_KEY]: normalized,
-          });
-          return { ok: true as const };
-        } catch {
-          return { ok: false as const };
-        }
-      })(),
-    ONBOARDING_CONTENT_SCRIPT_READY: () =>
-      // Plan-06: content script polls for the current overlay command when it
-      // loads on a new CUNY page. Return the stored command (or null) so the
-      // content script can render the overlay without a separate push mechanism.
-      Promise.resolve({ overlayCommand: stagedOverlayCommand ?? null }),
-    STAGE_ONBOARDING_CREDENTIALS: () =>
-      Promise.resolve(
-        guardedRoute(
-          message,
-          isStageOnboardingCredentials,
-          (validMessage) => handleStageOnboardingCredentials(validMessage),
-          () => ({ ok: false as const })
-        )
-      ),
-    CLEAR_ONBOARDING_CREDENTIALS: () =>
-      Promise.resolve(
-        guardedRoute(
-          message,
-          isClearOnboardingCredentials,
-          (validMessage) => handleClearOnboardingCredentials(validMessage),
-          () => ({ ok: false as const })
-        )
-      ),
-    AUTO_FILL_REQUEST: () =>
-      (async (): Promise<AutoFillResponse> => {
-        try {
-          const typedMessage = message as {
-            readonly otpContext?: "login_totp" | "enroll_verify";
-          };
-          const otpContext = typedMessage.otpContext;
-          // Prefer the encrypted vault when it is set up and unlocked (existing
-          // post-onboarding flow). Fall back to the plan-05 onboarding staging
-          // buffer when the vault isn't set up yet.
-          const sessionResult = await browser.storage.session?.get([
-            SESSION_MASTER_KEY,
-            PENDING_TOTP_SECRET_SESSION_KEY,
-          ]);
-          const masterPassword = sessionResult?.[SESSION_MASTER_KEY];
-          const pendingTotpSecret = sessionResult?.[PENDING_TOTP_SECRET_SESSION_KEY];
-          // During mid-enrollment on `otp|input`, the freshly-scraped session
-          // secret is authoritative. It must override any stale vault secret a
-          // prior enrollment may have stored, otherwise the user types a code
-          // from the old secret into the new factor's verify field. Gate on
-          // `stagedOnboardingCredentials` so merely *viewing* an existing
-          // factor's self-service page (vault set up, no onboarding in flight)
-          // still returns the vault's authoritative secret.
-          const enrollSecretOverride: string | null =
-            otpContext === "enroll_verify" &&
-            stagedOnboardingCredentials !== null &&
-            typeof pendingTotpSecret === "string" &&
-            pendingTotpSecret.length > 0
-              ? pendingTotpSecret
-              : null;
-          if (typeof masterPassword === "string") {
-            const localResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
-            const raw = localResult[VAULT_STORAGE_KEY];
-            if (isStoredVault(raw)) {
-              const decResult = await decryptVault(raw, masterPassword);
-              return decResult.match<AutoFillResponse>(
-                (payload) => ({
-                  success: true,
-                  payload:
-                    enrollSecretOverride !== null
-                      ? { ...payload, totpSecret: enrollSecretOverride }
-                      : payload,
-                }),
-                () => ({ success: false, reason: "decrypt_error" })
-              );
-            }
-          }
+/**
+ * Resolves the auto-fill response for the content script.
+ *
+ * Prefers the encrypted vault when a session master and valid vault are
+ * present (post-onboarding). Falls back to the plan-05 onboarding staging
+ * buffer when the vault hasn't been saved yet. The `otpContext` hint gates
+ * the pending-TOTP-secret override so a freshly-scraped enroll secret only
+ * replaces the vault's TOTP on `otp|input` (enroll_verify), never on the
+ * login challenge page (login_totp).
+ */
+const resolveAutoFillResponse = async (
+  otpContext: "login_totp" | "enroll_verify" | undefined
+): Promise<AutoFillResponse> => {
+  try {
+    // Prefer the encrypted vault when it is set up and unlocked (existing
+    // post-onboarding flow). Fall back to the plan-05 onboarding staging
+    // buffer when the vault isn't set up yet.
+    const sessionResult = await browser.storage.session?.get([
+      SESSION_MASTER_KEY,
+      PENDING_TOTP_SECRET_SESSION_KEY,
+    ]);
+    const masterPassword = sessionResult?.[SESSION_MASTER_KEY];
+    const pendingTotpSecret = sessionResult?.[PENDING_TOTP_SECRET_SESSION_KEY];
+    // During mid-enrollment on `otp|input`, the freshly-scraped session
+    // secret is authoritative. It must override any stale vault secret a
+    // prior enrollment may have stored, otherwise the user types a code
+    // from the old secret into the new factor's verify field. Gate on
+    // `stagedOnboardingCredentials` so merely *viewing* an existing
+    // factor's self-service page (vault set up, no onboarding in flight)
+    // still returns the vault's authoritative secret.
+    const enrollSecretOverride: string | null =
+      otpContext === "enroll_verify" &&
+      stagedOnboardingCredentials !== null &&
+      typeof pendingTotpSecret === "string" &&
+      pendingTotpSecret.length > 0
+        ? pendingTotpSecret
+        : null;
+    if (typeof masterPassword === "string") {
+      const localResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
+      const raw = localResult[VAULT_STORAGE_KEY];
+      if (isStoredVault(raw)) {
+        const decResult = await decryptVault(raw, masterPassword);
+        return decResult.match<AutoFillResponse>(
+          (payload) => ({
+            success: true,
+            payload:
+              enrollSecretOverride !== null
+                ? { ...payload, totpSecret: enrollSecretOverride }
+                : payload,
+          }),
+          () => ({ success: false, reason: "decrypt_error" })
+        );
+      }
+    }
 
-          if (stagedOnboardingCredentials) {
-            return {
-              success: true,
-              payload: {
-                email: stagedOnboardingCredentials.email,
-                password: stagedOnboardingCredentials.password,
-                // Login challenge (`otpValue|input`) must never consume the
-                // staged enroll secret — only `otp|input` opts in via otpContext.
-                totpSecret: enrollSecretOverride ?? "",
-              },
-            };
-          }
+    if (stagedOnboardingCredentials) {
+      return {
+        success: true,
+        payload: {
+          email: stagedOnboardingCredentials.email,
+          password: stagedOnboardingCredentials.password,
+          // Login challenge (`otpValue|input`) must never consume the
+          // staged enroll secret — only `otp|input` opts in via otpContext.
+          totpSecret: enrollSecretOverride ?? "",
+        },
+      };
+    }
 
-          if (typeof masterPassword !== "string") {
-            return { success: false, reason: "no_session_master" };
-          }
-          return { success: false, reason: "no_vault" };
-        } catch {
-          return { success: false, reason: "decrypt_error" };
-        }
-      })(),
-  });
-  if (routed !== undefined) {
-    return routed;
+    if (typeof masterPassword !== "string") {
+      return { success: false, reason: "no_session_master" };
+    }
+    return { success: false, reason: "no_vault" };
+  } catch {
+    return { success: false, reason: "decrypt_error" };
   }
+};
 
-  if (hasOnboardingMessageType(message)) {
-    return handleOnboardingMessage(message);
+browser.runtime.onMessage.addListener(
+  (message: unknown, sender: browser.Runtime.MessageSender) => {
+    // Reject messages from other extensions or web pages. Optional chaining
+    // degrades gracefully in unit tests that supply a partial sender object.
+    if (sender?.id !== browser.runtime.id) return;
+
+    const routed = routeByType(message, {
+      TOTP_SECRET_FROM_PAGE: (typedMessage) =>
+        (async () => {
+          const secret = typedMessage.secret;
+          if (typeof secret !== "string" || !secret.length) {
+            return { ok: false as const };
+          }
+          const normalized = normalizeTotpSecretCandidate(secret);
+          if (!normalized) {
+            return { ok: false as const };
+          }
+          try {
+            await browser.storage.session?.set({
+              [PENDING_TOTP_SECRET_SESSION_KEY]: normalized,
+            });
+            return { ok: true as const };
+          } catch {
+            return { ok: false as const };
+          }
+        })(),
+      ONBOARDING_CONTENT_SCRIPT_READY: () =>
+        // Plan-06: content script polls for the current overlay command when it
+        // loads on a new CUNY page. Return the stored command (or null) so the
+        // content script can render the overlay without a separate push mechanism.
+        Promise.resolve({ overlayCommand: stagedOverlayCommand ?? null }),
+      STAGE_ONBOARDING_CREDENTIALS: () =>
+        Promise.resolve(
+          guardedRoute(
+            message,
+            isStageOnboardingCredentials,
+            (validMessage) => handleStageOnboardingCredentials(validMessage),
+            () => ({ ok: false as const })
+          )
+        ),
+      CLEAR_ONBOARDING_CREDENTIALS: () =>
+        Promise.resolve(
+          guardedRoute(
+            message,
+            isClearOnboardingCredentials,
+            (validMessage) => handleClearOnboardingCredentials(validMessage),
+            () => ({ ok: false as const })
+          )
+        ),
+      AUTO_FILL_REQUEST: (typedMessage) =>
+        resolveAutoFillResponse(
+          typedMessage.otpContext as "login_totp" | "enroll_verify" | undefined
+        ),
+    });
+    if (routed !== undefined) {
+      return routed;
+    }
+
+    if (hasOnboardingMessageType(message)) {
+      return handleOnboardingMessage(message);
+    }
+
+    return;
   }
-
-  return;
-});
+);

@@ -68,6 +68,8 @@ function makeMinimalEls(totpValue = ""): SidebarDom {
     credentialFields: document.createElement("div"),
     masterPasswordField: document.createElement("div"),
     changeMasterSection: document.createElement("div"),
+    emailLabel: null,
+    passwordLabel: null,
   };
 }
 

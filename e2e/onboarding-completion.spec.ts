@@ -5,6 +5,7 @@ import type { Page } from "@playwright/test";
 import {
   ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL,
   CREDENTIAL_FIXTURE_ADVANCE_URL,
+  CREDENTIAL_FIXTURE_URL,
   TOTP_ENROLL_SECRET_FIXTURE_URL,
   TOTP_ENROLL_VERIFY_FIXTURE_URL,
 } from "./constants";
@@ -422,7 +423,7 @@ test.describe("plan-12 — hardening: selector timeout recovery", () => {
     // The overlay engine should time out and emit TARGET_NOT_FOUND.
     const cunyTab = await setupToAllowGate(page, context, extensionId);
     // Navigate to a page with no Allow button — will trigger timeout fallback.
-    await cunyTab.goto(`http://127.0.0.1:4173/oam/server/obrareq.cgi`);
+    await cunyTab.goto(CREDENTIAL_FIXTURE_URL);
 
     await expect(
       page.locator("[data-onboarding-recovery-message='true']")

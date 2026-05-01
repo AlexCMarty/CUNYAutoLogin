@@ -40,6 +40,7 @@ export const PASSWORD_TOGGLE_SELECTOR =
 export const PASSWORD_CREDENTIAL_ERROR_SELECTOR =
   "[data-onboarding-password-credential-error='true']";
 
+// eslint-disable-next-line max-lines-per-function
 export const mountPasswordEntryScreen: ScreenMount = (
   ctx: OnboardingScreenContext
 ) => {
@@ -134,9 +135,9 @@ export const mountPasswordEntryScreen: ScreenMount = (
   };
 
   const handleToggle = (): void => {
-    const showing = input.type === "text";
-    input.type = showing ? "password" : "text";
-    toggle.setAttribute("aria-label", showing ? SHOW_LABEL : HIDE_LABEL);
+    const isPasswordVisible = input.type === "text";
+    input.type = isPasswordVisible ? "password" : "text";
+    toggle.setAttribute("aria-label", isPasswordVisible ? SHOW_LABEL : HIDE_LABEL);
   };
 
   const handleForward = (): void => {

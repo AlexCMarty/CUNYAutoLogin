@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { createOnboardingController } from "./controller";
 
+// eslint-disable-next-line max-lines-per-function
 describe("createOnboardingController", () => {
   test("defaults to WELCOME with empty email and password and no credential error", () => {
     const controller = createOnboardingController();

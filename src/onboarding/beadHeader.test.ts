@@ -35,7 +35,7 @@ describe("mountBeadHeader", () => {
     const beads = host.querySelectorAll(BEAD_ITEM_SELECTOR);
     expect(beads).toHaveLength(5);
     const labels = Array.from(beads).map(
-      (b) => b.querySelector(".onboarding-bead-label")?.textContent
+      (bead) => bead.querySelector(".onboarding-bead-label")?.textContent
     );
     expect(labels).toEqual([
       "Your info",

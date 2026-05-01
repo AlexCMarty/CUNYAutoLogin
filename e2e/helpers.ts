@@ -16,8 +16,8 @@ export async function gotoPrimarySurface(page: Page, extensionId: string): Promi
 export async function clearVaultIfPossible(page: Page): Promise<void> {
   const clearBtn = page.locator("#clear-vault-debug-btn");
   if (await clearBtn.isVisible()) {
-    page.once("dialog", (d) => {
-      d.accept();
+    page.once("dialog", (dialog) => {
+      dialog.accept();
     });
     await clearBtn.click();
     await expect(page.locator("#mode-hint")).toContainText("First-time setup");

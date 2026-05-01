@@ -1,7 +1,9 @@
 import browser from "webextension-polyfill";
+import type { Runtime } from "webextension-polyfill";
 import {
   CREDENTIAL_ERROR_ELEMENT_ID,
   CREDENTIAL_ERROR_TEXT_MARKER,
+  ENROLL_OVERLAY_REFRESH_INTERVAL_MS,
   matchesRuiMfaEnrollVerifyPage,
   matchesTotpEnrollPage,
   matchesTotpPage,
@@ -27,6 +29,7 @@ const LOG_PREFIX = "[CUNYAutoLogin]";
 
 function log(...args: unknown[]): void {
   if (!import.meta.env.DEV) return;
+  // eslint-disable-next-line no-console
   console.log(LOG_PREFIX, ...args);
 }
 
@@ -64,8 +67,8 @@ async function autoFill(): Promise<void> {
     }
     log("autoFill: credentials received, triggering main()");
     await main(response.payload);
-  } catch (e) {
-    log("autoFill: error —", e);
+  } catch (autoFillError) {
+    log("autoFill: error —", autoFillError);
   }
 }
 
@@ -83,7 +86,7 @@ if (matchesTotpEnrollPage(window.location.href)) {
   void watchTotpSecretOnEnrollPage();
   window.setInterval(() => {
     void requestAndExecuteOverlayCommand();
-  }, 600);
+  }, ENROLL_OVERLAY_REFRESH_INTERVAL_MS);
 }
 
 // Re-export selected helpers for other content-module imports. `CREDENTIAL_ERROR_ELEMENT_ID`
@@ -94,9 +97,12 @@ export { CREDENTIAL_ERROR_ELEMENT_ID, CREDENTIAL_ERROR_TEXT_MARKER };
 // isFillMessage is only called in the DEV block below; Vite tree-shakes it from
 // the production IIFE because import.meta.env.DEV evaluates to false at build time.
 if (import.meta.env.DEV) {
-  browser.runtime.onMessage.addListener((message: unknown) => {
-    if (!isFillMessage(message)) return;
-    log("runtime.onMessage FILL_CREDENTIALS — triggering main()");
-    void main(message.payload);
-  });
+  browser.runtime.onMessage.addListener(
+    (message: unknown, sender: Runtime.MessageSender) => {
+      if (sender?.id !== browser.runtime.id) return;
+      if (!isFillMessage(message)) return;
+      log("runtime.onMessage FILL_CREDENTIALS — triggering main()");
+      void main(message.payload);
+    }
+  );
 }

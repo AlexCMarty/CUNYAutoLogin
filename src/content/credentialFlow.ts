@@ -49,10 +49,15 @@ export const announceCredentialsAccepted = async (): Promise<void> => {
   }
 };
 
+type FillCredentialsError =
+  | "username_input_not_found"
+  | "password_input_not_found"
+  | "submit_button_not_found";
+
 export const fillCredentials = async (
   email: string,
   password: string
-): Promise<Result<true, string>> => {
+): Promise<Result<true, FillCredentialsError>> => {
   const [usernameElm, passwordElm, submitBtn] = await Promise.all([
     waitForInputById(CREDENTIAL_INPUT_IDS.username),
     waitForInputById(CREDENTIAL_INPUT_IDS.password),
@@ -62,9 +67,9 @@ export const fillCredentials = async (
     }),
   ]);
 
-  if (!usernameElm) return err("credential page: username input not found");
-  if (!passwordElm) return err("credential page: password input not found");
-  if (!submitBtn) return err("credential page: submit button not found");
+  if (!usernameElm) return err("username_input_not_found");
+  if (!passwordElm) return err("password_input_not_found");
+  if (!submitBtn) return err("submit_button_not_found");
 
   setInputValue(usernameElm, email);
   setInputValue(passwordElm, password);
@@ -133,7 +138,7 @@ export const handleCredentialPageFlow = async (
 
 export const handleAutoFillFailureCredentialError = async (
   log: (...args: unknown[]) => void,
-  reason: string
+  reason: "no_session_master" | "no_vault" | "decrypt_error"
 ): Promise<void> => {
   log("autoFill:", reason);
   const url = window.location.href;

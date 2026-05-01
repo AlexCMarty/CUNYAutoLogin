@@ -7,12 +7,18 @@ import browser from "webextension-polyfill";
 import { setInputValue } from "./content.utils";
 import type { OnboardingPageStage } from "../onboarding/messages";
 import { detectRuiSpaView } from "./ruiSpaView";
+import {
+  EXTENSION_NAME,
+  RUI_FACTOR_NAME_INPUT_ID,
+  RUI_FACTOR_PANEL_SELECTOR,
+  RUI_TOTP_OPTION_SELECTOR,
+  RUI_KEBAB_BTN_SELECTOR,
+  RUI_KEBAB_MENU_BTN_SELECTOR,
+  RUI_ONBOARDING_POLL_INTERVAL_MS,
+} from "../cuny/ssoSite";
 
 export { detectRuiSpaView } from "./ruiSpaView";
 export type { RuiSpaView } from "./ruiSpaView";
-
-const CUNY_ONBOARDING_ALIAS = "CUNYAutoLogin";
-const NAME_INPUT_ID = "name|input";
 
 const posted = new Set<OnboardingPageStage>();
 
@@ -25,15 +31,16 @@ const postStage = (stage: OnboardingPageStage): void => {
 };
 
 const findUnverifiedCunyAutologin = (doc: Document): boolean => {
-  for (const el of doc.querySelectorAll("factor-panel")) {
+  for (const el of doc.querySelectorAll(RUI_FACTOR_PANEL_SELECTOR)) {
     const raw = el.getAttribute("factor");
     if (!raw) continue;
     try {
-      const j = JSON.parse(raw) as {
+      const parsedFactor = JSON.parse(raw) as {
         factorAlias?: string;
         factorIsValidated?: boolean;
       };
-      if (j.factorAlias === CUNY_ONBOARDING_ALIAS && j.factorIsValidated === false) {
+      if (typeof parsedFactor !== "object" || parsedFactor === null) continue;
+      if (parsedFactor.factorAlias === EXTENSION_NAME && parsedFactor.factorIsValidated === false) {
         return true;
       }
     } catch {
@@ -47,19 +54,20 @@ const findCunyAutologinPanel = (doc: Document): {
   isValidated: boolean;
   isPreferred: boolean;
 } | null => {
-  for (const el of doc.querySelectorAll("factor-panel")) {
+  for (const el of doc.querySelectorAll(RUI_FACTOR_PANEL_SELECTOR)) {
     const raw = el.getAttribute("factor");
     if (!raw) continue;
     try {
-      const j = JSON.parse(raw) as {
+      const parsedFactor = JSON.parse(raw) as {
         factorAlias?: string;
         factorIsValidated?: boolean;
         factorIsPreferred?: boolean;
       };
-      if (j.factorAlias !== CUNY_ONBOARDING_ALIAS) continue;
+      if (typeof parsedFactor !== "object" || parsedFactor === null) continue;
+      if (parsedFactor.factorAlias !== EXTENSION_NAME) continue;
       return {
-        isValidated: j.factorIsValidated === true,
-        isPreferred: j.factorIsPreferred === true,
+        isValidated: parsedFactor.factorIsValidated === true,
+        isPreferred: parsedFactor.factorIsPreferred === true,
       };
     } catch {
       // ignore malformed JSON
@@ -69,7 +77,7 @@ const findCunyAutologinPanel = (doc: Document): {
 };
 
 const totpOptionIsDisabled = (doc: Document): boolean => {
-  const opt = doc.querySelector("oj-option#ChallengeOMATOTP");
+  const opt = doc.querySelector(RUI_TOTP_OPTION_SELECTOR);
   return opt?.classList.contains("oj-disabled") ?? false;
 };
 
@@ -94,15 +102,16 @@ const disarmSetDefaultTimeout = (): void => {
 };
 
 const isCunyAutologinKebabClick = (target: Element): boolean => {
-  const kebab = target.closest("oj-menu-button.oj-button-sm");
+  const kebab = target.closest(RUI_KEBAB_BTN_SELECTOR);
   if (!kebab) return false;
-  const panel = kebab.closest("factor-panel");
+  const panel = kebab.closest(RUI_FACTOR_PANEL_SELECTOR);
   if (!panel) return false;
   const raw = panel.getAttribute("factor");
   if (!raw) return false;
   try {
-    const j = JSON.parse(raw) as { factorAlias?: string };
-    return j.factorAlias === CUNY_ONBOARDING_ALIAS;
+    const parsedFactor = JSON.parse(raw) as { factorAlias?: string };
+    if (typeof parsedFactor !== "object" || parsedFactor === null) return false;
+    return parsedFactor.factorAlias === EXTENSION_NAME;
   } catch {
     return false;
   }
@@ -112,9 +121,9 @@ const installMenuProgressClickReporters = (): void => {
   document.addEventListener(
     "click",
     (ev) => {
-      const t = ev.target;
-      if (!(t instanceof Element)) return;
-      if (t.closest("oj-menu-button.menu-button button")) {
+      const clickTarget = ev.target;
+      if (!(clickTarget instanceof Element)) return;
+      if (clickTarget.closest(RUI_KEBAB_MENU_BTN_SELECTOR)) {
         void browser.runtime
           .sendMessage({
             type: "ONBOARDING_STAGE_DETECTED",
@@ -123,7 +132,7 @@ const installMenuProgressClickReporters = (): void => {
           .catch(() => undefined);
         return;
       }
-      const totpOpt = t.closest("oj-option#ChallengeOMATOTP");
+      const totpOpt = clickTarget.closest(RUI_TOTP_OPTION_SELECTOR);
       if (totpOpt && !totpOpt.classList.contains("oj-disabled")) {
         void browser.runtime
           .sendMessage({
@@ -133,7 +142,7 @@ const installMenuProgressClickReporters = (): void => {
           .catch(() => undefined);
         return;
       }
-      if (isCunyAutologinKebabClick(t)) {
+      if (isCunyAutologinKebabClick(clickTarget)) {
         postStage("set_default_menu_opened");
         armSetDefaultTimeout();
       }
@@ -161,7 +170,7 @@ export const startRuiOnboardingObservers = (): void => {
     }
 
     if (view === "factors_list") {
-      if (document.querySelectorAll("factor-panel").length > 0) {
+      if (document.querySelectorAll(RUI_FACTOR_PANEL_SELECTOR).length > 0) {
         postStage("factors_list");
         const cunyFactor = findCunyAutologinPanel(document);
         if (cunyFactor?.isValidated) {
@@ -183,9 +192,9 @@ export const startRuiOnboardingObservers = (): void => {
 
     if (view === "totp_enroll_secret") {
       postStage("totp_enroll_secret");
-      const nameInput = document.getElementById(NAME_INPUT_ID);
+      const nameInput = document.getElementById(RUI_FACTOR_NAME_INPUT_ID);
       if (nameInput instanceof HTMLInputElement) {
-        setInputValue(nameInput, CUNY_ONBOARDING_ALIAS);
+        setInputValue(nameInput, EXTENSION_NAME);
       }
       return;
     }
@@ -196,5 +205,5 @@ export const startRuiOnboardingObservers = (): void => {
   };
 
   tick();
-  pollId = window.setInterval(tick, 400);
+  pollId = window.setInterval(tick, RUI_ONBOARDING_POLL_INTERVAL_MS);
 };

@@ -83,11 +83,11 @@ export const isStageOnboardingCredentials = (
   value: unknown
 ): value is StageOnboardingCredentials => {
   if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
+  const record = value as Record<string, unknown>;
   return (
-    v.type === "STAGE_ONBOARDING_CREDENTIALS" &&
-    typeof v.email === "string" &&
-    typeof v.password === "string"
+    record.type === "STAGE_ONBOARDING_CREDENTIALS" &&
+    typeof record.email === "string" &&
+    typeof record.password === "string"
   );
 };
 
@@ -315,6 +315,24 @@ export const isOnboardingCunyTabMissing = (
   return typeof value.missing === "boolean";
 };
 
+type OnboardingMessageValidator = (msg: Record<string, unknown>) => boolean;
+
+// One entry per OnboardingMessageType — delegates to the per-type guards above
+// so validation logic stays in one place and the cast-free lookup replaces the
+// `switch (type as OnboardingMessageType)` pattern.
+const ONBOARDING_MESSAGE_VALIDATORS: Record<
+  OnboardingMessageType,
+  OnboardingMessageValidator
+> = {
+  ONBOARDING_STAGE_DETECTED:   (msg) => isOnboardingStageDetected(msg),
+  ONBOARDING_CREDENTIAL_ERROR: (msg) => isOnboardingCredentialError(msg),
+  ONBOARDING_OVERLAY_COMMAND:  (msg) => isOnboardingOverlayCommand(msg),
+  ONBOARDING_VERIFY_STATUS:    (msg) => isOnboardingVerifyStatus(msg),
+  ONBOARDING_REOPEN_CUNY_TAB:  (msg) => isOnboardingReopenCunyTab(msg),
+  ONBOARDING_TAB_REATTACHED:   (msg) => isOnboardingTabReattached(msg),
+  ONBOARDING_CUNY_TAB_MISSING: (msg) => isOnboardingCunyTabMissing(msg),
+};
+
 /**
  * Returns true iff `value` is a well-formed onboarding message with a known
  * `type` discriminator AND all payload fields match their declared shape.
@@ -329,22 +347,8 @@ export const isOnboardingMessage = (
   if (typeof type !== "string") return false;
   if (!(ONBOARDING_MESSAGE_TYPES as readonly string[]).includes(type)) return false;
 
-  switch (type as OnboardingMessageType) {
-    case "ONBOARDING_STAGE_DETECTED":
-      return isOnboardingStageDetected(value);
-    case "ONBOARDING_CREDENTIAL_ERROR":
-      return isOnboardingCredentialError(value);
-    case "ONBOARDING_OVERLAY_COMMAND":
-      return isOnboardingOverlayCommand(value);
-    case "ONBOARDING_VERIFY_STATUS":
-      return isOnboardingVerifyStatus(value);
-    case "ONBOARDING_REOPEN_CUNY_TAB":
-      return isOnboardingReopenCunyTab(value);
-    case "ONBOARDING_TAB_REATTACHED":
-      return isOnboardingTabReattached(value);
-    case "ONBOARDING_CUNY_TAB_MISSING":
-      return isOnboardingCunyTabMissing(value);
-  }
+  const validator = ONBOARDING_MESSAGE_VALIDATORS[type as OnboardingMessageType];
+  return validator?.(value) ?? false;
 };
 
 /**

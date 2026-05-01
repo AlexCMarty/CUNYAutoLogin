@@ -312,6 +312,7 @@ describe("setInputValue", () => {
 
 // ─── simulateKeystrokes ──────────────────────────────────────────────────────
 
+// eslint-disable-next-line max-lines-per-function
 describe("simulateKeystrokes", () => {
   afterEach(() => {
     document.body.innerHTML = "";
@@ -339,7 +340,7 @@ describe("simulateKeystrokes", () => {
   test("dispatches one keydown per character", () => {
     const el = createInput();
     const keys: string[] = [];
-    el.addEventListener("keydown", (e) => keys.push((e as KeyboardEvent).key));
+    el.addEventListener("keydown", (event) => keys.push((event as KeyboardEvent).key));
     simulateKeystrokes(el, "42");
     expect(keys).toEqual(["4", "2"]);
   });
@@ -347,7 +348,7 @@ describe("simulateKeystrokes", () => {
   test("dispatches one keyup per character", () => {
     const el = createInput();
     const keys: string[] = [];
-    el.addEventListener("keyup", (e) => keys.push((e as KeyboardEvent).key));
+    el.addEventListener("keyup", (event) => keys.push((event as KeyboardEvent).key));
     simulateKeystrokes(el, "42");
     expect(keys).toEqual(["4", "2"]);
   });
@@ -355,8 +356,8 @@ describe("simulateKeystrokes", () => {
   test("dispatches beforeinput with insertText type and correct data per character", () => {
     const el = createInput();
     const entries: { type: string; data: string | null }[] = [];
-    el.addEventListener("beforeinput", (e) => {
-      entries.push({ type: (e as InputEvent).inputType, data: (e as InputEvent).data });
+    el.addEventListener("beforeinput", (event) => {
+      entries.push({ type: (event as InputEvent).inputType, data: (event as InputEvent).data });
     });
     simulateKeystrokes(el, "12");
     expect(entries).toEqual([
@@ -368,7 +369,7 @@ describe("simulateKeystrokes", () => {
   test("dispatches input with insertText type per character", () => {
     const el = createInput();
     const types: string[] = [];
-    el.addEventListener("input", (e) => types.push((e as InputEvent).inputType));
+    el.addEventListener("input", (event) => types.push((event as InputEvent).inputType));
     simulateKeystrokes(el, "12");
     expect(types).toEqual(["insertText", "insertText"]);
   });
@@ -411,7 +412,7 @@ describe("simulateKeystrokes", () => {
     const el = createInput();
     el.value = "999999";
     const inputTypes: string[] = [];
-    el.addEventListener("input", (e) => inputTypes.push((e as InputEvent).inputType));
+    el.addEventListener("input", (event) => inputTypes.push((event as InputEvent).inputType));
     simulateKeystrokes(el, "12");
     // First event clears the prior value, then one insertText per character.
     expect(inputTypes).toEqual(["deleteContentBackward", "insertText", "insertText"]);

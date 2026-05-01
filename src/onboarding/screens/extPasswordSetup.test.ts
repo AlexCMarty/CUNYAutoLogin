@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import browser from "webextension-polyfill";
 import { computePasswordStrength, mountExtPasswordSetupScreen } from "./extPasswordSetup";
 import type { OnboardingScreenContext } from "./screenContext";
 
@@ -210,6 +211,40 @@ describe("mountExtPasswordSetupScreen — unmount", () => {
     expect(root.querySelector("[data-onboarding-screen='EXT_PASSWORD_SETUP']")).toBeTruthy();
     handle.unmount();
     expect(root.querySelector("[data-onboarding-screen='EXT_PASSWORD_SETUP']")).toBeNull();
+    root.remove();
+  });
+});
+
+describe("mountExtPasswordSetupScreen — vault save failure", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
+  test("shows error message when storage.local.set rejects", async () => {
+    const { ctx, root } = makeCtx();
+    mountExtPasswordSetupScreen(ctx);
+
+    vi.mocked(browser.storage.local.set).mockRejectedValueOnce(new Error("disk full"));
+
+    const pwInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-input='true']")!;
+    const confirmInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-confirm='true']")!;
+    const forwardBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-ext-password-forward='true']")!;
+    const errorMsg = root.querySelector<HTMLElement>(".onboarding-ext-password-error")!;
+
+    const setInput = (el: HTMLInputElement, value: string): void => {
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    setInput(pwInput, "Passw0rd!");
+    setInput(confirmInput, "Passw0rd!");
+
+    forwardBtn.click();
+
+    // Wait for the async click handler to settle.
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    expect(errorMsg.hidden).toBe(false);
     root.remove();
   });
 });

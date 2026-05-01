@@ -85,14 +85,15 @@ export const RUI_MFA_ENROLL_VERIFY_PAGE_URL =
 const RUI_MFA_ENROLL_VERIFY_PATH = "/oaa/rui/index.html" as const;
 
 export function matchesRuiMfaEnrollVerifyPage(url: string): boolean {
-  let u: URL;
+  let parsedUrl: URL;
   try {
-    u = new URL(url);
+    parsedUrl = new URL(url);
   } catch {
     return false;
   }
   return (
-    u.pathname === RUI_MFA_ENROLL_VERIFY_PATH && u.searchParams.get("h_ra") === "1"
+    parsedUrl.pathname === RUI_MFA_ENROLL_VERIFY_PATH &&
+    parsedUrl.searchParams.get("h_ra") === "1"
   );
 }
 

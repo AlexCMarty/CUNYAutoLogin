@@ -24,20 +24,20 @@ export const POST_SUBMIT_ERROR_OBSERVE_MS = 8000;
  * element ID for other transient server messages.
  */
 export function hasCredentialErrorInDom(doc: Document = document): boolean {
-  const el = doc.getElementById(CREDENTIAL_ERROR_ELEMENT_ID);
-  if (!el) return false;
-  const text = (el.textContent ?? "").trim();
+  const errorAlertEl = doc.getElementById(CREDENTIAL_ERROR_ELEMENT_ID);
+  if (!errorAlertEl) return false;
+  const text = (errorAlertEl.textContent ?? "").trim();
   return text.includes(CREDENTIAL_ERROR_TEXT_MARKER);
 }
 
 export const TOTP_SECRET_SELECTOR = `[aria-labelledby="${TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY}"]`;
 
 export function parseTotpSecretFromEnrollDom(): string | null {
-  const el = document.querySelector(TOTP_SECRET_SELECTOR);
-  if (!(el instanceof HTMLElement)) {
+  const totpSecretEl = document.querySelector(TOTP_SECRET_SELECTOR);
+  if (!(totpSecretEl instanceof HTMLElement)) {
     return null;
   }
-  return normalizeTotpSecretCandidate(el.textContent ?? "");
+  return normalizeTotpSecretCandidate(totpSecretEl.textContent ?? "");
 }
 
 /**
@@ -105,11 +105,11 @@ export interface FillMessage {
 
 export function isFillMessage(msg: unknown): msg is FillMessage {
   if (typeof msg !== "object" || msg === null) return false;
-  const m = msg as Record<string, unknown>;
-  if (m.type !== "FILL_CREDENTIALS") return false;
-  const p = m.payload;
-  if (typeof p !== "object" || p === null) return false;
-  const payload = p as Record<string, unknown>;
+  const record = msg as Record<string, unknown>;
+  if (record.type !== "FILL_CREDENTIALS") return false;
+  const rawPayload = record.payload;
+  if (typeof rawPayload !== "object" || rawPayload === null) return false;
+  const payload = rawPayload as Record<string, unknown>;
   return (
     typeof payload.email === "string" &&
     typeof payload.password === "string" &&

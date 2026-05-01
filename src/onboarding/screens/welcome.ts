@@ -62,10 +62,10 @@ export const mountWelcomeScreen: ScreenMount = (
   authorship.className = "onboarding-authorship";
   authorship.textContent = AUTHORSHIP_LINE;
 
-  const handleClick = (): void => {
+  const advanceToEmailEntry = (): void => {
     dispatch("NEXT");
   };
-  cta.addEventListener("click", handleClick);
+  cta.addEventListener("click", advanceToEmailEntry);
 
   container.appendChild(headline);
   container.appendChild(body);
@@ -76,7 +76,7 @@ export const mountWelcomeScreen: ScreenMount = (
 
   return {
     unmount: () => {
-      cta.removeEventListener("click", handleClick);
+      cta.removeEventListener("click", advanceToEmailEntry);
       container.remove();
     },
   };
