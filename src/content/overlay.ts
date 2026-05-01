@@ -80,15 +80,23 @@ const resolveTarget = (spec: TargetSpec): Element | null => {
     if (isDisabledOverlayTarget(el)) return null;
     return el;
   }
-  // A11y: find first element with role="menuitem" matching the text exactly.
-  // Required for oj-option items that have display:none in the live DOM.
-  const items = document.querySelectorAll('[role="menuitem"]');
-  for (const el of items) {
+  // A11y: find first element matching the text exactly.
+  // Checks [role="menuitem"] first (required for oj-option items that have
+  // display:none in the live DOM), then falls back to plain button elements
+  // (required for JET buttons that render without IDs, e.g. "Verify Now").
+  const menuItems = document.querySelectorAll('[role="menuitem"]');
+  for (const el of menuItems) {
     if (el.textContent?.trim() !== spec.text) continue;
     if (isDisabledOverlayTarget(el)) return null;
     // Prefer the oj-option host so e2e can assert on #ChallengeOMATOTP.
     const host = el.closest("oj-option");
     return host ?? el;
+  }
+  const buttons = document.querySelectorAll("button");
+  for (const el of buttons) {
+    if (el.textContent?.trim() !== spec.text) continue;
+    if (isDisabledOverlayTarget(el)) return null;
+    return el;
   }
   return null;
 };

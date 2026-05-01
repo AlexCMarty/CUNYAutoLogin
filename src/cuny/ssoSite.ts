@@ -163,6 +163,10 @@ export const CUNY_ALLOW_GATE_BTN_SELECTOR = 'button[onclick="allow()"]' as const
 
 // ── Oracle RUI / JET selectors ─────────────────────────────────────────────────
 
+/** Accessible text of the "Verify Now" button on the totp-enroll-secret view.
+ *  The button has no ID on the real CUNY page — use a11y text match in overlays. */
+export const RUI_VERIFY_NOW_BTN_TEXT = "Verify Now" as const;
+
 /** Container element for each enrolled factor in the RUI SPA. */
 export const RUI_FACTOR_PANEL_SELECTOR = "factor-panel" as const;
 

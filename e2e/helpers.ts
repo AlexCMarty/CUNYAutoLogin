@@ -1,5 +1,6 @@
-import type { Locator, Page } from "@playwright/test";
+import type { BrowserContext, Locator, Page } from "@playwright/test";
 import { expect } from "./extension-fixture";
+import { CREDENTIAL_FIXTURE_ADVANCE_URL } from "./constants";
 import {
   E2E_EMAIL,
   E2E_MASTER_PASSWORD,
@@ -71,4 +72,27 @@ export async function walkToPasswordEntry(page: Page): Promise<void> {
   await page.locator("[data-onboarding-email-input='true']").fill(E2E_EMAIL);
   await page.locator("[data-onboarding-email-forward='true']").click();
   await page.locator("[data-onboarding-password-input='true']").fill(E2E_PASSWORD);
+}
+
+/**
+ * Walks the onboarding flow to CUNY_TOTP state using the credential-advance
+ * fixture. Returns the CUNY tab (at /oaa-totp-factor/); caller must close it.
+ */
+export async function walkToCunyTotp(
+  page: Page,
+  context: BrowserContext,
+  extensionId: string
+): Promise<Page> {
+  await page.goto(
+    `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_ADVANCE_URL)}`
+  );
+  await walkToPasswordEntry(page);
+  const tabPromise = context.waitForEvent("page");
+  await page.locator("[data-onboarding-password-forward='true']").click();
+  const cunyTab = await tabPromise;
+  await cunyTab.waitForLoadState("domcontentloaded");
+  await expect(page.locator("[data-onboarding-screen='CUNY_TOTP']")).toBeVisible({
+    timeout: 15_000,
+  });
+  return cunyTab;
 }

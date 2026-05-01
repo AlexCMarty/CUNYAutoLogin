@@ -3,15 +3,13 @@
  */
 
 import browser from "webextension-polyfill";
-import { PENDING_TOTP_SECRET_SESSION_KEY } from "../../cuny/ssoSite";
+import { PENDING_TOTP_SECRET_SESSION_KEY, RUI_VERIFY_NOW_BTN_TEXT } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
 const HEADLINE = "Save this login code in the extension";
 const BODY =
   "The CUNY tab shows a secret key. The extension reads it for you. When you are ready, tap **Verify Now** on the CUNY tab to confirm with a one-time code.";
-
-const VERIFY_NOW_SELECTOR = "button#verify-now-btn";
 
 export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root } = ctx;
@@ -64,8 +62,8 @@ export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScree
   root.appendChild(container);
 
   sendShowOverlayCommand({
-    targetSpec: { type: "css", selector: VERIFY_NOW_SELECTOR },
-    tooltipText: "Verify Now",
+    targetSpec: { type: "a11y", text: RUI_VERIFY_NOW_BTN_TEXT },
+    tooltipText: RUI_VERIFY_NOW_BTN_TEXT,
     stepIndex: 4,
     stepTotal: 4,
   });
