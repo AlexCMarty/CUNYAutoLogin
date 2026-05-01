@@ -9,7 +9,7 @@
  *    short-term scope: saved on device, encrypted, used right now to log in.
  *  - Show/hide eye toggle on the input pill.
  *  - Forward button grayed until the input is non-empty. No content
- *    validation — wrong-password detection lives on CUNY's page (plan-05).
+ *    validation — wrong-password detection lives on CUNY's page.
  *  - Back button returns to EMAIL_ENTRY.
  *
  * Security: the password value lives only in the controller's in-memory

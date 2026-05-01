@@ -17,7 +17,7 @@ import {
 // ──── constants (pinned) ──────────────────────────────────────────────────────
 
 describe("constants", () => {
-  test("18 onboarding states declared (includes OAA_SPA_HOME for plan-07)", () => {
+  test("18 onboarding states declared", () => {
     expect(ONBOARDING_STATES.length).toBe(18);
   });
 

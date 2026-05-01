@@ -3,15 +3,14 @@
  *
  * Two layers of messages are defined here:
  *
- * 1. **Core** (already in production): `AUTO_FILL_REQUEST` and `TOTP_SECRET_FROM_PAGE`.
- *    These power the existing setup/locked/unlocked vault flow and MUST NOT
- *    change their wire shape — plan-03 only codifies them as named types so
- *    the content script and service worker stop duplicating inline unions.
+ * 1. **Core**: `AUTO_FILL_REQUEST` and `TOTP_SECRET_FROM_PAGE`. These power
+ *    the existing setup/locked/unlocked vault flow and MUST NOT change their
+ *    wire shape.
  *
- * 2. **Onboarding** (new in plan-03): six discriminated messages enumerated
- *    by `engineering-scope-onboarding-overhaul.md §5.2`. Every onboarding
- *    message is validated by a runtime guard; the service worker default-
- *    rejects anything that isn't a recognised (type, payload) pair.
+ * 2. **Onboarding**: discriminated messages for the onboarding protocol.
+ *    Every onboarding message is validated by a runtime guard; the service
+ *    worker default-rejects anything that isn't a recognised (type, payload)
+ *    pair.
  *
  * Type narrowing rules:
  * - The `type` field is the single discriminant.
@@ -61,7 +60,7 @@ export type TotpSecretFromPageAck = { readonly ok: boolean };
  *
  * This is a *core* message — not an onboarding protocol message — because:
  *   1. it carries secret material (email + password), and grouping it with
- *      metadata-only onboarding messages would muddy plan-03's "no credential
+ *      metadata-only onboarding messages would muddy the "no credential
  *      payload in onboarding messages" contract.
  *   2. it is consumed by the `AUTO_FILL_REQUEST` path the content script
  *      already uses, not by the onboarding protocol default-reject router.
@@ -98,7 +97,7 @@ export const isClearOnboardingCredentials = (
   return (value as Record<string, unknown>).type === "CLEAR_ONBOARDING_CREDENTIALS";
 };
 
-// ──── plan-06: target spec types (shared with content/overlay.ts) ────────────
+// ──── target spec types (shared with content/overlay.ts) ────────────────────
 
 /** Click a CUNY element via CSS selector (works for most elements). */
 export type CssTarget = { readonly type: "css"; readonly selector: string };
@@ -168,7 +167,7 @@ export type OnboardingOverlayCommand = {
   readonly action: OverlayAction;
   /** CSS selector hint (legacy; prefer targetSpec for new commands). */
   readonly target?: string;
-  /** Typed target spec — supports css and a11y click patterns (plan-06). */
+  /** Typed target spec — supports css and a11y click patterns. */
   readonly targetSpec?: TargetSpec;
   readonly tooltipText?: string;
   readonly stepIndex?: number;

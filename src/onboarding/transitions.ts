@@ -19,7 +19,7 @@ import {
 
 /**
  * Every event the state machine reacts to. Values stay stable for future
- * wire-protocol use (plan-03 `message-protocol-hardening`).
+ * wire-protocol use.
  */
 export const ONBOARDING_EVENTS = [
   "NEXT",

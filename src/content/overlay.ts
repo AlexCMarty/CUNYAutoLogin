@@ -154,8 +154,8 @@ export const showOverlay = (
   hideOverlay();
 
   // If the sidebar still thinks we are on Allow but the tab already advanced to
-  // factors-list, fail fast so plan-06 recovery can show before plan-07 posts
-  // `factors_list` and replaces the screen (which would cancel the 5s timer).
+  // factors-list, fail fast so the allow-gate recovery screen can show before
+  // `factors_list` posts and replaces it (which would cancel the 5s timer).
   if (
     spec.type === "css" &&
     spec.selector === CUNY_ALLOW_GATE_BTN_SELECTOR &&

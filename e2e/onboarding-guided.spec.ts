@@ -1,11 +1,11 @@
 /**
- * Plans 06–08: overlay engine, guided CUNY self-service steps, verify + set-default.
+ * Overlay engine, guided CUNY self-service steps, verify + set-default.
  *
  * Test setup pattern: walk sidebar to ALLOW_GATE state using the existing
  * credential-advance fixture chain, then navigate the CUNY tab manually to
  * each fixture view for the specific step being tested.
  *
- * Overlay DOM attributes expected from the plan-06 implementation:
+ * Overlay DOM attributes:
  *   data-cuny-autologin-overlay="true"   — dim layer
  *   data-cuny-autologin-highlight="true" — target element ring
  *   data-cuny-autologin-tooltip="true"   — tooltip bubble
@@ -69,14 +69,14 @@ async function setupToAllowGate(
   return cunyTab;
 }
 
-// ─── Plan 06 — Overlay engine ─────────────────────────────────────────────────
+// ─── Overlay engine ──────────────────────────────────────────────────────────
 
-test.describe("plan-06 — overlay: dim layer and highlight ring", () => {
+test.describe("overlay: dim layer and highlight ring", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
     cunyTab = await setupToAllowGate(page, context, extensionId);
-    // Navigate CUNY tab to allow-gate fixture so plan-06 content script can issue overlay command.
+    // Navigate CUNY tab to allow-gate fixture so the content script can issue overlay command.
     await cunyTab.goto(ALLOW_GATE_FIXTURE_URL);
   });
 
@@ -127,7 +127,7 @@ test.describe("plan-06 — overlay: dim layer and highlight ring", () => {
   });
 });
 
-test.describe("plan-06 — overlay: step chip", () => {
+test.describe("overlay: step chip", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -149,7 +149,7 @@ test.describe("plan-06 — overlay: step chip", () => {
   });
 });
 
-test.describe("plan-06 — overlay: TARGET_NOT_FOUND fallback", () => {
+test.describe("overlay: TARGET_NOT_FOUND fallback", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -171,9 +171,9 @@ test.describe("plan-06 — overlay: TARGET_NOT_FOUND fallback", () => {
   });
 });
 
-// ─── Plan 07 — Allow gate ─────────────────────────────────────────────────────
+// ─── Allow gate ──────────────────────────────────────────────────────────────
 
-test.describe("plan-07 — guided: allow gate", () => {
+test.describe("guided: allow gate", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -208,9 +208,9 @@ test.describe("plan-07 — guided: allow gate", () => {
   });
 });
 
-// ─── Plan 07 — oaa-spa-home ───────────────────────────────────────────────────
+// ─── oaa-spa-home ────────────────────────────────────────────────────────────
 
-test.describe("plan-07 — guided: oaa-spa-home", () => {
+test.describe("guided: oaa-spa-home", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -248,9 +248,9 @@ test.describe("plan-07 — guided: oaa-spa-home", () => {
   });
 });
 
-// ─── Plan 07 — factors-list and TOTP selection ───────────────────────────────
+// ─── factors-list and TOTP selection ──────────────────────────────────────
 
-test.describe("plan-07 — guided: factors-list and TOTP type selection", () => {
+test.describe("guided: factors-list and TOTP type selection", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -284,9 +284,9 @@ test.describe("plan-07 — guided: factors-list and TOTP type selection", () => 
   });
 });
 
-// ─── Plan 07 — secret capture ────────────────────────────────────────────────
+// ─── secret capture ────────────────────────────────────────────────────────
 
-test.describe("plan-07 — guided: secret capture (totp-enroll-secret)", () => {
+test.describe("guided: secret capture (totp-enroll-secret)", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -324,9 +324,9 @@ test.describe("plan-07 — guided: secret capture (totp-enroll-secret)", () => {
   });
 });
 
-// ─── Plan 07 — five-factor limit ─────────────────────────────────────────────
+// ─── five-factor limit ────────────────────────────────────────────────────
 
-test.describe("plan-07 — guided: five-factor limit edge case", () => {
+test.describe("guided: five-factor limit edge case", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -362,9 +362,9 @@ test.describe("plan-07 — guided: five-factor limit edge case", () => {
   });
 });
 
-// ─── Plan 07 — Verify Later edge case ────────────────────────────────────────
+// ─── Verify Later edge case ───────────────────────────────────────────────
 
-test.describe("plan-07 — guided: Verify Later saves as Unverified", () => {
+test.describe("guided: Verify Later saves as Unverified", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -390,9 +390,9 @@ test.describe("plan-07 — guided: Verify Later saves as Unverified", () => {
   });
 });
 
-// ─── Plan 08 — OTP fill via keystroke simulation ──────────────────────────────
+// ─── OTP fill via keystroke simulation ─────────────────────────────────────
 
-test.describe("plan-08 — verify login code: OTP fill", () => {
+test.describe("verify login code: OTP fill", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -445,9 +445,9 @@ test.describe("plan-08 — verify login code: OTP fill", () => {
   });
 });
 
-// ─── Plan 08 — failure handling ──────────────────────────────────────────────
+// ─── failure handling ──────────────────────────────────────────────────────
 
-test.describe("plan-08 — verify login code: failure handling", () => {
+test.describe("verify login code: failure handling", () => {
   let cunyTab: Page;
 
   test.afterEach(async () => {
@@ -533,9 +533,9 @@ test.describe("plan-08 — verify login code: failure handling", () => {
   });
 });
 
-// ─── Plan 08 — Set as Default ─────────────────────────────────────────────────
+// ─── Set as Default ────────────────────────────────────────────────────────
 
-test.describe("plan-08 — set as default", () => {
+test.describe("set as default", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {

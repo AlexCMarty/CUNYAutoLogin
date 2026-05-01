@@ -1,11 +1,11 @@
 /**
- * Screen-level render context used by plan-04 screens (Welcome, Email, Password).
+ * Screen-level render context for onboarding screens.
  *
  * Distinct from `OnboardingRenderContext` in `render.ts` on purpose: the
- * skeleton context is a minimal public contract for future plans, while
- * screens 1–3 need direct access to the in-memory credential drafts held by
- * the controller. Keeping this richer shape scoped to `screens/` prevents the
- * public contract from bleeding internal mutability.
+ * skeleton context is a minimal public contract, while screens 1–3 need
+ * direct access to the in-memory credential drafts held by the controller.
+ * Keeping this richer shape scoped to `screens/` prevents the public contract
+ * from bleeding internal mutability.
  *
  * Security: `email` and `password` are always the plain form values — no
  * hashing, no storage. Setters update only the in-memory controller snapshot.

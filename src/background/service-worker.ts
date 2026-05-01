@@ -118,11 +118,9 @@ export const __test_getStagedOnboardingCredentials = ():
  * - Unknown types are handled by the outer listener, which falls through to
  *   `undefined` (default-reject).
  *
- * Plan-05 adds a side-effectful branch for `ONBOARDING_REOPEN_CUNY_TAB`:
- * the service worker opens a tab at the provided URL (or the default CUNY
- * entry URL) so Screen 4 can auto-open the CUNY login page. Other onboarding
- * messages (overlay commands, verify status, tab reattach) remain
- * acknowledge-only until plan-06+.
+ * Handles onboarding messages from the sidebar and content script. The
+ * ONBOARDING_REOPEN_CUNY_TAB branch opens a tab at the provided URL (or the
+ * default CUNY entry URL). Other onboarding messages are acknowledged only.
  */
 const handleOnboardingMessage = async (
   message: unknown
@@ -178,19 +176,19 @@ const handleClearOnboardingCredentials = (
  * Resolves the auto-fill response for the content script.
  *
  * Prefers the encrypted vault when a session master and valid vault are
- * present (post-onboarding). Falls back to the plan-05 onboarding staging
- * buffer when the vault hasn't been saved yet. The `otpContext` hint gates
- * the pending-TOTP-secret override so a freshly-scraped enroll secret only
- * replaces the vault's TOTP on `otp|input` (enroll_verify), never on the
- * login challenge page (login_totp).
+ * present. Falls back to the in-memory onboarding staging buffer when the
+ * vault hasn't been saved yet. The `otpContext` hint gates the pending-TOTP-
+ * secret override so a freshly-scraped enroll secret only replaces the vault's
+ * TOTP on `otp|input` (enroll_verify), never on the login challenge page
+ * (login_totp).
  */
 const resolveAutoFillResponse = async (
   otpContext: "login_totp" | "enroll_verify" | undefined
 ): Promise<AutoFillResponse> => {
   try {
     // Prefer the encrypted vault when it is set up and unlocked (existing
-    // post-onboarding flow). Fall back to the plan-05 onboarding staging
-    // buffer when the vault isn't set up yet.
+    // post-onboarding flow). Fall back to the onboarding staging buffer
+    // when the vault isn't set up yet.
     const sessionResult = await browser.storage.session?.get([
       SESSION_MASTER_KEY,
       PENDING_TOTP_SECRET_SESSION_KEY,

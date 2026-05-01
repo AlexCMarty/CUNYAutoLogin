@@ -74,7 +74,7 @@ const wasStagePosted = (stage: string): boolean =>
         (msg as { stage?: string }).stage === stage
     );
 
-describe("ruiOnboarding — set-default kebab reporter (plan-08)", () => {
+describe("ruiOnboarding — set-default kebab reporter", () => {
   test("clicking CUNYAutoLogin factor's kebab posts set_default_menu_opened", async () => {
     const { startRuiOnboardingObservers } = await importFresh();
     startRuiOnboardingObservers();
@@ -102,7 +102,7 @@ describe("ruiOnboarding — set-default kebab reporter (plan-08)", () => {
   });
 });
 
-describe("ruiOnboarding — set-default 2s confirmation timeout (plan-08)", () => {
+describe("ruiOnboarding — set-default 2s confirmation timeout", () => {
   test("no factorIsPreferred flip within 2s → posts target_not_found", async () => {
     const { startRuiOnboardingObservers } = await importFresh();
     startRuiOnboardingObservers();

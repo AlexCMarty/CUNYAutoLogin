@@ -1,10 +1,8 @@
 /**
  * Onboarding render contract + mount seam.
  *
- * Plan-02 introduced a stub placeholder; plan-04 replaced the body with a real
- * controller + bead header + Screens 1–3 renderer. Plan-05 registers Screen 4
- * (OPENING_CUNY) and a Screen 5 stub (ALLOW_GATE) and wires the message-bus
- * bridge that lets the content script / service worker steer the sidebar:
+ * Mounts the onboarding shell, screen, and runtime.onMessage bridge. The
+ * message bridge lets the content script / service worker steer the sidebar:
  *
  *   - `ONBOARDING_CREDENTIAL_ERROR { culprit }` → route to EMAIL_ENTRY (if
  *     the email is the likely culprit) or PASSWORD_ENTRY (default), with a
@@ -99,9 +97,6 @@ export const beadViewModelForState = (
   }));
 };
 
-// Plan-04 registered Screens 1–3; plan-05 adds OPENING_CUNY and a stub
-// ALLOW_GATE. Later plans plug in additively without touching this file
-// except to add a new entry.
 const SCREEN_MOUNTS: Partial<Record<OnboardingState, ScreenMount>> = {
   WELCOME: mountWelcomeScreen,
   EMAIL_ENTRY: mountEmailEntryScreen,
@@ -364,12 +359,7 @@ const noopHandler = (_controller: OnboardingController): void => undefined;
 /**
  * Applies an onboarding wire message to the controller. Exported for unit
  * tests so we can exercise the routing logic without standing up a full
- * runtime.onMessage stub. Plan-05 recognises two messages:
- *   - CREDENTIAL_ERROR → route to the culprit-specific correction screen,
- *     stash the `credentialError` info so the renderer can show the banner.
- *   - STAGE_DETECTED(allow_gate) → advance past OPENING_CUNY.
- * Others are ignored (plan-06+ will wire overlay commands, verify status,
- * tab reattach, etc.).
+ * runtime.onMessage stub.
  */
 export const applyOnboardingMessage = (
   controller: OnboardingController,
@@ -408,7 +398,7 @@ export const applyOnboardingMessage = (
     return;
   }
   // ONBOARDING_OVERLAY_COMMAND / VERIFY_STATUS / REOPEN_CUNY_TAB /
-  // TAB_REATTACHED land in plan-06+.
+  // TAB_REATTACHED are handled elsewhere; nothing to do here.
 };
 
 const showFirstVisible = (

@@ -622,9 +622,9 @@ describe("unknown type rejection", () => {
   });
 });
 
-// ──── plan-05: onboarding credential staging ─────────────────────────────────
+// ──── onboarding credential staging ──────────────────────────────────────────
 
-describe("plan-05 — STAGE_ONBOARDING_CREDENTIALS", () => {
+describe("STAGE_ONBOARDING_CREDENTIALS", () => {
   test("valid payload → { ok: true }", async () => {
     expect(
       await handler({
@@ -673,10 +673,10 @@ describe("plan-05 — STAGE_ONBOARDING_CREDENTIALS", () => {
   });
 });
 
-// ──── plan-05: AUTO_FILL_REQUEST fallback to staged onboarding creds ────────
+// ──── AUTO_FILL_REQUEST fallback to staged onboarding creds ─────────────────
 
 // eslint-disable-next-line max-lines-per-function
-describe("plan-05 — AUTO_FILL_REQUEST onboarding fallback", () => {
+describe("AUTO_FILL_REQUEST onboarding fallback", () => {
   test("no vault + staged onboarding credentials + pending secret + enroll_verify context → returns pending totpSecret", async () => {
     // Vault is absent (onboarding is pre-vault).
     vi.mocked(isStoredVault).mockReturnValue(false);
@@ -835,9 +835,9 @@ describe("plan-05 — AUTO_FILL_REQUEST onboarding fallback", () => {
   });
 });
 
-// ──── plan-05: ONBOARDING_REOPEN_CUNY_TAB tab creation ───────────────────────
+// ──── ONBOARDING_REOPEN_CUNY_TAB tab creation ────────────────────────────────
 
-describe("plan-05 — ONBOARDING_REOPEN_CUNY_TAB", () => {
+describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
   test("with url → opens tab at that url and acks { ok: true }", async () => {
     const url = "https://example.test/cuny-fixture";
     expect(

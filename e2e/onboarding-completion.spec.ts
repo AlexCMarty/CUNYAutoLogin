@@ -81,9 +81,9 @@ async function setupToExtPasswordSetup(
   return cunyTab;
 }
 
-// ─── Plan 09 — Extension password ────────────────────────────────────────────
+// ─── Extension password ───────────────────────────────────────────────────
 
-test.describe("plan-09 — extension password: screen renders", () => {
+test.describe("extension password: screen renders", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -170,9 +170,9 @@ test.describe("plan-09 — extension password: screen renders", () => {
   });
 });
 
-// ─── Plan 10 — Biometrics and demo ───────────────────────────────────────────
+// ─── Biometrics and demo ──────────────────────────────────────────────────
 
-test.describe("plan-10 — biometrics offer", () => {
+test.describe("biometrics offer", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -212,7 +212,7 @@ test.describe("plan-10 — biometrics offer", () => {
   });
 });
 
-test.describe("plan-10 — completion and demo", () => {
+test.describe("completion and demo", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -278,9 +278,9 @@ test.describe("plan-10 — completion and demo", () => {
   });
 });
 
-// ─── Plan 11 — Interruptions ─────────────────────────────────────────────────
+// ─── Interruptions ────────────────────────────────────────────────────────
 
-test.describe("plan-11 — interruption: CUNY tab closed mid-flow", () => {
+test.describe("interruption: CUNY tab closed mid-flow", () => {
   test("'Reopen CUNY tab' button appears in sidebar when CUNY tab is closed during guided steps", async ({
     page,
     context,
@@ -331,7 +331,7 @@ test.describe("plan-11 — interruption: CUNY tab closed mid-flow", () => {
   });
 });
 
-test.describe("plan-11 — interruption: sidebar close and resume", () => {
+test.describe("interruption: sidebar close and resume", () => {
   test("reopening sidebar mid-flow shows resume prompt", async ({
     page,
     context,
@@ -374,7 +374,7 @@ test.describe("plan-11 — interruption: sidebar close and resume", () => {
   });
 });
 
-test.describe("plan-11 — interruption: browser restart reset behavior", () => {
+test.describe("interruption: browser restart reset behavior", () => {
   test("cleared session context returns onboarding to WELCOME without resume CTA", async ({
     page,
     context,
@@ -411,9 +411,9 @@ test.describe("plan-11 — interruption: browser restart reset behavior", () => 
   });
 });
 
-// ─── Plan 12 — Hardening ─────────────────────────────────────────────────────
+// ─── Hardening ────────────────────────────────────────────────────────────
 
-test.describe("plan-12 — hardening: selector timeout recovery", () => {
+test.describe("hardening: selector timeout recovery", () => {
   test("TARGET_NOT_FOUND causes sidebar to show recovery message, not hang", async ({
     page,
     context,
@@ -432,7 +432,7 @@ test.describe("plan-12 — hardening: selector timeout recovery", () => {
   });
 });
 
-test.describe("plan-12 — post-onboarding: vault UI after completion", () => {
+test.describe("post-onboarding: vault UI after completion", () => {
   let cunyTab: Page | undefined;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
@@ -490,7 +490,7 @@ test.describe("plan-12 — post-onboarding: vault UI after completion", () => {
   });
 });
 
-test.describe("plan-12 — smoke: full happy path Screen 1 → Screen 13", () => {
+test.describe("smoke: full happy path Screen 1 → Screen 13", () => {
   test("complete onboarding from WELCOME to COMPLETE_DONE on fixtures end-to-end", async ({
     page,
     context,

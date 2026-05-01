@@ -6,9 +6,8 @@
  * Behavior on mount:
  *   1. Stage the in-memory email+password into the service worker's ephemeral
  *      cache via `STAGE_ONBOARDING_CREDENTIALS`. The content script asks for
- *      credentials via the existing `AUTO_FILL_REQUEST` flow — plan-05 makes
- *      that flow fall back to this staged payload when the vault isn't set up
- *      yet (onboarding is pre-vault).
+ *      credentials via the existing `AUTO_FILL_REQUEST` flow, which falls back
+ *      to this staged payload when the vault isn't set up yet (pre-vault).
  *   2. Open the CUNY entry URL in a new tab directly from the sidebar via
  *      `browser.tabs.create(...)`. The URL defaults to
  *      `https://ssologin.cuny.edu/oaa/rui` (per spec); dev/e2e builds allow an

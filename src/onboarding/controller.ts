@@ -1,21 +1,14 @@
 /**
  * Onboarding controller — holds the current screen state plus in-memory-only
- * credential drafts for Screens 2 and 3, plus (plan-05) the last-known
- * credential-error info for inline surfacing on Screen 2/3 when CUNY rejects.
+ * credential drafts for Screens 2 and 3, plus the last-known credential-error
+ * info for inline surfacing on Screen 2/3 when CUNY rejects.
  *
  * Security invariant (enforced by absence): this module NEVER writes the email
  * or password to `browser.storage.local` or `storage.session`. Credentials
- * captured here live in closure memory until plan-05 opens the CUNY tab (the
+ * captured here live in closure memory until Screen 4 opens the CUNY tab (the
  * sidebar stages them into the service worker's in-memory cache via
- * `STAGE_ONBOARDING_CREDENTIALS`) and plan-09 seals them into the encrypted
- * vault. The sidebar's unmount path clears that staging.
- *
- * Plan-04 added Screens 1–3 support (dispatch / setEmail / setPassword /
- * subscribe). Plan-05 adds:
- *   - `setCredentialError(...)` so the bridge can surface wrong-credential
- *     hints coming back from the content script.
- *   - `credentialError` in the snapshot so the EMAIL_ENTRY / PASSWORD_ENTRY
- *     renderers can paint the inline red banner above the affected input.
+ * `STAGE_ONBOARDING_CREDENTIALS`) and the vault-setup screen seals them into
+ * the encrypted vault. The sidebar's unmount path clears that staging.
  */
 
 import type { CredentialCulprit } from "./messages";

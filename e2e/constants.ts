@@ -28,8 +28,6 @@ export const SELF_SERVICE_FIXTURE_URL = `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_
 export const SELF_SERVICE_INVALID_SECRET_FIXTURE_URL =
   `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_ra=1&secret=not-a-valid-secret!`;
 
-// ─── Plan 06+ fixture URLs ────────────────────────────────────────────────────
-
 /** Simulates /cunylogin/pages/mfaConsent.jsp (the OAuth Allow/Deny consent page). */
 export const ALLOW_GATE_FIXTURE_URL =
   `${FIXTURE_ORIGIN}/cunylogin/pages/mfaConsent.jsp`;
