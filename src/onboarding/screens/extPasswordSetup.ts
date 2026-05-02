@@ -61,6 +61,7 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
   const pwToggle = doc.createElement("button");
   pwToggle.type = "button";
   pwToggle.className = "onboarding-input-toggle";
+  pwToggle.dataset.onboardingExtPasswordToggle = "true";
   pwToggle.setAttribute("aria-label", "Show password");
   pwToggle.textContent = "\u{1F441}";
 
@@ -91,6 +92,7 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
   const confirmToggle = doc.createElement("button");
   confirmToggle.type = "button";
   confirmToggle.className = "onboarding-input-toggle";
+  confirmToggle.dataset.onboardingExtPasswordConfirmToggle = "true";
   confirmToggle.setAttribute("aria-label", "Show password");
   confirmToggle.textContent = "\u{1F441}";
 

@@ -139,6 +139,38 @@ test.describe("onboarding screens 1-3", () => {
       page.locator("[data-onboarding-screen='WELCOME']")
     ).toBeVisible();
   });
+
+  test("Enter on email field advances to PASSWORD_ENTRY", async ({ page }) => {
+    await page.locator("[data-onboarding-welcome-cta='true']").click();
+    await page.locator("[data-onboarding-email-input='true']").fill("jane.doe@login.cuny.edu");
+    await page.locator("[data-onboarding-email-input='true']").press("Enter");
+    await expect(
+      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
+    ).toBeVisible();
+  });
+
+  test("Enter on invalid email does not advance", async ({ page }) => {
+    await page.locator("[data-onboarding-welcome-cta='true']").click();
+    await page.locator("[data-onboarding-email-input='true']").fill("jane.doe@baruchmail.cuny.edu");
+    await page.locator("[data-onboarding-email-input='true']").press("Enter");
+    await expect(
+      page.locator("[data-onboarding-screen='EMAIL_ENTRY']")
+    ).toBeVisible();
+  });
+
+  test("Enter on password field advances to screen 4", async ({ page, context, extensionId }) => {
+    await page.goto(
+      `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_URL)}`
+    );
+    await walkToPasswordEntry(page);
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-password-input='true']").press("Enter");
+    const cunyTab = await tabPromise;
+    await expect(
+      page.locator("[data-onboarding-screen='OPENING_CUNY']")
+    ).toBeVisible();
+    await cunyTab.close();
+  });
 });
 
 // ─── Plan-05: Screen 4, wrong credentials, allow gate ────────────────────────

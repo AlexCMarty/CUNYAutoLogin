@@ -175,6 +175,44 @@ test.describe("extension password: screen renders", () => {
     );
     await expect(nextScreen).toBeVisible({ timeout: 5_000 });
   });
+
+  test("show/hide toggle reveals and re-hides the password field", async ({ page }) => {
+    const pwInput = page.locator("[data-onboarding-ext-password-input='true']");
+    const pwToggle = page.locator("[data-onboarding-ext-password-toggle='true']");
+    await expect(pwInput).toHaveAttribute("type", "password");
+    await pwToggle.click();
+    await expect(pwInput).toHaveAttribute("type", "text");
+    await pwToggle.click();
+    await expect(pwInput).toHaveAttribute("type", "password");
+  });
+
+  test("show/hide toggle on confirm field reveals and re-hides it", async ({ page }) => {
+    const confirmInput = page.locator("[data-onboarding-ext-password-confirm='true']");
+    const confirmToggle = page.locator("[data-onboarding-ext-password-confirm-toggle='true']");
+    await expect(confirmInput).toHaveAttribute("type", "password");
+    await confirmToggle.click();
+    await expect(confirmInput).toHaveAttribute("type", "text");
+    await confirmToggle.click();
+    await expect(confirmInput).toHaveAttribute("type", "password");
+  });
+
+  test("Enter in first field moves focus to confirm field", async ({ page }) => {
+    const confirmInput = page.locator("[data-onboarding-ext-password-confirm='true']");
+    await page.locator("[data-onboarding-ext-password-input='true']").fill("Passw0rd!");
+    await page.locator("[data-onboarding-ext-password-input='true']").press("Enter");
+    await expect(confirmInput).toBeFocused();
+  });
+
+  test("Enter in confirm field with matching passwords submits", async ({ page }) => {
+    const pw = "Passw0rd!";
+    await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-confirm='true']").press("Enter");
+    const nextScreen = page.locator(
+      "[data-onboarding-screen='BIOMETRIC_OFFER'], [data-onboarding-screen='COMPLETE_DEMO']"
+    );
+    await expect(nextScreen).toBeVisible({ timeout: 5_000 });
+  });
 });
 
 // ─── Biometrics and demo ──────────────────────────────────────────────────

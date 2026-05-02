@@ -160,6 +160,12 @@ describe("A11y target — role=menuitem text match", () => {
     expect(item.hasAttribute("data-cuny-autologin-highlight")).toBe(false);
   });
 
+  test("matches menuitem case-insensitively (real CUNY renders 'Set As Default')", () => {
+    const item = addMenuitem("Set As Default");
+    showOverlay(A11Y_TARGET, "Click it", 1, 1, vi.fn());
+    expect(item.getAttribute("data-cuny-autologin-highlight")).toBe("true");
+  });
+
   test("onNotFound fires after timeout when no menuitem matches A11y text", () => {
     const onNotFound = vi.fn();
     showOverlay({ type: "a11y", text: "Nonexistent Option" }, "text", 1, 1, onNotFound);
