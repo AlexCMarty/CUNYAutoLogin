@@ -1,4 +1,4 @@
-<!-- Load when: touching vault, credentials, storage, crypto, or any sensitive data path -->
+<!-- Load when: touching vault, credentials, storage, crypto, SSO session cookies (`browser.cookies`), or any sensitive data path -->
 
 > **Security stakes**: This extension stores institutional login credentials for 275,000+ CUNY students. It is subject to CUNY IT security review and Chrome Web Store scrutiny. A credential exposure is institutional-scale — extensions get removed and developers face discipline. **Never suggest `localStorage`, unencrypted `storage.local`, or any on-disk store for sensitive plaintext data.** The only permitted locations are `browser.storage.session` (in-memory, cleared on browser close) and encrypted `browser.storage.local` (vault ciphertext only).
 
@@ -28,3 +28,17 @@ The master password is **never written to `storage.local` or disk**. It lives on
 | IV | 12 bytes (random per save) |
 | Cipher | AES-GCM-256 |
 | Storage format | `{ version: 1, saltB64, ivB64, ciphertextB64 }` |
+
+## Browser SSO session cookies (PeopleSoft / D2L / OAM shells)
+
+Rare code paths may need to **simulate a logout** locally (for example onboarding “try again” UX) so the next navigation hits SSO like a cold browser would. **`browser.cookies`** is the API surface involved. Misuse is a credential **and session** incident.
+
+Treat this as policy for **implementers and reviewers** — including AI agents tooling on this repo:
+
+1. **Delete only.** The **only** permitted programmatic action on SSO-related cookies is **`browser.cookies.remove`**. Do **not** call **`cookies.set`** (or equivalents), do **not** inject `Set-Cookie` via redirects, proxies, DevTools payloads, MCP tools, scripts, tests, or one-off tooling that **writes** jar state for users’ real browsers.
+2. **Minimum footprint.** Delete the **fewest cookies** documented to invalidate the targeted layer — see [.map/cookies/session-and-logout.md](../../.map/cookies/session-and-logout.md). Do **not** carpet-bomb `cookies.getAll({ domain })` deletes “to be safe” unless a human explicitly widened scope after verifying behavior; oversized deletion is breakage and phishing-adjacent if misdirected.
+3. **Never store cookie material.** Cookie **names** okay in source as string literals matching the live map **names only**. Cookie **values** must **never** land in **`storage.local`**, **`storage.session`**, SQLite, telemetry, Markdown runbooks pasted from DevTools captures, **`console`** output in production builds, screenshots, MCP transcripts, clipboard helpers, fixtures, mock servers, git history, PR bodies, comments, tests that snapshot real dumps, etc. Rotate any secret that was pasted by mistake — values are bearer tokens.
+4. **Never transit cookie payloads.** Do **not** attach `Cookie` headers manually to `fetch` / WebSocket / `XMLHttpRequest` / third-party endpoints. Do **not** forward DevTools **`Set-Cookie`** lines to chats, bots, observability backends, CI logs, or off-repo HTTP. **Reads** (`cookies.get*` / MCP network captures) exist only where automation **must** understand shape — still **never** emit values off-machine.
+5. **Manifest parity.** Clearing host-only or SP-scoped jars requires **`"cookies"`** permission and matching **`host_permissions`**. Lack of permission is **not** an excuse to work around with content-script `document.cookie` writes or remote cookie injection — downgrade to **documentation / user instruction** instead.
+
+Violation of §1–4 is severity **critical** regardless of alleged convenience.

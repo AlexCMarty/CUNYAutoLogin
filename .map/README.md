@@ -52,10 +52,16 @@ Never detect these views by URL alone.
 - `graph.yaml` encodes the transition graph as a state machine. Read it to understand which user actions lead to which pages.
 - `conventions.md` contains cross-cutting rules that apply to all pages: selector patterns, Oracle JET async behavior, confirmed `setInputValue` vs keystroke simulation per input, timing units.
 
+## Session cookies beyond the IdP DOM
+
+**Brightspace** (`brightspace.cuny.edu`) and **CUNYFirst** (`home.cunyfirst.cuny.edu`, cookies often on `.cunyfirst.cuny.edu`) integrate with **`ssologin.cuny.edu`** but create **their own app sessions after federation** — different ACS shapes (SAML `POST` vs `obrar.cgi` WebGate replay) and **different cookie names**.
+
+Clearing **only** IdP cookies may leave an SP session alive; clearing **only** SP cookies may still **SSO-slide** if IdP SSO is alive — see **[cookies/session-and-logout.md](cookies/session-and-logout.md)** for minimal pairs per layer and `browser.cookies` wiring.
+
 ## What this map does NOT cover
 
 - The factor selection page for non-TOTP factors (Email, FIDO2, YubiKey) — reachable via "Return to All Options" on the TOTP challenge page
-- Any page behind a CUNY service login (CUNYfirst, Blackboard, etc.) — only `ssologin.cuny.edu` is in scope
+- Detailed DOM/per-page behavior for LMS or other SAML SPs besides **cookie/session names useful for programmatic logout**, documented under `cookies/`
 
 ## Key findings added in this revision
 
