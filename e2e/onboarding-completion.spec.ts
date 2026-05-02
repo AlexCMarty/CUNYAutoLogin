@@ -1,5 +1,5 @@
 /**
- * Plans 09–12: extension password, biometrics, demo, interruptions, and smoke test.
+ * E2E coverage for extension password, biometrics, demo flow, interruptions, and smoke paths.
  */
 import type { Page } from "@playwright/test";
 import {
@@ -19,8 +19,6 @@ import {
   walkToPasswordEntry,
 } from "./helpers";
 
-// ─── Shared setup ─────────────────────────────────────────────────────────────
-
 async function setupToAllowGate(
   page: Page,
   context: import("@playwright/test").BrowserContext,
@@ -35,11 +33,9 @@ async function setupToAllowGate(
   await page.locator("[data-onboarding-password-forward='true']").click();
   const cunyTab = await tabPromise;
   await cunyTab.waitForLoadState("domcontentloaded");
-  // TOTP page fires cuny_totp_challenge → sidebar shows CUNY_TOTP.
   await expect(page.locator("[data-onboarding-screen='CUNY_TOTP']")).toBeVisible({
     timeout: 15_000,
   });
-  // Navigate to mfaConsent fixture — fires allow_gate stage → CUNY_TOTP → ALLOW_GATE.
   await cunyTab.goto(ALLOW_GATE_FIXTURE_URL);
   await expect(page.locator("[data-onboarding-screen='ALLOW_GATE']")).toBeVisible({
     timeout: 10_000,
@@ -60,25 +56,21 @@ async function setupToExtPasswordSetup(
 ): Promise<Page> {
   const cunyTab = await setupToAllowGate(page, context, extensionId);
 
-  // Allow → oaa-spa-home → (student clicks Manage with overlay guidance) → factors
+  // Fixture HTML encodes the Oracle RUI happy path; each step mirrors overlay-guided clicks.
   await cunyTab.goto(ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL);
   await cunyTab.getByRole("button", { name: "Allow" }).click({ timeout: 5_000 });
   await expect(cunyTab).toHaveURL(/view=factors/, { timeout: 15_000 });
 
-  // Extension highlights TOTP option; click it → enroll-secret
   await cunyTab.locator("oj-menu-button button").click();
   await cunyTab.locator("oj-option#ChallengeOMATOTP").click();
   await expect(cunyTab).toHaveURL(/view=secret/, { timeout: 10_000 });
 
-  // Extension fills name, highlights Verify Now; click → enroll-verify
   await cunyTab.locator("button#verify-now-btn").click();
   await expect(cunyTab).toHaveURL(/view=verify/, { timeout: 10_000 });
 
-  // Extension fills OTP; click Verify and Save → post-enroll
   await cunyTab.locator("button#verify-save-btn").click();
   await expect(cunyTab).toHaveURL(/view=post-enroll(?!-unverified)/, { timeout: 10_000 });
 
-  // Extension highlights kebab → Set as Default → factorIsPreferred flips → sidebar advances
   await cunyTab.locator(".cuny-kebab button").click();
   await cunyTab.locator("#set-default-option").click();
   await expect(page.locator("[data-onboarding-screen='EXT_PASSWORD_SETUP']")).toBeVisible({
@@ -88,8 +80,7 @@ async function setupToExtPasswordSetup(
   return cunyTab;
 }
 
-// ─── Extension password ───────────────────────────────────────────────────
-
+// eslint-disable-next-line max-lines-per-function
 test.describe("extension password: screen renders", () => {
   let cunyTab: Page;
 
@@ -215,7 +206,6 @@ test.describe("extension password: screen renders", () => {
   });
 });
 
-// ─── Biometrics and demo ──────────────────────────────────────────────────
 
 test.describe("biometrics offer", () => {
   let cunyTab: Page;
@@ -323,7 +313,6 @@ test.describe("completion and demo", () => {
   });
 });
 
-// ─── Interruptions ────────────────────────────────────────────────────────
 
 test.describe("interruption: CUNY tab closed mid-flow", () => {
   test("'Reopen CUNY tab' button appears in sidebar when CUNY tab is closed during guided steps", async ({
@@ -456,7 +445,6 @@ test.describe("interruption: browser restart reset behavior", () => {
   });
 });
 
-// ─── Hardening ────────────────────────────────────────────────────────────
 
 test.describe("hardening: selector timeout recovery", () => {
   test("TARGET_NOT_FOUND causes sidebar to show recovery message, not hang", async ({

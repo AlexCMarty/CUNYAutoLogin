@@ -1,13 +1,15 @@
 /**
  * Screen 5 — "Click Allow" gate.
  *
- * Plan-05 delivered the transition into this screen. Plan-06 adds:
- *   - ONBOARDING_OVERLAY_COMMAND { action: "show" } sent on mount so the
- *     content script highlights the Allow button on the CUNY tab.
- *   - Recovery message div shown when TARGET_NOT_FOUND is reported back.
+ * On mount we send ONBOARDING_OVERLAY_COMMAND { action: "show" } so the CUNY
+ * tab content script can highlight Allow (the student must act in the browser
+ * tab, not only in the sidebar).
  *
- * Back button returns to Screen 3 per spec. No forward button — auto-advance
- * happens via ALLOW_CLICKED in a later plan.
+ * When the overlay cannot find the control, the content script posts stage
+ * `target_not_found`; render.ts then reveals the recovery copy below.
+ *
+ * Back returns to PASSWORD_ENTRY. Forward is implicit: ALLOW_CLICKED advances
+ * the machine when the student clicks Allow on CUNY.
  */
 
 import browser from "webextension-polyfill";
@@ -77,8 +79,8 @@ export const mountAllowGateScreen: ScreenMount = (
   waiting.className = "onboarding-waiting-label";
   waiting.textContent = WAITING_LABEL;
 
-  // Recovery message — hidden until TARGET_NOT_FOUND is received from the
-  // content script. render.ts un-hides it via [data-onboarding-recovery-message].
+  // Hidden until stage `target_not_found` is routed in render.ts, which toggles
+  // `[data-onboarding-recovery-message]`.
   const recovery = doc.createElement("p");
   recovery.dataset.onboardingRecoveryMessage = "true";
   recovery.className = "onboarding-recovery-message";
@@ -102,7 +104,6 @@ export const mountAllowGateScreen: ScreenMount = (
   container.appendChild(actions);
   root.appendChild(container);
 
-  // Tell the content script to highlight the Allow button on the CUNY tab.
   sendShowOverlayCommand();
 
   const handleBack = (): void => {

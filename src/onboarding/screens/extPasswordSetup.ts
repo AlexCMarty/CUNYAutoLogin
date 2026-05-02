@@ -43,7 +43,6 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
     "If you forget this password, just run setup again — it takes about 5 minutes.";
   container.appendChild(recovery);
 
-  // Password input + strength indicator
   const pwLabel = doc.createElement("label");
   pwLabel.className = "onboarding-field-label";
   pwLabel.textContent = "Choose a password";
@@ -74,7 +73,6 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
   strengthSpan.dataset.onboardingExtPasswordStrength = "true";
   container.appendChild(strengthSpan);
 
-  // Confirm input + match indicator
   const confirmLabel = doc.createElement("label");
   confirmLabel.className = "onboarding-field-label";
   confirmLabel.textContent = "Confirm password";
@@ -106,14 +104,12 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
   matchIndicator.hidden = true;
   container.appendChild(matchIndicator);
 
-  // Error message (shown on vault save failure)
   const errorMsg = doc.createElement("p");
   errorMsg.className = "onboarding-error onboarding-ext-password-error";
   errorMsg.hidden = true;
   errorMsg.textContent = "Something went wrong saving your password. Please try again.";
   container.appendChild(errorMsg);
 
-  // Forward button
   const forwardBtn = doc.createElement("button");
   forwardBtn.type = "button";
   forwardBtn.className = "onboarding-btn onboarding-btn-primary";

@@ -1,14 +1,11 @@
 /**
  * Onboarding transition table — declarative event → next-state map per screen.
  *
- * This is intentionally a data table rather than imperative `switch` logic so
- * the unit tests can assert exhaustiveness (every state reachable, every state
- * has a defined back/forward contract) without exercising any real I/O.
+ * Kept as data (not a big `switch`) so tests can assert exhaustiveness and
+ * back/forward contracts without driving real I/O.
  *
- * Events correspond to the "Expected external signal(s)" row of each state in
- * `engineering-scope-onboarding-overhaul.md §5.1`. Guards, timeouts, and
- * side effects are deferred to later plans (03, 04+); this module only decides
- * *what* the next state is, not *how* we got there.
+ * This module only maps (state, event) → next state. Timeouts, content-script
+ * staging, and other side effects live in the controller, renderer, and worker.
  */
 
 import {
@@ -76,10 +73,10 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
     TOTP_DONE: "ALLOW_GATE",
   }),
   CREDENTIAL_ERROR: Object.freeze({
-    // Per spec (`overhaul-onboarding.md §Screen 4-error`) the sidebar lands on
-    // Screen 3 (PASSWORD_ENTRY) with the input pre-filled. We do NOT auto-retry.
-    // The bridge picks between PASSWORD_ENTRY (password/unknown culprit) and
-    // EMAIL_ENTRY (email culprit) by dispatching NEXT or CREDENTIAL_ERROR_ROUTE_TO_EMAIL.
+    // After a failed CUNY login we return to credential entry with fields
+    // pre-filled and no auto-retry so the student can fix the mistake deliberately.
+    // The bridge picks PASSWORD_ENTRY vs EMAIL_ENTRY via NEXT vs
+    // CREDENTIAL_ERROR_ROUTE_TO_EMAIL depending on which field CUNY blamed.
     NEXT: "PASSWORD_ENTRY",
     BACK: "PASSWORD_ENTRY",
     CREDENTIAL_ERROR_ROUTE_TO_EMAIL: "EMAIL_ENTRY",
@@ -119,7 +116,8 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
     SET_DEFAULT_COMPLETED: "EXT_PASSWORD_SETUP",
   }),
   EXT_PASSWORD_SETUP: Object.freeze({
-    // Screen 11: "Back button not available here" — credentials/secret staged.
+    // Vault material is staged in memory; BACK is disabled to avoid a vague
+    // partial-exit while secrets are mid-setup.
     BACK: null,
     EXT_PASSWORD_SAVED: "BIOMETRIC_OFFER",
   }),
@@ -142,7 +140,6 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
   }),
 });
 
-/** Returns the next state for a given (state, event), or `null` if no transition exists. */
 export const advance = (
   state: OnboardingState,
   event: OnboardingEvent
@@ -152,11 +149,9 @@ export const advance = (
   return next ?? null;
 };
 
-/** True iff `event` is defined and non-null on `state`. */
 export const canTransition = (state: OnboardingState, event: OnboardingEvent): boolean =>
   advance(state, event) !== null;
 
-/** Convenience: the `BACK` target for `state`, or `null` if BACK is disabled. */
 export const backStateFor = (state: OnboardingState): OnboardingState | null =>
   advance(state, "BACK");
 
@@ -185,5 +180,5 @@ export const forwardTargetsFor = (state: OnboardingState): readonly OnboardingSt
  */
 export const isAtTerminal = (state: OnboardingState): boolean => state === TERMINAL_STATE;
 
-/** Exhaustiveness helper: every declared state appears in the transition table. */
+/** Same array as `ONBOARDING_STATES`; kept here so exhaustiveness tests can import this module only. */
 export const ALL_STATES_IN_TABLE: readonly OnboardingState[] = ONBOARDING_STATES;

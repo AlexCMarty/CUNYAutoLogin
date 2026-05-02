@@ -36,8 +36,6 @@ import {
 } from "./helpers";
 import { E2E_TOTP_SECRET } from "./test-credentials";
 
-// ─── Shared setup ─────────────────────────────────────────────────────────────
-
 /**
  * Walks the onboarding flow to ALLOW_GATE state. Returns the CUNY tab that
  * opened during the flow; it will be at /oaa-totp-factor/ when returned.
@@ -61,12 +59,10 @@ async function setupToAllowGate(
   const cunyTab = await tabPromise;
   await cunyTab.waitForLoadState("domcontentloaded");
 
-  // TOTP page fires cuny_totp_challenge → sidebar shows CUNY_TOTP.
   await expect(page.locator("[data-onboarding-screen='CUNY_TOTP']")).toBeVisible({
     timeout: 15_000,
   });
 
-  // Navigate to mfaConsent fixture — fires allow_gate stage → CUNY_TOTP → ALLOW_GATE.
   await cunyTab.goto(ALLOW_GATE_FIXTURE_URL);
   await expect(page.locator("[data-onboarding-screen='ALLOW_GATE']")).toBeVisible({
     timeout: 10_000,
@@ -75,14 +71,12 @@ async function setupToAllowGate(
   return cunyTab;
 }
 
-// ─── Overlay engine ──────────────────────────────────────────────────────────
 
 test.describe("overlay: dim layer and highlight ring", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
     cunyTab = await setupToAllowGate(page, context, extensionId);
-    // Navigate CUNY tab to allow-gate fixture so the content script can issue overlay command.
     await cunyTab.goto(ALLOW_GATE_FIXTURE_URL);
   });
 
@@ -100,7 +94,6 @@ test.describe("overlay: dim layer and highlight ring", () => {
     await expect(
       cunyTab.locator("button[data-cuny-autologin-highlight='true']")
     ).toBeVisible({ timeout: 5_000 });
-    // The highlighted element must be the Allow button specifically.
     await expect(
       cunyTab.locator("button[data-cuny-autologin-highlight='true']")
     ).toContainText("Allow");
@@ -178,7 +171,6 @@ test.describe("overlay: TARGET_NOT_FOUND fallback", () => {
   });
 });
 
-// ─── Allow gate overlay timing ───────────────────────────────────────────────
 // Regression: the overlay command is stored by the sidebar *after* mfaConsent
 // fires the allow_gate stage. Without a polling loop the content script's
 // one-shot requestAndExecuteOverlayCommand() fires before the command arrives,
@@ -200,7 +192,6 @@ test.describe("guided: allow gate overlay timing", () => {
   });
 });
 
-// ─── Allow gate ──────────────────────────────────────────────────────────────
 
 test.describe("guided: allow gate", () => {
   let cunyTab: Page;
@@ -247,7 +238,6 @@ test.describe("guided: allow gate", () => {
   });
 });
 
-// ─── oaa-spa-home ────────────────────────────────────────────────────────────
 
 test.describe("guided: oaa-spa-home", () => {
   let cunyTab: Page;
@@ -287,7 +277,6 @@ test.describe("guided: oaa-spa-home", () => {
   });
 });
 
-// ─── factors-list and TOTP selection ──────────────────────────────────────
 
 test.describe("guided: factors-list and TOTP type selection", () => {
   let cunyTab: Page;
@@ -323,7 +312,6 @@ test.describe("guided: factors-list and TOTP type selection", () => {
   });
 });
 
-// ─── secret capture ────────────────────────────────────────────────────────
 
 test.describe("guided: secret capture (totp-enroll-secret)", () => {
   let cunyTab: Page;
@@ -363,7 +351,6 @@ test.describe("guided: secret capture (totp-enroll-secret)", () => {
   });
 });
 
-// ─── five-factor limit ────────────────────────────────────────────────────
 
 test.describe("guided: five-factor limit edge case", () => {
   let cunyTab: Page;
@@ -401,7 +388,6 @@ test.describe("guided: five-factor limit edge case", () => {
   });
 });
 
-// ─── Verify Later edge case ───────────────────────────────────────────────
 
 test.describe("guided: Verify Later saves as Unverified", () => {
   let cunyTab: Page;
@@ -429,7 +415,6 @@ test.describe("guided: Verify Later saves as Unverified", () => {
   });
 });
 
-// ─── OTP fill via keystroke simulation ─────────────────────────────────────
 
 test.describe("verify login code: OTP fill", () => {
   let cunyTab: Page;
@@ -483,7 +468,6 @@ test.describe("verify login code: OTP fill", () => {
   });
 });
 
-// ─── failure handling ──────────────────────────────────────────────────────
 
 test.describe("verify login code: failure handling", () => {
   let cunyTab: Page;
@@ -571,7 +555,6 @@ test.describe("verify login code: failure handling", () => {
   });
 });
 
-// ─── Set as Default ────────────────────────────────────────────────────────
 
 test.describe("set as default", () => {
   let cunyTab: Page;

@@ -1,11 +1,10 @@
 /**
  * Screen 1 — Welcome.
  *
- * Copy locked by `overhaul-onboarding.md §Screen 1`. No back button. Single
- * CTA "Let's go" dispatches `NEXT` which the controller routes to
- * `EMAIL_ENTRY` via the transition table.
+ * Product copy is intentional; change only with UX review. No back button.
+ * CTA "Let's go" dispatches `NEXT` → EMAIL_ENTRY via the transition table.
  *
- * Design notes enforced here (see spec §Design notes under Screen 1):
+ * Design notes enforced here:
  *  - The reassurance line is body weight, not subtext — it is the most
  *    important sentence on this screen for a skeptical student.
  *  - The reassurance line names CUNY's login page as the destination so the

@@ -53,7 +53,7 @@ export type TotpSecretFromPageAck = { readonly ok: boolean };
 
 /**
  * Sidebar → service-worker: stage the in-memory onboarding credentials so the
- * content script can auto-fill them on the CUNY tab opened by Screen 4. The
+ * content script can auto-fill them on the CUNY tab opened from the sidebar.
  * service worker holds the payload in a module-level variable and NEVER writes
  * it to `storage.*`. The payload is cleared when the sidebar tears down (or
  * the service worker stops, which is equivalent).
@@ -99,7 +99,7 @@ export const isClearOnboardingCredentials = (
 
 // ──── target spec types (shared with content/overlay.ts) ────────────────────
 
-/** Click a CUNY element via CSS selector (works for most elements). */
+/** Prefer when the control has a stable selector (cheaper than accessibility text matching). */
 export type CssTarget = { readonly type: "css"; readonly selector: string };
 
 /**
@@ -109,7 +109,6 @@ export type CssTarget = { readonly type: "css"; readonly selector: string };
  */
 export type A11yTarget = { readonly type: "a11y"; readonly text: string };
 
-/** Union of the two click patterns the overlay engine supports. */
 export type TargetSpec = CssTarget | A11yTarget;
 
 // ──── onboarding wire values ─────────────────────────────────────────────────

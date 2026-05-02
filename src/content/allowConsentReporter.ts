@@ -11,7 +11,6 @@ export const installAllowConsentClickReporter = (): void => {
   const href = window.location.href;
   if (!href.includes(MFA_CONSENT_PAGE_PATH_MARKER)) return;
 
-  // Advance sidebar CUNY_TOTP → ALLOW_GATE now that the consent page is visible.
   const pageLoadMessage: OnboardingStageDetected = {
     type: "ONBOARDING_STAGE_DETECTED",
     stage: "allow_gate",

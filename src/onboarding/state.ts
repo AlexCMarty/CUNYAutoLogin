@@ -1,9 +1,9 @@
 /**
  * Onboarding state machine — state enum + stage-bead mapping.
  *
- * Authoritative list of screens is `engineering-scope-onboarding-overhaul.md §5.1`.
- * The five progress beads come from `overhaul-onboarding.md §Progress model`
- * (Your info → First login → Set up login codes → Extension password → Done).
+ * `ONBOARDING_STATES` and `BEAD_LABELS` are the canonical screen and progress
+ * identifiers for the sidebar, worker, and tests. String values are stable
+ * wire keys — rename only alongside protocol consumers.
  *
  * This module is side-effect-free so it is safe to import from the sidebar,
  * background, content, and Vitest without touching DOM or `browser.*`.
@@ -11,7 +11,7 @@
 
 /**
  * Every onboarding screen state. The string values are stable wire identifiers —
- * do not rename without updating message-protocol consumers in a later plan.
+ * do not rename without updating message-protocol consumers (sidebar, worker, content).
  */
 export const ONBOARDING_STATES = [
   "WELCOME",
@@ -52,7 +52,7 @@ export const BEAD_LABELS: Readonly<Record<BeadStage, string>> = Object.freeze({
 /**
  * Maps each onboarding state to the bead that should be *active* while the
  * student is on that screen. Bead N is "filled" only after the student leaves
- * the last state that maps to it (handled by the renderer in a later plan).
+ * the last state that maps to it (handled by the renderer).
  */
 export const STATE_TO_BEAD: Readonly<Record<OnboardingState, BeadStage>> = Object.freeze({
   WELCOME: 1,
@@ -87,10 +87,9 @@ export const TERMINAL_STATE: OnboardingState = "COMPLETE_DONE";
 export const isTerminal = (state: OnboardingState): boolean => state === TERMINAL_STATE;
 
 /**
- * Plan-11 resumability policy.
- *
- * We only resume to states that are safe without re-hydrating secrets from disk.
- * Non-resumable states return null and restart at WELCOME.
+ * Resume targets after a browser restart: only states that are safe without
+ * re-reading staged secrets from disk. Non-resumable states map to null so the
+ * flow restarts at WELCOME.
  */
 export const RESUME_SAFE_STATE: Readonly<
   Record<OnboardingState, OnboardingState | null>

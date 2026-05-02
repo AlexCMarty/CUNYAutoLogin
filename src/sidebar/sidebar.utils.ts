@@ -41,7 +41,7 @@ export const decryptStatusMessage = (vaultError: VaultError): string =>
     ? "Wrong master password or corrupted vault."
     : "Could not decrypt vault.";
 
-/** Coerce an already-parsed unknown value into a FormDraft, or return null. */
+/** Best-effort parse of storage/session JSON into `FormDraft`; non-strings become "" so the UI stays editable. */
 export function coerceDraft(value: unknown): FormDraft | null {
   if (typeof value !== "object" || value === null) return null;
   const rawDraft = value as Record<string, unknown>;
@@ -52,7 +52,7 @@ export function coerceDraft(value: unknown): FormDraft | null {
   };
 }
 
-/** Parse and validate a raw JSON draft string. Returns null on bad JSON or non-object. */
+/** `JSON.parse` plus `coerceDraft`; returns null for invalid JSON or non-objects. */
 export function parseDraft(raw: string): FormDraft | null {
   let parsed: unknown;
   try {
@@ -98,7 +98,7 @@ export async function saveDraft(els: SidebarDom): Promise<void> {
   }
 }
 
-/** Removes the setup draft from session storage. */
+/** Clear setup draft after a successful save so a half-filled session cannot resume as if valid. */
 export async function clearDraft(): Promise<void> {
   try {
     await browser.storage.session?.remove(DRAFT_KEY);

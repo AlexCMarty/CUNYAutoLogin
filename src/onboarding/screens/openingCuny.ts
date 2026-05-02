@@ -1,8 +1,6 @@
 /**
  * Screen 4 — "Opening CUNY…" transition.
  *
- * Spec reference: `overhaul-onboarding.md §Screen 4`.
- *
  * Behavior on mount:
  *   1. Stage the in-memory email+password into the service worker's ephemeral
  *      cache via `STAGE_ONBOARDING_CREDENTIALS`. The content script asks for
@@ -10,7 +8,7 @@
  *      to this staged payload when the vault isn't set up yet (pre-vault).
  *   2. Open the CUNY entry URL in a new tab directly from the sidebar via
  *      `browser.tabs.create(...)`. The URL defaults to
- *      `https://ssologin.cuny.edu/oaa/rui` (per spec); dev/e2e builds allow an
+ *      `https://ssologin.cuny.edu/oaa/rui`; dev/e2e builds allow an
  *      override via the `#cuny=<encoded url>` hash param so the fixture server
  *      can stand in for CUNY.
  *

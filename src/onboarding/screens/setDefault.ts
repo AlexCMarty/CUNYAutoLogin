@@ -4,9 +4,6 @@ import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
 // Scope to the CUNYAutoLogin factor-panel so the overlay does not anchor on
 // another factor's kebab. The `factor` attribute is JSON; substring match on
-// the alias is safe because alias text is unique within that payload.
-// Scope to the CUNYAutoLogin factor-panel so the overlay does not anchor on
-// another factor's kebab. The `factor` attribute is JSON; substring match on
 // the alias is safe because alias text is unique within that payload. Target
 // the inner <button> so the tooltip anchors on the clickable element.
 const KEBAB_SELECTOR =

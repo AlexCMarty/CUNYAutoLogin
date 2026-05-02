@@ -1,19 +1,17 @@
 /**
  * Screen 3 — Password entry.
  *
- * Spec reference: `overhaul-onboarding.md §Screen 3`.
  * Copy rules enforced here:
  *  - Label: "What's your Brightspace password?"
  *  - Subtext: "The password you use to log in to Brightspace."
- *  - Reassurance line (between input and forward button) explains the
- *    short-term scope: saved on device, encrypted, used right now to log in.
- *  - Show/hide eye toggle on the input pill.
- *  - Forward button grayed until the input is non-empty. No content
- *    validation — wrong-password detection lives on CUNY's page.
- *  - Back button returns to EMAIL_ENTRY.
+ *  - Reassurance line (between input and forward) explains short-term scope:
+ *    saved on device, encrypted, used now to log in.
+ *  - Show/hide toggle on the input.
+ *  - Forward disabled until non-empty. No local password rules — CUNY surfaces errors.
+ *  - Back returns to EMAIL_ENTRY.
  *
- * Security: the password value lives only in the controller's in-memory
- * snapshot. This screen never writes to `storage.local` or `storage.session`.
+ * Security: password lives only in the controller snapshot; never written to
+ * `storage.local` or `storage.session`.
  */
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
@@ -50,9 +48,7 @@ export const mountPasswordEntryScreen: ScreenMount = (
   container.dataset.onboardingScreen = "PASSWORD_ENTRY";
   container.className = "onboarding-screen onboarding-screen-password";
 
-  // Inline credential-error banner surfaced above the input when the content
-  // script reported wrong-credentials on the CUNY tab. Spec copy
-  // (`overhaul-onboarding.md §Screen 4-error`).
+  // Inline banner when the CUNY tab reported wrong credentials (copy matches email screen).
   const credentialError = doc.createElement("p");
   credentialError.dataset.onboardingPasswordCredentialError = "true";
   credentialError.className = "onboarding-credential-error";

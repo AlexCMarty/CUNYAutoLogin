@@ -3,7 +3,7 @@ import type { OnboardingOverlayCommand, OnboardingStageDetected } from "../onboa
 import { hideOverlay, showOverlay } from "./overlay";
 
 /**
- * Plan-06: execute an overlay command received from the service worker.
+ * Execute an overlay command received from the service worker.
  * Called both from the ONBOARDING_CONTENT_SCRIPT_READY response (pull on
  * page load) and from the runtime.onMessage listener (push mid-session).
  */
@@ -34,9 +34,8 @@ const isOverlayCommandResponse = (
   typeof value === "object" && value !== null && "overlayCommand" in value;
 
 /**
- * Plan-06: pull the current overlay command from the service worker when the
- * content script first loads. This handles the case where the sidebar entered
- * ALLOW_GATE before the CUNY tab navigated to the current page.
+ * Pull the current overlay command when the content script first loads.
+ * Handles the race where the sidebar entered ALLOW_GATE before this page existed.
  */
 export const requestAndExecuteOverlayCommand = async (): Promise<void> => {
   try {

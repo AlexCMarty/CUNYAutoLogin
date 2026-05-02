@@ -1,5 +1,5 @@
 /**
- * Plan-06: overlay engine for guided CUNY onboarding steps.
+ * Overlay engine for guided CUNY onboarding steps.
  *
  * Injects a dim layer, highlight ring, tooltip, and step chip into the current
  * page. The dim layer uses pointer-events:none so the highlighted target stays
@@ -80,10 +80,8 @@ const resolveTarget = (spec: TargetSpec): Element | null => {
     if (isDisabledOverlayTarget(el)) return null;
     return el;
   }
-  // A11y: find first element matching the text exactly.
-  // Checks [role="menuitem"] first (required for oj-option items that have
-  // display:none in the live DOM), then falls back to plain button elements
-  // (required for JET buttons that render without IDs, e.g. "Verify Now").
+  // Oracle JET hides some menu nodes in the live DOM; menuitem-first scan then
+  // button fallback finds controls like oj-option and label-only JET buttons.
   const textLower = spec.text.toLowerCase();
   const menuItems = document.querySelectorAll('[role="menuitem"]');
   for (const el of menuItems) {
@@ -125,7 +123,7 @@ const renderOverlay = (
   el.setAttribute(HIGHLIGHT_ATTR, "true");
   highlightedEl = el;
 
-  // Auto-hide when student clicks the highlighted target
+  // Remove the chrome once the student acts so the page is usable again.
   clickHandler = (): void => hideOverlay();
   el.addEventListener("click", clickHandler, { once: true });
 

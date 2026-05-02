@@ -41,7 +41,7 @@ async function saveSessionMaster(masterPassword: string): Promise<void> {
   }
 }
 
-/** Clear master password from session storage. */
+/** Drop session master on lock/reset so plaintext never lingers in `storage.session`. */
 async function clearSessionMaster(): Promise<void> {
   try {
     await browser.storage.session?.remove(SESSION_MASTER_KEY);
@@ -185,7 +185,6 @@ const renderUnlockedMode = (
     if (els.passwordLabel) els.passwordLabel.textContent = "Password";
   }
 
-  // Pre-fill credential fields from session
   if (payload) {
     els.email.value = payload.email;
     els.password.value = payload.password;
@@ -235,7 +234,7 @@ const validateSetupForm = (els: SidebarDom): string | null => {
   return null;
 };
 
-/** Encrypts and persists the vault, updates session state, and re-renders. */
+/** First-time save: persist ciphertext, hydrate session, clear draft, leave no master in fields longer than needed. */
 const commitNewVault = async (
   els: SidebarDom,
   email: string,

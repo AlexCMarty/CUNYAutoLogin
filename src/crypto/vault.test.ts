@@ -9,16 +9,12 @@ import {
 } from "./vault";
 import type { StoredVault, VaultPayload } from "./vault";
 
-// ──── shared fixtures ─────────────────────────────────────────────────────────
-
 const PAYLOAD: VaultPayload = {
   email: "student@login.cuny.edu",
   password: "hunter2",
   totpSecret: "JBSWY3DPEHPK3PXP",
 };
 const MASTER = "correct-horse-battery-staple";
-
-// ──── helpers ─────────────────────────────────────────────────────────────────
 
 /**
  * Unwrap a Result, throwing a descriptive error if it is Err.
@@ -96,8 +92,6 @@ async function encryptRaw(
     ciphertextB64: bytesToB64(new Uint8Array(ciphertext)),
   };
 }
-
-// ──── encryptVault + decryptVault ─────────────────────────────────────────────
 
 // eslint-disable-next-line max-lines-per-function
 describe("encryptVault + decryptVault", () => {
@@ -293,8 +287,6 @@ describe("encryptVault + decryptVault", () => {
   });
 });
 
-// ──── isStoredVault ───────────────────────────────────────────────────────────
-
 describe("isStoredVault", () => {
   const valid: StoredVault = {
     version: 1,
@@ -362,8 +354,6 @@ describe("isStoredVault", () => {
     expect(isStoredVault({ ...valid, ivB64: null })).toBe(false);
   });
 });
-
-// ──── constants ───────────────────────────────────────────────────────────────
 
 describe("constants", () => {
   test("PBKDF2_ITERATIONS meets the 310 000 security floor", () => {

@@ -14,8 +14,6 @@ import {
   type OnboardingState,
 } from "./state";
 
-// ──── constants (pinned) ──────────────────────────────────────────────────────
-
 describe("constants", () => {
   test("19 onboarding states declared", () => {
     expect(ONBOARDING_STATES.length).toBe(19);
@@ -30,7 +28,7 @@ describe("constants", () => {
     expect(TERMINAL_STATE).toBe("COMPLETE_DONE");
   });
 
-  test("exactly 5 beads labeled per overhaul-onboarding.md §Progress model", () => {
+  test("BEAD_LABELS has five entries for the sidebar progress header", () => {
     expect(Object.keys(BEAD_LABELS).length).toBe(5);
     expect(BEAD_LABELS[1]).toBe("Your info");
     expect(BEAD_LABELS[2]).toBe("First login");

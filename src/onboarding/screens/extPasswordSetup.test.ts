@@ -4,8 +4,6 @@ import browser from "webextension-polyfill";
 import { computePasswordStrength, mountExtPasswordSetupScreen } from "./extPasswordSetup";
 import type { OnboardingScreenContext } from "./screenContext";
 
-// ─── computePasswordStrength ──────────────────────────────────────────────────
-
 describe("computePasswordStrength", () => {
   test("returns Weak for short passwords (< 8 chars)", () => {
     expect(computePasswordStrength("abc")).toBe("Weak");
@@ -13,23 +11,21 @@ describe("computePasswordStrength", () => {
   });
 
   test("returns Weak for 8+ chars with fewer than 3 variety classes", () => {
-    expect(computePasswordStrength("aaaaaaaa")).toBe("Weak"); // lowercase only
-    expect(computePasswordStrength("AAAAAAAA")).toBe("Weak"); // uppercase only
-    expect(computePasswordStrength("Abcdefgh")).toBe("Weak"); // lower+upper, no num/sym
+    expect(computePasswordStrength("aaaaaaaa")).toBe("Weak");
+    expect(computePasswordStrength("AAAAAAAA")).toBe("Weak");
+    expect(computePasswordStrength("Abcdefgh")).toBe("Weak");
   });
 
   test("returns Fair for 8–11 chars with 3+ variety classes", () => {
-    expect(computePasswordStrength("Passw0rd!")).toBe("Fair"); // 9 chars, 4 classes
-    expect(computePasswordStrength("Abcdefgh1!")).toBe("Fair"); // 10 chars, 4 classes
+    expect(computePasswordStrength("Passw0rd!")).toBe("Fair");
+    expect(computePasswordStrength("Abcdefgh1!")).toBe("Fair");
   });
 
   test("returns Strong for 12+ chars with 3+ variety classes", () => {
     expect(computePasswordStrength("CorrectHorseBatteryStaple42!")).toBe("Strong");
-    expect(computePasswordStrength("Abcdefgh1!xy")).toBe("Strong"); // exactly 12 chars
+    expect(computePasswordStrength("Abcdefgh1!xy")).toBe("Strong");
   });
 });
-
-// ─── mountExtPasswordSetupScreen DOM tests ────────────────────────────────────
 
 vi.mock("webextension-polyfill", () => ({
   default: {

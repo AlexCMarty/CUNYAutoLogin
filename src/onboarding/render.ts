@@ -261,16 +261,16 @@ const dispatchSequence = (
 };
 
 const handleCunyTotpChallenge = (controller: OnboardingController): void => {
-  controller.dispatch("CREDENTIALS_ACCEPTED"); // OPENING_CUNY → CUNY_TOTP
+  controller.dispatch("CREDENTIALS_ACCEPTED");
 };
 
 const handleAllowGate = (controller: OnboardingController): void => {
   // mfaConsent.jsp loaded. Advance from OPENING_CUNY (CUNY skipped TOTP) or
   // CUNY_TOTP (normal flow where TOTP was shown first).
   if (controller.getSnapshot().state === "OPENING_CUNY") {
-    controller.dispatch("CREDENTIALS_ACCEPTED"); // → CUNY_TOTP
+    controller.dispatch("CREDENTIALS_ACCEPTED");
   }
-  dispatchIfState(controller, "CUNY_TOTP", "TOTP_DONE"); // → ALLOW_GATE
+  dispatchIfState(controller, "CUNY_TOTP", "TOTP_DONE");
 };
 
 const handleAllowButtonClicked = (controller: OnboardingController): void => {
@@ -539,8 +539,7 @@ const saveResumeSnapshot = async (
   });
 };
 
-// Builds the skeleton DOM nodes for the onboarding shell.
-// Returns the refs needed by the rest of mountOnboarding.
+// Skeleton shell + refs split out so `mountOnboarding` stays under eslint max-lines.
 const buildOnboardingShell = (
   doc: Document,
   host: HTMLElement
@@ -583,8 +582,7 @@ const buildOnboardingShell = (
   return { shell, screenHost, resumeButton, reopenCunyButton };
 };
 
-// Registers the browser.tabs.onRemoved listener that shows the "tab closed"
-// interruption UI. Returns an unlisten function for cleanup.
+// When the active CUNY tab closes, clear the handle and surface the interruption UI.
 const wireTabCloseDetection = (
   activeCunyTabIdRef: { value: number | null },
   onTabClosed: () => void
@@ -617,8 +615,7 @@ const wireTabCloseDetection = (
   };
 };
 
-// Reads the session resume snapshot and, if present, stores it as a pending
-// resume so the resume button becomes visible.
+// Session snapshot lets the student resume without re-entering email/password after a reload.
 const loadAndApplyResumeSnapshot = async (
   setPendingResumeSnapshot: (snapshot: PendingResumeSnapshot) => void,
   repaintInterruptionActions: () => void

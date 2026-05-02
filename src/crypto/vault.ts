@@ -1,4 +1,4 @@
-/** Encrypted credential blob stored in browser.storage.local */
+/** PBKDF2 + AES-GCM vault crypto and `StoredVault` wire shape; persistence uses `VAULT_STORAGE_KEY` in `browser.storage.local`. */
 
 import { Result, ResultAsync, err, ok } from "neverthrow";
 

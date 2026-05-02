@@ -1,5 +1,7 @@
 /**
- * TOTP enrollment secret view — friendly name filled by content script; Verify Now highlighted.
+ * Guided step: student saves the TOTP enrollment secret shown on CUNY.
+ * The friendly name is filled from the tab; overlay highlights **Verify Now**
+ * because students often miss that control on Oracle RUI.
  */
 
 import browser from "webextension-polyfill";

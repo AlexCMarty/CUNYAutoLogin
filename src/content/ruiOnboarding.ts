@@ -1,6 +1,6 @@
 /**
- * Plan-07: Oracle RUI (`/oaa/rui/*`) onboarding — stage posts,
- * friendly-name fill, and edge-case signals for the sidebar.
+ * Oracle RUI (`/oaa/rui/*`) onboarding — stage posts, friendly-name fill, and
+ * edge-case signals for the sidebar.
  */
 
 import browser from "webextension-polyfill";
@@ -44,7 +44,7 @@ const findUnverifiedCunyAutologin = (doc: Document): boolean => {
         return true;
       }
     } catch {
-      // ignore malformed JSON
+      // `factor` is server-controlled JSON; skip parse errors so one bad panel cannot break scanning.
     }
   }
   return false;
@@ -70,7 +70,7 @@ const findCunyAutologinPanel = (doc: Document): {
         isPreferred: parsedFactor.factorIsPreferred === true,
       };
     } catch {
-      // ignore malformed JSON
+      // `factor` is server-controlled JSON; skip parse errors so one bad panel cannot break scanning.
     }
   }
   return null;

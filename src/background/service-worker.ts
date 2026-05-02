@@ -69,10 +69,10 @@ browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType
 });
 
 /**
- * Plan-05 staging buffer for onboarding credentials.
+ * In-memory staging buffer for onboarding credentials.
  *
  * The sidebar sends `STAGE_ONBOARDING_CREDENTIALS { email, password }` when
- * Screen 4 mounts. The content script's existing `AUTO_FILL_REQUEST` path
+ * OPENING_CUNY mounts. The content script's existing `AUTO_FILL_REQUEST` path
  * falls back to this buffer when the vault isn't set up yet (onboarding runs
  * pre-vault). The buffer lives only in this module scope — it is NEVER
  * written to `storage.local` or `storage.session`. It is cleared on:
@@ -91,7 +91,7 @@ type StagedOnboardingCredentials = {
 let stagedOnboardingCredentials: StagedOnboardingCredentials | null = null;
 
 /**
- * Plan-06: current pending overlay command. Stored when the sidebar sends
+ * Current pending overlay command. Stored when the sidebar sends
  * ONBOARDING_OVERLAY_COMMAND{action:"show"} and cleared on
  * ONBOARDING_OVERLAY_COMMAND{action:"hide"}. Content scripts pull this via
  * ONBOARDING_CONTENT_SCRIPT_READY when they load on a new CUNY page.
@@ -111,7 +111,7 @@ export const __test_getStagedOnboardingCredentials = ():
  * Narrowed onboarding handler. Validates every onboarding message against
  * the shared guards in `src/onboarding/messages.ts` before acknowledging.
  *
- * Plan-03 contract:
+ * Onboarding message contract:
  * - Well-formed onboarding messages resolve `{ ok: true }`.
  * - Malformed onboarding messages (correct discriminator, bad payload)
  *   resolve `{ ok: false, reason: "invalid_payload" }` — no state mutation.
@@ -137,8 +137,8 @@ const handleOnboardingMessage = async (
       return { ok: false, reason: "forward_failed" };
     }
   }
-  // Plan-06: persist show commands so content scripts can pull them on load;
-  // clear on hide so stale overlays don't appear after the student advances.
+  // Persist show commands so late-loading content scripts can pull them; clear on hide
+  // so a stale overlay is not shown after the student leaves that step.
   if (isOnboardingOverlayCommand(message)) {
     if (message.action === "show") {
       stagedOverlayCommand = message;
@@ -186,9 +186,6 @@ const resolveAutoFillResponse = async (
   otpContext: "login_totp" | "enroll_verify" | undefined
 ): Promise<AutoFillResponse> => {
   try {
-    // Prefer the encrypted vault when it is set up and unlocked (existing
-    // post-onboarding flow). Fall back to the onboarding staging buffer
-    // when the vault isn't set up yet.
     const sessionResult = await browser.storage.session?.get([
       SESSION_MASTER_KEY,
       PENDING_TOTP_SECRET_SESSION_KEY,
@@ -276,9 +273,7 @@ browser.runtime.onMessage.addListener(
           }
         })(),
       ONBOARDING_CONTENT_SCRIPT_READY: () =>
-        // Plan-06: content script polls for the current overlay command when it
-        // loads on a new CUNY page. Return the stored command (or null) so the
-        // content script can render the overlay without a separate push mechanism.
+        // Poll response: no push channel, so the worker returns the last show command (or null).
         Promise.resolve({ overlayCommand: stagedOverlayCommand ?? null }),
       STAGE_ONBOARDING_CREDENTIALS: () =>
         Promise.resolve(

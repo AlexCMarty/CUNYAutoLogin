@@ -487,8 +487,7 @@ describe("mountOnboarding", () => {
   });
 
   test("stage router handles every declared onboarding stage", () => {
-    // Verify every stage declared in messages has a handler in applyOnboardingMessage.
-    // We exercise this by running each stage through the router — none should throw.
+    // New stages must get a branch in `applyOnboardingMessage` or production throws.
     const controller = createOnboardingController({ initialState: "GUIDED_FACTOR_TYPE" });
     for (const stage of ONBOARDING_PAGE_STAGES) {
       expect(() =>

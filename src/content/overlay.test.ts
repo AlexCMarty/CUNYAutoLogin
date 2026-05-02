@@ -225,7 +225,6 @@ describe("tooltip anchor placement", () => {
     });
     showOverlay(CSS_TARGET, "Click Allow", 1, 1, vi.fn());
     const tooltip = document.querySelector<HTMLElement>("[data-cuny-autologin-tooltip='true']");
-    // tooltip.style.top should be bottom + 8 = "128px"
     expect(tooltip?.style.top).toBe("128px");
     expect(tooltip?.style.left).toBe("50px");
   });

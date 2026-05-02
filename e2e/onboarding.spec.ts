@@ -22,9 +22,8 @@ const FIXTURE_SECRET = "UU7UV2G7UCS5LETS";
 
 const ONBOARDING_HASH = "#onboarding=1";
 
-// Plan-04 exercises the onboarding shell through the dev-only `#onboarding=1`
-// URL hash (see `src/sidebar/sidebar.ts`). `build:e2e` uses `--mode development`
-// so that hash branch is live for these specs.
+// These specs use the dev-only `#onboarding=1` hash; `build:e2e` runs in development
+// mode so that branch stays enabled (see `src/sidebar/sidebar.ts`).
 // eslint-disable-next-line max-lines-per-function
 test.describe("onboarding screens 1-3", () => {
   test.beforeEach(async ({ page, extensionId }) => {
@@ -173,21 +172,15 @@ test.describe("onboarding screens 1-3", () => {
   });
 });
 
-// ─── Plan-05: Screen 4, wrong credentials, allow gate ────────────────────────
+// Opening CUNY + wrong credentials + allow gate — fixture server stands in for live SSO.
+// The `cuny=<url>` hash on the sidebar swaps the entry URL; `manifest.e2e.json`
+// allows `http://127.0.0.1:4173/*` so the content script runs in the fixture tab.
 //
-// These specs exercise the Opening-CUNY flow end-to-end against the fixture
-// server instead of live CUNY SSO. The dev-hash `cuny=<url>` param on the
-// sidebar swaps the entry URL for the fixture. The content script loads into
-// the fixture tab because `src/manifest.e2e.json` matches
-// `http://127.0.0.1:4173/*`.
-//
-// Validation gate:
-//   - screen 4: sidebar mounts OPENING_CUNY, a new tab opens at the fixture.
-//   - wrong credentials: content script detects the failure, inserts the
-//     extension banner, and the sidebar routes to E2E_PASSWORD_ENTRY without any
-//     automatic retry (single submit only).
-//   - allow gate: successful credential submission advances the sidebar to
-//     ALLOW_GATE once the fixture redirects to /oaa-totp-factor/.
+// Invariants asserted here:
+//   - OPENING_CUNY mounts and a new tab opens at the fixture URL.
+//   - Wrong credentials: banner on the CUNY tab and sidebar on PASSWORD_ENTRY with
+//     no automatic retry (single submit).
+//   - Allow gate: successful submit reaches ALLOW_GATE after the fixture hits TOTP.
 
 
 test.describe("onboarding screen 4 — opening CUNY", () => {
@@ -210,7 +203,6 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
     const cunyTab = await tabPromise;
     await cunyTab.waitForLoadState("domcontentloaded");
 
-    // Sidebar is on Screen 4 with the spec-mandated copy.
     await expect(
       page.locator("[data-onboarding-screen='OPENING_CUNY']")
     ).toBeVisible();
@@ -221,7 +213,6 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
       page.locator("[data-onboarding-opening-back='true']")
     ).toBeVisible();
 
-    // The CUNY-tab URL is our fixture.
     expect(cunyTab.url()).toContain("/oam/server/obrareq.cgi");
 
     await cunyTab.close();
@@ -253,7 +244,7 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
     await cunyTab.waitForTimeout(1500);
     await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toHaveCount(0);
 
-    // Sidebar must not have routed backward to E2E_PASSWORD_ENTRY with an error.
+    // Sidebar must not show the inline credential-error banner.
     await expect(
       page.locator("[data-onboarding-password-credential-error='true']")
     ).toHaveCount(0);
@@ -304,7 +295,7 @@ test.describe("CUNY_TOTP state", () => {
 
 // eslint-disable-next-line max-lines-per-function
 test.describe("onboarding — wrong credentials", () => {
-  test("inline #serverError render: sidebar routes to E2E_PASSWORD_ENTRY with the inline banner; no auto-retry", async ({
+  test("inline #serverError render: sidebar routes to PASSWORD_ENTRY with the inline banner; no auto-retry", async ({
     page,
     context,
     extensionId,
@@ -321,7 +312,6 @@ test.describe("onboarding — wrong credentials", () => {
     const cunyTab = await tabPromise;
     await cunyTab.waitForLoadState("domcontentloaded");
 
-    // Sidebar lands on E2E_PASSWORD_ENTRY with the inline credential-error banner.
     await expect(
       page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
     ).toBeVisible({ timeout: 15_000 });
@@ -332,12 +322,10 @@ test.describe("onboarding — wrong credentials", () => {
       page.locator("[data-onboarding-password-credential-error='true']")
     ).toContainText("didn't work");
 
-    // Pre-filled credentials survive the round-trip.
     await expect(
       page.locator("[data-onboarding-password-input='true']")
     ).toHaveValue(E2E_PASSWORD);
 
-    // Extension-branded banner is mounted in the CUNY tab.
     await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toBeVisible();
     await expect(cunyTab.locator(`#${CREDENTIAL_ERROR_BANNER_ID}`)).toContainText(
       "CUNYAutoLogin"
@@ -356,7 +344,7 @@ test.describe("onboarding — wrong credentials", () => {
     await cunyTab.close();
   });
 
-  test("redirect to /auth_cred_submit: sidebar routes back to E2E_PASSWORD_ENTRY with banner", async ({
+  test("redirect to /auth_cred_submit: sidebar routes back to PASSWORD_ENTRY with banner", async ({
     page,
     context,
     extensionId,
@@ -373,12 +361,10 @@ test.describe("onboarding — wrong credentials", () => {
     const cunyTab = await tabPromise;
     await cunyTab.waitForLoadState("domcontentloaded");
 
-    // Fixture redirects to /auth_cred_submit.
     await expect(cunyTab).toHaveURL(/\/oam\/server\/auth_cred_submit/, {
       timeout: 15_000,
     });
 
-    // Sidebar routes back to E2E_PASSWORD_ENTRY with the banner visible.
     await expect(
       page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
     ).toBeVisible({ timeout: 15_000 });

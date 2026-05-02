@@ -1,20 +1,18 @@
 /**
  * Screen 2 — Email entry.
  *
- * Spec reference: `overhaul-onboarding.md §Screen 2`.
  * Copy rules enforced here:
  *  - Label asks "What email do you use to log in to Brightspace?" — not
  *    "CUNYfirst email" (see design note: CUNYfirst vs Brightspace ambiguity).
  *  - Subtext reminds the student their login ends in `@login.cuny.edu` and is
  *    NOT their school email.
- *  - Input is prefilled with `@login.cuny.edu` (per spec) and on focus the
- *    cursor is placed before the `@` so the student just types their username.
- *  - Forward button is grayed until the trimmed value ends with
- *    `@login.cuny.edu` (reuses `validateEmail` from `sidebar.utils`).
+ *  - Input is prefilled with `@login.cuny.edu` and on focus the cursor is placed
+ *    before the `@` so the student types their username only.
+ *  - Forward stays disabled until the trimmed value ends with `@login.cuny.edu`
+ *    (`validateEmail` in `sidebar.utils`).
  *  - On blur with an invalid address, an inline hint appears.
  *
- * Back button returns to WELCOME. Forward dispatches `NEXT` which the
- * controller routes to PASSWORD_ENTRY.
+ * Back returns to WELCOME. Forward dispatches `NEXT` → PASSWORD_ENTRY.
  */
 
 import { LOGIN_EMAIL_SUFFIX } from "../../cuny/ssoSite";
@@ -30,6 +28,16 @@ export const CREDENTIAL_ERROR_INLINE_COPY =
   "That email and password didn't work on CUNY. Double-check and try again.";
 const CTA_LABEL = "Continue";
 const BACK_LABEL = "Back";
+
+/** Strips repeated `@login.cuny.edu` tails (Playwright fill + seeded suffix can double in Chromium). */
+const stripDuplicateLoginSuffix = (value: string): string => {
+  let out = value.trim();
+  const double = `${LOGIN_EMAIL_SUFFIX}${LOGIN_EMAIL_SUFFIX}`;
+  while (out.endsWith(double)) {
+    out = out.slice(0, -LOGIN_EMAIL_SUFFIX.length);
+  }
+  return out;
+};
 
 export const EMAIL_INPUT_SELECTOR = "[data-onboarding-email-input='true']";
 export const EMAIL_FORWARD_SELECTOR = "[data-onboarding-email-forward='true']";
@@ -52,9 +60,7 @@ export const mountEmailEntryScreen: ScreenMount = (
   container.dataset.onboardingScreen = "EMAIL_ENTRY";
   container.className = "onboarding-screen onboarding-screen-email";
 
-  // Inline credential-error banner surfaced above the input when the content
-  // script reported a wrong-credentials failure on the CUNY tab. Spec copy
-  // (`overhaul-onboarding.md §Screen 4-error`).
+  // Inline banner when the CUNY tab reported wrong credentials (copy matches password screen).
   const credentialError = doc.createElement("p");
   credentialError.dataset.onboardingEmailCredentialError = "true";
   credentialError.className = "onboarding-credential-error";
@@ -80,7 +86,8 @@ export const mountEmailEntryScreen: ScreenMount = (
   input.spellcheck = false;
   input.setAttribute("aria-describedby", "onboarding-email-hint");
   // Seed with the suffix so the student can type a username and skip the "@".
-  input.value = getSnapshot().email || LOGIN_EMAIL_SUFFIX;
+  const seeded = stripDuplicateLoginSuffix(getSnapshot().email);
+  input.value = seeded || LOGIN_EMAIL_SUFFIX;
 
   label.appendChild(labelText);
   label.appendChild(subtext);
@@ -144,7 +151,7 @@ export const mountEmailEntryScreen: ScreenMount = (
   };
 
   const handleInput = (): void => {
-    setEmail(input.value);
+    setEmail(stripDuplicateLoginSuffix(input.value));
     refreshForwardDisabled();
     if (!hint.hidden && validateEmail(input.value)) {
       hint.hidden = true;
@@ -162,12 +169,21 @@ export const mountEmailEntryScreen: ScreenMount = (
       hint.hidden = true;
       return;
     }
+    const normalized = stripDuplicateLoginSuffix(input.value);
+    if (normalized !== input.value) {
+      input.value = normalized;
+      setEmail(normalized);
+    }
     hint.hidden = validateEmail(input.value);
   };
 
   const handleForward = (): void => {
-    if (!validateEmail(input.value)) return;
-    setEmail(input.value.trim());
+    const normalized = stripDuplicateLoginSuffix(input.value);
+    if (normalized !== input.value) {
+      input.value = normalized;
+    }
+    if (!validateEmail(normalized)) return;
+    setEmail(normalized);
     dispatch("NEXT");
   };
 
@@ -188,7 +204,7 @@ export const mountEmailEntryScreen: ScreenMount = (
 
   // Prime the in-memory snapshot so the next screen sees whatever the student
   // types, even if they never fire an input event in unit tests.
-  setEmail(input.value);
+  setEmail(stripDuplicateLoginSuffix(input.value));
   input.focus();
 
   return {

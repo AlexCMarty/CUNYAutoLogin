@@ -11,8 +11,6 @@ import {
   matchesTotpPage,
 } from "./ssoSite";
 
-// ──── matchesCredentialPage ───────────────────────────────────────────────────
-
 describe("matchesCredentialPage", () => {
   test("URL contains obrareq.cgi path marker → true", () => {
     expect(matchesCredentialPage("https://ssologin.cuny.edu/oam/server/obrareq.cgi?querystring")).toBe(true);
@@ -47,8 +45,6 @@ describe("matchesCredentialPage", () => {
   });
 });
 
-// ──── matchesTotpPage ─────────────────────────────────────────────────────────
-
 describe("matchesTotpPage", () => {
   test("URL contains /oaa-totp-factor/ → true", () => {
     expect(matchesTotpPage("https://ssologin.cuny.edu/oaa-totp-factor/step1")).toBe(true);
@@ -75,8 +71,6 @@ describe("matchesTotpPage", () => {
   });
 });
 
-// ──── matchesTotpEnrollPage ───────────────────────────────────────────────────
-
 describe("matchesTotpEnrollPage", () => {
   test("URL contains /oaa/rui/ → true", () => {
     expect(matchesTotpEnrollPage("https://ssologin.cuny.edu/oaa/rui/index.html")).toBe(true);
@@ -98,8 +92,6 @@ describe("matchesTotpEnrollPage", () => {
     expect(matchesTotpEnrollPage("")).toBe(false);
   });
 });
-
-// ──── matchesRuiMfaEnrollVerifyPage ──────────────────────────────────────────
 
 describe("matchesRuiMfaEnrollVerifyPage", () => {
   test("exact production URL → true", () => {
@@ -138,8 +130,6 @@ describe("matchesRuiMfaEnrollVerifyPage", () => {
     expect(matchesRuiMfaEnrollVerifyPage("")).toBe(false);
   });
 });
-
-// ──── constants ───────────────────────────────────────────────────────────────
 
 describe("constants", () => {
   test('SSO_LOGIN_HOST is "ssologin.cuny.edu"', () => {

@@ -2,7 +2,7 @@
  * Extension-authored banner shown on the CUNY tab when the content script
  * detects wrong credentials.
  *
- * Design goals from `overhaul-onboarding.md §Screen 4-error`:
+ * Design goals (credential-error UX):
  *   - Visually distinct from CUNY's own alerts. A banner that blends into
  *     CUNY's error UI can read as phishing; a clearly extension-owned banner
  *     reads as the student's extension talking to them.

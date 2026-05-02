@@ -18,9 +18,8 @@ import { waitForElement, waitForInputById } from "./domWait";
 let submitAttempted = false;
 
 /**
- * Plan-05 hook: tell the sidebar that we just detected a wrong-credential
- * state on the CUNY page AND show the extension-branded banner so the student
- * notices even without looking at the sidebar.
+ * Notifies the sidebar of a wrong-credential DOM signal and mounts the
+ * extension-branded banner so the student notices without looking at the sidebar.
  */
 export const reportCredentialError = async (): Promise<void> => {
   mountCredentialErrorBanner();

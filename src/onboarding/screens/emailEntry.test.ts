@@ -186,6 +186,14 @@ describe("mountEmailEntryScreen", () => {
     expect(input?.value).toBe("existing@login.cuny.edu");
   });
 
+  test("dedupes repeated @login.cuny.edu suffix when restoring snapshot", () => {
+    const { ctx } = buildCtx(root, "returning@login.cuny.edu@login.cuny.edu");
+    mountEmailEntryScreen(ctx);
+
+    const input = root.querySelector<HTMLInputElement>(EMAIL_INPUT_SELECTOR);
+    expect(input?.value).toBe("returning@login.cuny.edu");
+  });
+
   test("empty input on blur hides the hint (avoids shouting at an untouched field)", () => {
     const { ctx } = buildCtx(root);
     mountEmailEntryScreen(ctx);

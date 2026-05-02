@@ -134,7 +134,6 @@ describe("mountBiometricPrepScreen — WebAuthn failure fallback", () => {
     continueBtn.click();
     await flushPromises();
 
-    // Button text changes to "Continue anyway" — click to proceed
     expect(continueBtn.textContent).toBe("Continue anyway");
     continueBtn.click();
     expect(dispatched).toContain("BIOMETRIC_PREP_DONE");

@@ -44,8 +44,7 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
   }
 
   if (matchesTotpPage(url)) {
-    // CUNY accepted the credentials and is now asking for the TOTP challenge.
-    // Tell the sidebar to advance OPENING_CUNY → CUNY_TOTP.
+    // TOTP challenge means credentials were accepted; keep sidebar in sync with the tab.
     await announceCunyTotpChallenge();
     if (payload.totpSecret.length > 0) {
       const result = await fillTotp(payload.totpSecret);

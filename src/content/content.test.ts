@@ -23,7 +23,6 @@ import {
   unmountCredentialErrorBanner,
 } from "./banner";
 
-// ─── normalizeTotpSecretCandidate ────────────────────────────────────────────
 
 describe("normalizeTotpSecretCandidate", () => {
   describe("valid secrets", () => {
@@ -103,7 +102,6 @@ describe("normalizeTotpSecretCandidate", () => {
   });
 });
 
-// ─── isFillMessage ───────────────────────────────────────────────────────────
 
 describe("isFillMessage", () => {
   const valid = {
@@ -177,7 +175,6 @@ describe("isFillMessage", () => {
   });
 });
 
-// ─── parseTotpSecretFromEnrollDom ────────────────────────────────────────────
 
 describe("parseTotpSecretFromEnrollDom", () => {
   afterEach(() => {
@@ -228,7 +225,6 @@ describe("parseTotpSecretFromEnrollDom", () => {
   });
 });
 
-// ─── setInputValue ───────────────────────────────────────────────────────────
 
 describe("setInputValue", () => {
   afterEach(() => {
@@ -310,7 +306,6 @@ describe("setInputValue", () => {
   });
 });
 
-// ─── simulateKeystrokes ──────────────────────────────────────────────────────
 
 // eslint-disable-next-line max-lines-per-function
 describe("simulateKeystrokes", () => {
@@ -414,12 +409,10 @@ describe("simulateKeystrokes", () => {
     const inputTypes: string[] = [];
     el.addEventListener("input", (event) => inputTypes.push((event as InputEvent).inputType));
     simulateKeystrokes(el, "12");
-    // First event clears the prior value, then one insertText per character.
     expect(inputTypes).toEqual(["deleteContentBackward", "insertText", "insertText"]);
   });
 });
 
-// ─── hasCredentialErrorInDom ─────────────────────────────────────────────────
 
 describe("hasCredentialErrorInDom", () => {
   afterEach(() => {
@@ -455,7 +448,6 @@ describe("hasCredentialErrorInDom", () => {
   });
 });
 
-// ─── credential-error banner ─────────────────────────────────────────────────
 
 describe("mountCredentialErrorBanner", () => {
   afterEach(() => {

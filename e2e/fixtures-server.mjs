@@ -14,7 +14,7 @@ const fixturesDir = path.join(__dirname, "fixtures");
 function mapPathToFile(url) {
   const pathname = url.pathname;
   if (pathname.startsWith("/oam/server/auth_cred_submit")) {
-    // Plan-05: default is failed submit (#serverError). `?outcome=success`
+    // Default HTML is failed submit (#serverError). `?outcome=success` simulates
     // simulates Oracle's transient post-POST page before client redirect to TOTP.
     const outcome = url.searchParams.get("outcome");
     return outcome === "success"
