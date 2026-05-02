@@ -56,8 +56,8 @@ export const mountGuidedManageScreen: ScreenMount = (ctx: OnboardingScreenContex
   sendShowOverlayCommand({
     targetSpec: { type: "css", selector: RUI_ADD_MENU_SELECTOR },
     tooltipText: "Click Add Authentication Factor",
-    stepIndex: 1,
-    stepTotal: 4,
+    stepIndex: 2,
+    stepTotal: 8,
   });
 
   return {

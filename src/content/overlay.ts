@@ -138,14 +138,17 @@ const renderOverlay = (
   document.body.appendChild(tooltipEl);
   positionTooltip(el);
 
-  chipEl = document.createElement("div");
-  chipEl.setAttribute(CHIP_ATTR, "true");
-  chipEl.textContent = `Step ${stepIndex} of ${stepTotal}`;
-  chipEl.style.cssText =
-    `position:fixed;top:16px;right:16px;z-index:${OVERLAY_CHIP_Z_INDEX};background:#fff;` +
-    "color:#1a1a2e;padding:4px 10px;border-radius:20px;font-size:12px;" +
-    "pointer-events:none";
-  document.body.appendChild(chipEl);
+  // Only show the chip when there are multiple steps — "Step 1 of 1" is noise.
+  if (stepTotal > 1) {
+    chipEl = document.createElement("div");
+    chipEl.setAttribute(CHIP_ATTR, "true");
+    chipEl.textContent = `Step ${stepIndex} of ${stepTotal}`;
+    chipEl.style.cssText =
+      `position:fixed;top:16px;right:16px;z-index:${OVERLAY_CHIP_Z_INDEX};background:#fff;` +
+      "color:#1a1a2e;padding:4px 10px;border-radius:20px;font-size:12px;" +
+      "pointer-events:none";
+    document.body.appendChild(chipEl);
+  }
 };
 
 /**

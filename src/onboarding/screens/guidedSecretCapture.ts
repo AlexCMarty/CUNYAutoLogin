@@ -64,8 +64,8 @@ export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScree
   sendShowOverlayCommand({
     targetSpec: { type: "a11y", text: RUI_VERIFY_NOW_BTN_TEXT },
     tooltipText: RUI_VERIFY_NOW_BTN_TEXT,
-    stepIndex: 4,
-    stepTotal: 4,
+    stepIndex: 5,
+    stepTotal: 8,
   });
 
   const GUIDED_SECRET_POLL_INTERVAL_MS = 400;

@@ -145,13 +145,14 @@ test.describe("overlay: step chip", () => {
     await cunyTab.close().catch(() => {});
   });
 
-  test("step chip renders 'Step N of M' text", async () => {
+  test("step chip is hidden when there is only one step (Allow gate)", async () => {
+    // Allow overlay is a single-step action (1 of 1) — chip should be absent.
     await expect(
-      cunyTab.locator("[data-cuny-autologin-step-chip='true']")
+      cunyTab.locator("[data-cuny-autologin-highlight='true']")
     ).toBeVisible({ timeout: 5_000 });
     await expect(
       cunyTab.locator("[data-cuny-autologin-step-chip='true']")
-    ).toContainText("Step");
+    ).toBeHidden();
   });
 });
 

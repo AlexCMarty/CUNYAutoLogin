@@ -67,6 +67,12 @@ describe("showOverlay / hideOverlay lifecycle", () => {
     expect(chip?.textContent).toBe("Step 2 of 5");
   });
 
+  test("does not render step chip when stepTotal is 1", () => {
+    addAllowButton();
+    showOverlay(CSS_TARGET, "Click Allow", 1, 1, vi.fn());
+    expect(document.querySelector("[data-cuny-autologin-step-chip='true']")).toBeNull();
+  });
+
   test("hideOverlay removes all injected elements", () => {
     addAllowButton();
     showOverlay(CSS_TARGET, "Click Allow", 1, 1, vi.fn());

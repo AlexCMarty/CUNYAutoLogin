@@ -39,7 +39,7 @@ export const mountOaaSpaHomeScreen: ScreenMount = (ctx: OnboardingScreenContext)
     targetSpec: { type: "css", selector: MANAGE_SELECTOR },
     tooltipText: "Click Manage",
     stepIndex: 1,
-    stepTotal: 5,
+    stepTotal: 8,
   });
 
   return {

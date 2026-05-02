@@ -16,8 +16,8 @@ export const showSetDefaultOptionOverlay = (): void => {
   sendShowOverlayCommand({
     targetSpec: { type: "a11y", text: "Set as Default" },
     tooltipText: "Click Set as Default",
-    stepIndex: 5,
-    stepTotal: 5,
+    stepIndex: 8,
+    stepTotal: 8,
   });
 };
 
@@ -49,8 +49,8 @@ export const mountSetDefaultScreen: ScreenMount = (ctx: OnboardingScreenContext)
   sendShowOverlayCommand({
     targetSpec: { type: "css", selector: KEBAB_SELECTOR },
     tooltipText: "Open this menu",
-    stepIndex: 5,
-    stepTotal: 5,
+    stepIndex: 7,
+    stepTotal: 8,
   });
 
   return {

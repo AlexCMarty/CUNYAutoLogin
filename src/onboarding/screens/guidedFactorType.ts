@@ -58,8 +58,8 @@ export const mountGuidedFactorTypeScreen: ScreenMount = (ctx: OnboardingScreenCo
   sendShowOverlayCommand({
     targetSpec: { type: "a11y", text: TOTP_MENUITEM_TEXT },
     tooltipText: TOTP_MENUITEM_TEXT,
-    stepIndex: 3,
-    stepTotal: 4,
+    stepIndex: 4,
+    stepTotal: 8,
   });
 
   return {

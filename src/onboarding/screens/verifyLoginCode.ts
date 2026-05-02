@@ -37,8 +37,8 @@ export const mountVerifyLoginCodeScreen: ScreenMount = (ctx: OnboardingScreenCon
   sendShowOverlayCommand({
     targetSpec: { type: "a11y", text: RUI_VERIFY_BTN_LABEL },
     tooltipText: "Click to save your code",
-    stepIndex: 4,
-    stepTotal: 5,
+    stepIndex: 6,
+    stepTotal: 8,
   });
 
   return {
