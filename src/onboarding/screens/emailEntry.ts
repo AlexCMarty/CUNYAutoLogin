@@ -123,14 +123,20 @@ export const mountEmailEntryScreen: ScreenMount = (
   refreshForwardDisabled();
 
   const placeCursorBeforeAt = (): void => {
-    const position = input.value.indexOf("@");
-    if (position < 0) return;
-    try {
-      input.setSelectionRange(position, position);
-    } catch {
-      // Some input types (e.g. email in jsdom stubs) reject setSelectionRange;
-      // that's cosmetic only, the student can click to position the cursor.
-    }
+    // Browsers reject setSelectionRange on type="email". Swap to "text",
+    // position the cursor, then restore — deferred so the type change does
+    // not interfere with any in-flight focus/fill operation on this element.
+    requestAnimationFrame(() => {
+      const position = input.value.indexOf("@");
+      if (position < 0) return;
+      input.type = "text";
+      try {
+        input.setSelectionRange(position, position);
+      } catch {
+        // jsdom stubs may still throw; cursor placement is cosmetic only.
+      }
+      input.type = "email";
+    });
   };
 
   const handleFocus = (): void => {
