@@ -3,9 +3,12 @@
   "name": "CUNYAutoLogin",
   "version": "0.4.0",
   "description": "CUNYAutoLogin — encrypted credential vault and ssologin.cuny.edu auto-fill.",
-  "permissions": ["storage", "activeTab", "sidePanel"],
+  "permissions": ["storage", "activeTab", "sidePanel", "cookies"],
   "host_permissions": [
     "https://ssologin.cuny.edu/*",
+    "https://brightspace.cuny.edu/*",
+    "https://home.cunyfirst.cuny.edu/*",
+    "https://*.cunyfirst.cuny.edu/*",
     "http://127.0.0.1:4173/*"
   ],
   "action": {

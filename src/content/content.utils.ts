@@ -103,6 +103,10 @@ export interface FillMessage {
   };
 }
 
+export interface ClearSsoSiteDataMessage {
+  type: "CLEAR_SSO_SITE_DATA";
+}
+
 export function isFillMessage(msg: unknown): msg is FillMessage {
   if (typeof msg !== "object" || msg === null) return false;
   const record = msg as Record<string, unknown>;
@@ -115,4 +119,10 @@ export function isFillMessage(msg: unknown): msg is FillMessage {
     typeof payload.password === "string" &&
     typeof payload.totpSecret === "string"
   );
+}
+
+export function isClearSsoSiteDataMessage(msg: unknown): msg is ClearSsoSiteDataMessage {
+  if (typeof msg !== "object" || msg === null) return false;
+  const record = msg as Record<string, unknown>;
+  return record.type === "CLEAR_SSO_SITE_DATA";
 }

@@ -9,6 +9,7 @@ export interface DebugPanelDeps {
   setStatus: (message: string, ok?: boolean) => void;
   getSessionPayload: () => VaultPayload | null;
   onClearVault: () => void;
+  onClearLiveSessions: () => Promise<boolean>;
 }
 
 export function mountDebugPanel(deps: DebugPanelDeps): void {
@@ -28,7 +29,13 @@ export function mountDebugPanel(deps: DebugPanelDeps): void {
   clearVaultBtn.className = "secondary";
   clearVaultBtn.textContent = "Clear vault — debug (reset like fresh install)";
 
-  section.append(testBtn, clearVaultBtn);
+  const clearLiveSessionsBtn = document.createElement("button");
+  clearLiveSessionsBtn.type = "button";
+  clearLiveSessionsBtn.id = "clear-live-sessions-debug-btn";
+  clearLiveSessionsBtn.className = "secondary";
+  clearLiveSessionsBtn.textContent = "Log out of CUNY sites (clear session cookies)";
+
+  section.append(testBtn, clearVaultBtn, clearLiveSessionsBtn);
   deps.els.form.parentElement?.appendChild(section);
 
   testBtn.addEventListener("click", async () => {
@@ -75,5 +82,14 @@ export function mountDebugPanel(deps: DebugPanelDeps): void {
       return;
     }
     deps.onClearVault();
+  });
+
+  clearLiveSessionsBtn.addEventListener("click", async () => {
+    const ok = await deps.onClearLiveSessions();
+    if (!ok) {
+      deps.setStatus("Could not clear CUNY session cookies.");
+      return;
+    }
+    deps.setStatus("Cleared CUNY session cookies. Reload the live tab to verify logout.", true);
   });
 }

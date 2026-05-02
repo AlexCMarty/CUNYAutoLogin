@@ -9,6 +9,7 @@ import {
 } from "../crypto/vault";
 import { clearOnboardingComplete } from "../onboarding/onboardingComplete";
 import { clearResumeSnapshotSession } from "../onboarding/resumeSession";
+import type { LogoutCunySessionsAck, LogoutCunySessionsRequest } from "../onboarding/messages";
 import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 import { LOGIN_EMAIL_SUFFIX, PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../cuny/ssoSite";
 import {
@@ -431,6 +432,33 @@ async function resetToFreshInstall(els: SidebarDom): Promise<void> {
   setStatus("Vault cleared. State matches a fresh install.", true);
 }
 
+async function maybeMountDevDebugPanel(els: SidebarDom): Promise<void> {
+  if (import.meta.env.MODE !== "development") {
+    return;
+  }
+  const { mountDebugPanel } = await import("./debugPanel");
+  mountDebugPanel({
+    els,
+    setStatus,
+    getSessionPayload: () => sessionPayload,
+    onClearVault: () => void resetToFreshInstall(els),
+    onClearLiveSessions: async () => {
+      const message: LogoutCunySessionsRequest = {
+        type: "LOGOUT_CUNY_SESSIONS",
+        site: "all",
+      };
+      try {
+        const response = (await browser.runtime.sendMessage(message)) as
+          | LogoutCunySessionsAck
+          | undefined;
+        return response?.ok === true;
+      } catch {
+        return false;
+      }
+    },
+  });
+}
+
 async function init(): Promise<void> {
   const elsResult = getEls();
   if (elsResult.isErr()) {
@@ -503,15 +531,7 @@ async function init(): Promise<void> {
 
   els.lockBtn.addEventListener("click", () => void handleLock(els));
 
-  if (import.meta.env.MODE === "development") {
-    const { mountDebugPanel } = await import("./debugPanel");
-    mountDebugPanel({
-      els,
-      setStatus,
-      getSessionPayload: () => sessionPayload,
-      onClearVault: () => void resetToFreshInstall(els),
-    });
-  }
+  await maybeMountDevDebugPanel(els);
 }
 
 void init().catch((error) => {

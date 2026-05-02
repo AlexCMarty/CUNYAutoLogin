@@ -91,6 +91,30 @@ export type ClearOnboardingCredentials = {
 
 export type OnboardingCredentialsAck = { readonly ok: boolean };
 
+export type LogoutSessionSite = "all" | "brightspace" | "cunyfirst" | "ssologin";
+
+export type LogoutCunySessionsRequest = {
+  readonly type: "LOGOUT_CUNY_SESSIONS";
+  readonly site?: LogoutSessionSite;
+};
+
+export type LogoutCunySessionsAck = {
+  readonly ok: boolean;
+  readonly removedCount: number;
+};
+
+export const isLogoutSessionSite = (value: unknown): value is LogoutSessionSite =>
+  value === "all" || value === "brightspace" || value === "cunyfirst" || value === "ssologin";
+
+export const isLogoutCunySessionsRequest = (
+  value: unknown
+): value is LogoutCunySessionsRequest => {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  if (record.type !== "LOGOUT_CUNY_SESSIONS") return false;
+  return record.site === undefined || isLogoutSessionSite(record.site);
+};
+
 export const isStageOnboardingCredentials = (
   value: unknown
 ): value is StageOnboardingCredentials => {

@@ -14,12 +14,14 @@ import {
 import {
   hasOnboardingMessageType,
   isClearOnboardingCredentials,
+  isLogoutCunySessionsRequest,
   isOnboardingMessage,
   isOnboardingOverlayCommand,
   isOnboardingReopenCunyTab,
   isStageOnboardingCredentials,
   normalizeAutoFillOtpContext,
   type AutoFillResponse,
+  type LogoutSessionSite,
   type OnboardingAck,
   type OnboardingCredentialsAck,
   type OnboardingOverlayCommand,
@@ -98,6 +100,82 @@ let stagedOnboardingCredentials: StagedOnboardingCredentials | null = null;
  * ONBOARDING_CONTENT_SCRIPT_READY when they load on a new CUNY page.
  */
 let stagedOverlayCommand: OnboardingOverlayCommand | null = null;
+
+type CookieRemovalSpec = {
+  readonly name: string;
+  readonly url: string;
+};
+
+const LOGOUT_COOKIE_SPECS_BY_SITE: Record<Exclude<LogoutSessionSite, "all">, readonly CookieRemovalSpec[]> = {
+  brightspace: [
+    { name: "d2lSessionVal", url: "https://brightspace.cuny.edu/" },
+    { name: "d2lSecureSessionVal", url: "https://brightspace.cuny.edu/" },
+  ],
+  cunyfirst: [
+    { name: "PS_TOKEN", url: "https://home.cunyfirst.cuny.edu/" },
+    { name: "cnyihprd-8080-PORTAL-PSJSESSIONID", url: "https://home.cunyfirst.cuny.edu/" },
+    { name: "OAMAuthnCookie_home.cunyfirst.cuny.edu_443", url: "https://home.cunyfirst.cuny.edu/" },
+  ],
+  ssologin: [
+    { name: "oaaCtx", url: "https://ssologin.cuny.edu/" },
+    { name: "_WL_AUTHCOOKIE_JSESSIONID", url: "https://ssologin.cuny.edu/" },
+    { name: "OAMAuthnCookie_ssologin.cuny.edu_443", url: "https://ssologin.cuny.edu/" },
+    { name: "OAM_REQ_0", url: "https://ssologin.cuny.edu/" },
+    { name: "OAM_REQ_1", url: "https://ssologin.cuny.edu/" },
+    { name: "OAM_REQ_COUNT", url: "https://ssologin.cuny.edu/" },
+    { name: "BIGipServer/1cH5tvcc6Xb1GCKLdbbKA", url: "https://ssologin.cuny.edu/" },
+    { name: "BIGipServera/wVmqC4X189EXHfdIK97w", url: "https://ssologin.cuny.edu/" },
+    { name: "OAM_ID", url: "https://ssologin.cuny.edu/" },
+    { name: "ORA_OSFS_SESSION", url: "https://ssologin.cuny.edu/" },
+    { name: "OAM_JSESSIONID", url: "https://ssologin.cuny.edu/" },
+    { name: "ObSSOCookie", url: "https://ssologin.cuny.edu/" },
+  ],
+};
+
+const resolveLogoutCookieSpecs = (site: LogoutSessionSite): readonly CookieRemovalSpec[] => {
+  if (site !== "all") {
+    return LOGOUT_COOKIE_SPECS_BY_SITE[site];
+  }
+  return [
+    ...LOGOUT_COOKIE_SPECS_BY_SITE.brightspace,
+    ...LOGOUT_COOKIE_SPECS_BY_SITE.cunyfirst,
+    ...LOGOUT_COOKIE_SPECS_BY_SITE.ssologin,
+  ];
+};
+
+const clearLoggedInCookies = async (site: LogoutSessionSite): Promise<{ ok: boolean; removedCount: number }> => {
+  const specs = resolveLogoutCookieSpecs(site);
+  let removedCount = 0;
+
+  for (const spec of specs) {
+    try {
+      const removed = await browser.cookies.remove({
+        name: spec.name,
+        url: spec.url,
+      });
+      if (removed) {
+        removedCount += 1;
+      }
+    } catch {
+      // Ignore per-cookie failures so one missing permission/host does not
+      // block deleting other documented session cookies.
+    }
+  }
+
+  return { ok: true, removedCount };
+};
+
+const clearSsoSiteDataInTabs = async (): Promise<void> => {
+  const ssoTabs = await browser.tabs.query({ url: ["https://ssologin.cuny.edu/*"] });
+  for (const ssoTab of ssoTabs) {
+    if (typeof ssoTab.id !== "number") continue;
+    try {
+      await browser.tabs.sendMessage(ssoTab.id, { type: "CLEAR_SSO_SITE_DATA" });
+    } catch {
+      // Ignore tabs without an attached content script.
+    }
+  }
+};
 
 /** Exported only for tests; not part of any wire contract. */
 export const __test_getStagedOverlayCommand = (): OnboardingOverlayCommand | null =>
@@ -302,6 +380,22 @@ browser.runtime.onMessage.addListener(
             () => ({ ok: false as const })
           )
         ),
+      LOGOUT_CUNY_SESSIONS: () =>
+        (async () => {
+          if (!isLogoutCunySessionsRequest(message)) {
+            return { ok: false as const, removedCount: 0 };
+          }
+          const site = message.site ?? "all";
+          const result = await clearLoggedInCookies(site);
+          if (site === "all" || site === "ssologin") {
+            try {
+              await clearSsoSiteDataInTabs();
+            } catch {
+              // Keep cookie-logout success even if tab-scoped storage clear fails.
+            }
+          }
+          return result;
+        })(),
       AUTO_FILL_REQUEST: (typedMessage) =>
         resolveAutoFillResponse(normalizeAutoFillOtpContext(typedMessage.otpContext)),
     });

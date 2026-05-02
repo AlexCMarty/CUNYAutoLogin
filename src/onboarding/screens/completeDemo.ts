@@ -1,5 +1,5 @@
 import browser from "webextension-polyfill";
-import type { OnboardingReopenCunyTab } from "../messages";
+import type { LogoutCunySessionsRequest, OnboardingReopenCunyTab } from "../messages";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const NARRATION_STEPS = [
@@ -57,7 +57,15 @@ export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContex
     skipBtn.hidden = true;
     statusEl.hidden = false;
 
-    const msg: OnboardingReopenCunyTab = { type: "ONBOARDING_REOPEN_CUNY_TAB" };
+    const logoutMsg: LogoutCunySessionsRequest = {
+      type: "LOGOUT_CUNY_SESSIONS",
+      site: "all",
+    };
+    void browser.runtime.sendMessage(logoutMsg).catch(() => undefined);
+    const msg: OnboardingReopenCunyTab = {
+      type: "ONBOARDING_REOPEN_CUNY_TAB",
+      url: "https://brightspace.cuny.edu/d2l/home",
+    };
     void browser.runtime.sendMessage(msg).catch(() => undefined);
 
     dispatch("DEMO_REQUESTED");

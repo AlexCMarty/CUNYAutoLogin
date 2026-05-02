@@ -87,12 +87,18 @@ describe("mountCompleteDemoScreen — Show me", () => {
     vi.clearAllMocks();
   });
 
-  test("Show me sends ONBOARDING_REOPEN_CUNY_TAB message", () => {
+  test("Show me logs out sessions then sends ONBOARDING_REOPEN_CUNY_TAB", () => {
     const { ctx, root } = makeCtx();
     mountCompleteDemoScreen(ctx);
     root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
     expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "ONBOARDING_REOPEN_CUNY_TAB" })
+      expect.objectContaining({ type: "LOGOUT_CUNY_SESSIONS", site: "all" })
+    );
+    expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "ONBOARDING_REOPEN_CUNY_TAB",
+        url: "https://brightspace.cuny.edu/d2l/home",
+      })
     );
   });
 
