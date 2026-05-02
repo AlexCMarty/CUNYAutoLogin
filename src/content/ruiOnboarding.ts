@@ -22,6 +22,22 @@ export type { RuiSpaView } from "./ruiSpaView";
 
 const posted = new Set<OnboardingPageStage>();
 
+type RuiFactorJson = {
+  readonly factorAlias?: unknown;
+  readonly factorIsValidated?: unknown;
+  readonly factorIsPreferred?: unknown;
+};
+
+const parseRuiFactorAttribute = (raw: string): RuiFactorJson | null => {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    return parsed as RuiFactorJson;
+  } catch {
+    return null;
+  }
+};
+
 const postStage = (stage: OnboardingPageStage): void => {
   if (posted.has(stage)) return;
   posted.add(stage);
@@ -34,17 +50,10 @@ const findUnverifiedCunyAutologin = (doc: Document): boolean => {
   for (const el of doc.querySelectorAll(RUI_FACTOR_PANEL_SELECTOR)) {
     const raw = el.getAttribute("factor");
     if (!raw) continue;
-    try {
-      const parsedFactor = JSON.parse(raw) as {
-        factorAlias?: string;
-        factorIsValidated?: boolean;
-      };
-      if (typeof parsedFactor !== "object" || parsedFactor === null) continue;
-      if (parsedFactor.factorAlias === EXTENSION_NAME && parsedFactor.factorIsValidated === false) {
-        return true;
-      }
-    } catch {
-      // `factor` is server-controlled JSON; skip parse errors so one bad panel cannot break scanning.
+    const parsedFactor = parseRuiFactorAttribute(raw);
+    if (!parsedFactor) continue;
+    if (parsedFactor.factorAlias === EXTENSION_NAME && parsedFactor.factorIsValidated === false) {
+      return true;
     }
   }
   return false;
@@ -57,21 +66,13 @@ const findCunyAutologinPanel = (doc: Document): {
   for (const el of doc.querySelectorAll(RUI_FACTOR_PANEL_SELECTOR)) {
     const raw = el.getAttribute("factor");
     if (!raw) continue;
-    try {
-      const parsedFactor = JSON.parse(raw) as {
-        factorAlias?: string;
-        factorIsValidated?: boolean;
-        factorIsPreferred?: boolean;
-      };
-      if (typeof parsedFactor !== "object" || parsedFactor === null) continue;
-      if (parsedFactor.factorAlias !== EXTENSION_NAME) continue;
-      return {
-        isValidated: parsedFactor.factorIsValidated === true,
-        isPreferred: parsedFactor.factorIsPreferred === true,
-      };
-    } catch {
-      // `factor` is server-controlled JSON; skip parse errors so one bad panel cannot break scanning.
-    }
+    const parsedFactor = parseRuiFactorAttribute(raw);
+    if (!parsedFactor) continue;
+    if (parsedFactor.factorAlias !== EXTENSION_NAME) continue;
+    return {
+      isValidated: parsedFactor.factorIsValidated === true,
+      isPreferred: parsedFactor.factorIsPreferred === true,
+    };
   }
   return null;
 };
@@ -108,13 +109,8 @@ const isCunyAutologinKebabClick = (target: Element): boolean => {
   if (!panel) return false;
   const raw = panel.getAttribute("factor");
   if (!raw) return false;
-  try {
-    const parsedFactor = JSON.parse(raw) as { factorAlias?: string };
-    if (typeof parsedFactor !== "object" || parsedFactor === null) return false;
-    return parsedFactor.factorAlias === EXTENSION_NAME;
-  } catch {
-    return false;
-  }
+  const parsedFactor = parseRuiFactorAttribute(raw);
+  return parsedFactor !== null && parsedFactor.factorAlias === EXTENSION_NAME;
 };
 
 const installMenuProgressClickReporters = (): void => {

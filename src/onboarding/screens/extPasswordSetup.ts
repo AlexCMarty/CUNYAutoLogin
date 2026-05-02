@@ -18,10 +18,19 @@ export const computePasswordStrength = (pw: string): PasswordStrength => {
   return "Fair";
 };
 
-// eslint-disable-next-line max-lines-per-function
-export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
-  const { doc, root, dispatch, getSnapshot } = ctx;
+type ExtPasswordRefs = {
+  readonly container: HTMLElement;
+  readonly pwInput: HTMLInputElement;
+  readonly pwToggle: HTMLButtonElement;
+  readonly confirmInput: HTMLInputElement;
+  readonly confirmToggle: HTMLButtonElement;
+  readonly strengthSpan: HTMLSpanElement;
+  readonly matchIndicator: HTMLSpanElement;
+  readonly forwardBtn: HTMLButtonElement;
+  readonly errorMsg: HTMLParagraphElement;
+};
 
+const createExtPasswordContainer = (doc: Document): HTMLElement => {
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "EXT_PASSWORD_SETUP";
   container.className = "onboarding-screen onboarding-screen-ext-password";
@@ -42,7 +51,13 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
   recovery.textContent =
     "If you forget this password, just run setup again — it takes about 5 minutes.";
   container.appendChild(recovery);
+  return container;
+};
 
+const appendExtPasswordFields = (
+  doc: Document,
+  container: HTMLElement
+): Omit<ExtPasswordRefs, "container"> => {
   const pwLabel = doc.createElement("label");
   pwLabel.className = "onboarding-field-label";
   pwLabel.textContent = "Choose a password";
@@ -118,6 +133,80 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
   forwardBtn.disabled = true;
   container.appendChild(forwardBtn);
 
+  return {
+    pwInput,
+    pwToggle,
+    confirmInput,
+    confirmToggle,
+    strengthSpan,
+    matchIndicator,
+    forwardBtn,
+    errorMsg,
+  };
+};
+
+const buildExtPasswordSetupRefs = (doc: Document): ExtPasswordRefs => {
+  const container = createExtPasswordContainer(doc);
+  const fields = appendExtPasswordFields(doc, container);
+  return { container, ...fields };
+};
+
+const runExtPasswordVaultSave = async (
+  getSnapshot: OnboardingScreenContext["getSnapshot"],
+  dispatch: OnboardingScreenContext["dispatch"],
+  refs: ExtPasswordRefs,
+  syncValidation: () => void
+): Promise<void> => {
+  const { pwInput, forwardBtn, errorMsg } = refs;
+  const extensionPassword = pwInput.value;
+  forwardBtn.disabled = true;
+  errorMsg.hidden = true;
+
+  try {
+    const { email, password } = getSnapshot();
+    const sessionResult = await browser.storage.session?.get(
+      PENDING_TOTP_SECRET_SESSION_KEY
+    );
+    const rawSecret = sessionResult?.[PENDING_TOTP_SECRET_SESSION_KEY];
+    const totpSecret = typeof rawSecret === "string" ? rawSecret : "";
+
+    const encResult = await encryptVault({ email, password, totpSecret }, extensionPassword);
+    if (encResult.isErr()) {
+      errorMsg.hidden = false;
+      syncValidation();
+      return;
+    }
+
+    await browser.storage.local.set({ [VAULT_STORAGE_KEY]: encResult.value });
+    await browser.storage.session?.set({ [SESSION_MASTER_KEY]: extensionPassword });
+    await browser.storage.session?.remove(PENDING_TOTP_SECRET_SESSION_KEY);
+
+    dispatch("EXT_PASSWORD_SAVED");
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn("[CUNYAutoLogin] extPasswordSetup: unexpected vault save error", error);
+    }
+    errorMsg.hidden = false;
+    syncValidation();
+  }
+};
+
+const attachExtPasswordSetupHandlers = (
+  ctx: Pick<OnboardingScreenContext, "dispatch" | "getSnapshot">,
+  refs: ExtPasswordRefs
+): (() => void) => {
+  const { dispatch, getSnapshot } = ctx;
+  const {
+    pwInput,
+    pwToggle,
+    confirmInput,
+    confirmToggle,
+    strengthSpan,
+    matchIndicator,
+    forwardBtn,
+  } = refs;
+
   const syncValidation = (): void => {
     const pw = pwInput.value;
     const confirm = confirmInput.value;
@@ -160,51 +249,39 @@ export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenCo
     if (event.key === "Enter") forwardBtn.click();
   };
 
+  const handleForwardClick = (): void => {
+    void runExtPasswordVaultSave(getSnapshot, dispatch, refs, syncValidation);
+  };
+
   pwInput.addEventListener("input", syncValidation);
   pwInput.addEventListener("keydown", handlePwKeydown);
   confirmInput.addEventListener("input", syncValidation);
   confirmInput.addEventListener("keydown", handleConfirmKeydown);
   pwToggle.addEventListener("click", handlePwToggle);
   confirmToggle.addEventListener("click", handleConfirmToggle);
+  forwardBtn.addEventListener("click", handleForwardClick);
 
-  forwardBtn.addEventListener("click", () => {
-    const extensionPassword = pwInput.value;
-    forwardBtn.disabled = true;
-    errorMsg.hidden = true;
+  return () => {
+    pwInput.removeEventListener("input", syncValidation);
+    pwInput.removeEventListener("keydown", handlePwKeydown);
+    confirmInput.removeEventListener("input", syncValidation);
+    confirmInput.removeEventListener("keydown", handleConfirmKeydown);
+    pwToggle.removeEventListener("click", handlePwToggle);
+    confirmToggle.removeEventListener("click", handleConfirmToggle);
+    forwardBtn.removeEventListener("click", handleForwardClick);
+  };
+};
 
-    void (async () => {
-      try {
-        const { email, password } = getSnapshot();
-        const sessionResult = await browser.storage.session?.get(
-          PENDING_TOTP_SECRET_SESSION_KEY
-        );
-        const rawSecret = sessionResult?.[PENDING_TOTP_SECRET_SESSION_KEY];
-        const totpSecret = typeof rawSecret === "string" ? rawSecret : "";
-
-        const encResult = await encryptVault({ email, password, totpSecret }, extensionPassword);
-        if (encResult.isErr()) {
-          errorMsg.hidden = false;
-          syncValidation();
-          return;
-        }
-
-        await browser.storage.local.set({ [VAULT_STORAGE_KEY]: encResult.value });
-        await browser.storage.session?.set({ [SESSION_MASTER_KEY]: extensionPassword });
-        await browser.storage.session?.remove(PENDING_TOTP_SECRET_SESSION_KEY);
-
-        dispatch("EXT_PASSWORD_SAVED");
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console
-          console.warn("[CUNYAutoLogin] extPasswordSetup: unexpected vault save error", error);
-        }
-        errorMsg.hidden = false;
-        syncValidation();
-      }
-    })();
-  });
-
-  root.appendChild(container);
-  pwInput.focus();
-  return { unmount: () => container.remove() };
+export const mountExtPasswordSetupScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
+  const { doc, root, dispatch, getSnapshot } = ctx;
+  const refs = buildExtPasswordSetupRefs(doc);
+  const detach = attachExtPasswordSetupHandlers({ dispatch, getSnapshot }, refs);
+  root.appendChild(refs.container);
+  refs.pwInput.focus();
+  return {
+    unmount: () => {
+      detach();
+      refs.container.remove();
+    },
+  };
 };

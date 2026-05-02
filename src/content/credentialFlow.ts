@@ -137,7 +137,7 @@ export const handleCredentialPageFlow = async (
 
 export const handleAutoFillFailureCredentialError = async (
   log: (...args: unknown[]) => void,
-  reason: "no_session_master" | "no_vault" | "decrypt_error"
+  reason: "no_session_master" | "no_vault" | "decrypt_error" | "storage_error"
 ): Promise<void> => {
   log("autoFill:", reason);
   const url = window.location.href;

@@ -68,7 +68,17 @@ export async function loadVaultSessionSnapshot(
   storage?: SnapshotStorage
 ): Promise<VaultSessionSnapshot> {
   const resolvedStorage = storage ?? (await extensionStorage());
-  const localResult = await resolvedStorage.local.get(VAULT_STORAGE_KEY);
+  let localResult: Record<string, unknown>;
+  try {
+    localResult = await resolvedStorage.local.get(VAULT_STORAGE_KEY);
+  } catch {
+    return {
+      mode: "setup",
+      storedVault: null,
+      sessionMasterPassword: null,
+      sessionPayload: null,
+    };
+  }
   const raw = localResult[VAULT_STORAGE_KEY];
   let storedVault: StoredVault | null = null;
   if (raw !== undefined && raw !== null && isStoredVault(raw)) {

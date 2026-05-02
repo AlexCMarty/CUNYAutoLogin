@@ -312,13 +312,13 @@ describe("AUTO_FILL_REQUEST — failure paths", () => {
     });
   });
 
-  test("session.get throws → decrypt_error", async () => {
+  test("session.get throws → storage_error", async () => {
     vi.mocked(browser.storage.session!.get).mockRejectedValueOnce(
       new Error("session unavailable")
     );
     expect(await handler({ type: "AUTO_FILL_REQUEST" }, SENDER)).toEqual({
       success: false,
-      reason: "decrypt_error",
+      reason: "storage_error",
     });
   });
 
@@ -330,13 +330,13 @@ describe("AUTO_FILL_REQUEST — failure paths", () => {
     });
   });
 
-  test("local.get throws → decrypt_error", async () => {
+  test("local.get throws → storage_error", async () => {
     vi.mocked(browser.storage.local.get).mockRejectedValueOnce(
       new Error("storage error")
     );
     expect(await handler({ type: "AUTO_FILL_REQUEST" }, SENDER)).toEqual({
       success: false,
-      reason: "decrypt_error",
+      reason: "storage_error",
     });
   });
 

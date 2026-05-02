@@ -47,26 +47,30 @@ export const EMAIL_INLINE_HINT_SELECTOR =
 export const EMAIL_CREDENTIAL_ERROR_SELECTOR =
   "[data-onboarding-email-credential-error='true']";
 
-// Screen mount functions are intentionally long: they build DOM, register all
-// event listeners, and return a single cleanup handle. Splitting by concern
-// would require threading many refs across helper functions.
-// eslint-disable-next-line max-lines-per-function
-export const mountEmailEntryScreen: ScreenMount = (
-  ctx: OnboardingScreenContext
-) => {
-  const { doc, root, dispatch, setEmail, setCredentialError, getSnapshot } = ctx;
+type EmailEntryDom = {
+  readonly container: HTMLElement;
+  readonly credentialError: HTMLParagraphElement;
+  readonly input: HTMLInputElement;
+  readonly hint: HTMLParagraphElement;
+  readonly forward: HTMLButtonElement;
+  readonly back: HTMLButtonElement;
+};
 
+const buildEmailEntryDom = (
+  doc: Document,
+  seededEmail: string,
+  credentialErrorVisible: boolean
+): EmailEntryDom => {
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "EMAIL_ENTRY";
   container.className = "onboarding-screen onboarding-screen-email";
 
-  // Inline banner when the CUNY tab reported wrong credentials (copy matches password screen).
   const credentialError = doc.createElement("p");
   credentialError.dataset.onboardingEmailCredentialError = "true";
   credentialError.className = "onboarding-credential-error";
   credentialError.setAttribute("role", "alert");
   credentialError.textContent = CREDENTIAL_ERROR_INLINE_COPY;
-  credentialError.hidden = getSnapshot().credentialError === null;
+  credentialError.hidden = !credentialErrorVisible;
 
   const label = doc.createElement("label");
   label.className = "onboarding-label";
@@ -85,9 +89,7 @@ export const mountEmailEntryScreen: ScreenMount = (
   input.inputMode = "email";
   input.spellcheck = false;
   input.setAttribute("aria-describedby", "onboarding-email-hint");
-  // Seed with the suffix so the student can type a username and skip the "@".
-  const seeded = stripDuplicateLoginSuffix(getSnapshot().email);
-  input.value = seeded || LOGIN_EMAIL_SUFFIX;
+  input.value = seededEmail || LOGIN_EMAIL_SUFFIX;
 
   label.appendChild(labelText);
   label.appendChild(subtext);
@@ -122,32 +124,41 @@ export const mountEmailEntryScreen: ScreenMount = (
   container.appendChild(label);
   container.appendChild(hint);
   container.appendChild(actions);
-  root.appendChild(container);
+
+  return { container, credentialError, input, hint, forward, back };
+};
+
+const placeCursorBeforeAtOnEmailInput = (input: HTMLInputElement): void => {
+  requestAnimationFrame(() => {
+    const position = input.value.indexOf("@");
+    if (position < 0) return;
+    input.type = "text";
+    try {
+      input.setSelectionRange(position, position);
+    } catch {
+      // jsdom stubs may still throw; cursor placement is cosmetic only.
+    }
+    input.type = "email";
+  });
+};
+
+const attachEmailEntryHandlers = (
+  ctx: Pick<
+    OnboardingScreenContext,
+    "dispatch" | "setEmail" | "setCredentialError"
+  >,
+  dom: EmailEntryDom
+): (() => void) => {
+  const { dispatch, setEmail, setCredentialError } = ctx;
+  const { input, forward, back, hint, credentialError } = dom;
 
   const refreshForwardDisabled = (): void => {
     forward.disabled = !validateEmail(input.value);
   };
   refreshForwardDisabled();
 
-  const placeCursorBeforeAt = (): void => {
-    // Browsers reject setSelectionRange on type="email". Swap to "text",
-    // position the cursor, then restore — deferred so the type change does
-    // not interfere with any in-flight focus/fill operation on this element.
-    requestAnimationFrame(() => {
-      const position = input.value.indexOf("@");
-      if (position < 0) return;
-      input.type = "text";
-      try {
-        input.setSelectionRange(position, position);
-      } catch {
-        // jsdom stubs may still throw; cursor placement is cosmetic only.
-      }
-      input.type = "email";
-    });
-  };
-
   const handleFocus = (): void => {
-    placeCursorBeforeAt();
+    placeCursorBeforeAtOnEmailInput(input);
   };
 
   const handleInput = (): void => {
@@ -156,8 +167,6 @@ export const mountEmailEntryScreen: ScreenMount = (
     if (!hint.hidden && validateEmail(input.value)) {
       hint.hidden = true;
     }
-    // Per spec: once the student starts correcting the failing field, the red
-    // banner goes away — they are no longer looking at stale state.
     if (!credentialError.hidden) {
       credentialError.hidden = true;
       setCredentialError(null);
@@ -202,20 +211,33 @@ export const mountEmailEntryScreen: ScreenMount = (
   forward.addEventListener("click", handleForward);
   back.addEventListener("click", handleBack);
 
-  // Prime the in-memory snapshot so the next screen sees whatever the student
-  // types, even if they never fire an input event in unit tests.
-  setEmail(stripDuplicateLoginSuffix(input.value));
-  input.focus();
+  return () => {
+    input.removeEventListener("focus", handleFocus);
+    input.removeEventListener("input", handleInput);
+    input.removeEventListener("blur", handleBlur);
+    input.removeEventListener("keydown", handleKeydown);
+    forward.removeEventListener("click", handleForward);
+    back.removeEventListener("click", handleBack);
+  };
+};
 
+export const mountEmailEntryScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
+  const { doc, root, dispatch, setEmail, setCredentialError, getSnapshot } = ctx;
+  const snap = getSnapshot();
+  const seeded = stripDuplicateLoginSuffix(snap.email);
+  const dom = buildEmailEntryDom(
+    doc,
+    seeded,
+    snap.credentialError !== null
+  );
+  root.appendChild(dom.container);
+  const detach = attachEmailEntryHandlers({ dispatch, setEmail, setCredentialError }, dom);
+  setEmail(stripDuplicateLoginSuffix(dom.input.value));
+  dom.input.focus();
   return {
     unmount: () => {
-      input.removeEventListener("focus", handleFocus);
-      input.removeEventListener("input", handleInput);
-      input.removeEventListener("blur", handleBlur);
-      input.removeEventListener("keydown", handleKeydown);
-      forward.removeEventListener("click", handleForward);
-      back.removeEventListener("click", handleBack);
-      container.remove();
+      detach();
+      dom.container.remove();
     },
   };
 };

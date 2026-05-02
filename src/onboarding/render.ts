@@ -30,44 +30,27 @@ import {
   type OnboardingPageStage,
   isOnboardingMessage,
 } from "./messages";
-import { mountAllowGateScreen } from "./screens/allowGate";
-import { mountCunyTotpScreen } from "./screens/cunyTotp";
-import { mountEmailEntryScreen } from "./screens/emailEntry";
-import { mountBiometricOfferScreen } from "./screens/biometricOffer";
-import { mountBiometricPrepScreen } from "./screens/biometricPrep";
-import { mountCompleteDemoScreen } from "./screens/completeDemo";
-import { mountCompleteDoneScreen } from "./screens/completeDone";
-import { mountExtPasswordSetupScreen } from "./screens/extPasswordSetup";
-import { mountGuidedAddFactorScreen } from "./screens/guidedAddFactor";
-import { mountGuidedFactorTypeScreen } from "./screens/guidedFactorType";
-import { mountGuidedManageScreen } from "./screens/guidedManage";
-import { mountGuidedSecretCaptureScreen } from "./screens/guidedSecretCapture";
-import { mountOaaSpaHomeScreen } from "./screens/oaaSpaHome";
-import { mountOpeningCunyScreen } from "./screens/openingCuny";
-import { mountPasswordEntryScreen } from "./screens/passwordEntry";
-import { mountSetDefaultScreen, showSetDefaultOptionOverlay } from "./screens/setDefault";
-import { mountVerifyLoginCodeScreen } from "./screens/verifyLoginCode";
+import { markOnboardingComplete } from "./onboardingComplete";
+import { SCREEN_MOUNTS } from "./screenMounts";
+import { showSetDefaultOptionOverlay } from "./screens/setDefault";
 import type {
   OnboardingScreenContext,
   ScreenHandle,
-  ScreenMount,
 } from "./screens/screenContext";
-import { mountWelcomeScreen } from "./screens/welcome";
-import { markOnboardingComplete } from "./onboardingComplete";
 import {
   clearResumeSnapshotSession,
   loadResumeSnapshotFromSession,
   saveResumeSnapshotSession,
 } from "./resumeSession";
 import {
-  BEAD_LABELS,
   type BeadStage,
   type OnboardingState,
-  beadForState,
   safeResumeStateFor,
 } from "./state";
 import { type OnboardingEvent } from "./transitions";
 import { routeByType } from "../runtime/messageRouter";
+
+export { beadViewModelForState, type BeadViewModel } from "./beadViewModel";
 
 export type ScreenRenderer = {
   readonly state: OnboardingState;
@@ -80,45 +63,6 @@ export type OnboardingRenderContext = {
   readonly currentState: OnboardingState;
   readonly bead: BeadStage;
   readonly dispatch: (event: OnboardingEvent) => void;
-};
-
-export type BeadViewModel = {
-  readonly stage: BeadStage;
-  readonly label: string;
-  readonly status: "pending" | "active" | "completed";
-};
-
-export const beadViewModelForState = (
-  state: OnboardingState
-): readonly BeadViewModel[] => {
-  const activeBead = beadForState(state);
-  const stages: readonly BeadStage[] = [1, 2, 3, 4, 5];
-  return stages.map((stage) => ({
-    stage,
-    label: BEAD_LABELS[stage],
-    status: stage < activeBead ? "completed" : stage === activeBead ? "active" : "pending",
-  }));
-};
-
-const SCREEN_MOUNTS: Partial<Record<OnboardingState, ScreenMount>> = {
-  WELCOME: mountWelcomeScreen,
-  EMAIL_ENTRY: mountEmailEntryScreen,
-  PASSWORD_ENTRY: mountPasswordEntryScreen,
-  OPENING_CUNY: mountOpeningCunyScreen,
-  CUNY_TOTP: mountCunyTotpScreen,
-  ALLOW_GATE: mountAllowGateScreen,
-  OAA_SPA_HOME: mountOaaSpaHomeScreen,
-  GUIDED_MANAGE: mountGuidedManageScreen,
-  GUIDED_ADD_FACTOR: mountGuidedAddFactorScreen,
-  GUIDED_FACTOR_TYPE: mountGuidedFactorTypeScreen,
-  GUIDED_SECRET_CAPTURE: mountGuidedSecretCaptureScreen,
-  VERIFY_LOGIN_CODE: mountVerifyLoginCodeScreen,
-  SET_DEFAULT: mountSetDefaultScreen,
-  EXT_PASSWORD_SETUP: mountExtPasswordSetupScreen,
-  BIOMETRIC_OFFER: mountBiometricOfferScreen,
-  BIOMETRIC_PREP: mountBiometricPrepScreen,
-  COMPLETE_DEMO: mountCompleteDemoScreen,
-  COMPLETE_DONE: mountCompleteDoneScreen,
 };
 
 export const ONBOARDING_ROOT_ID = "onboarding-root";
@@ -630,34 +574,81 @@ const loadAndApplyResumeSnapshot = async (
   repaintInterruptionActions();
 };
 
-// Sequential orchestration: DOM setup, controller wiring, bridge install, tab-close
-// detection, and snapshot load cannot be split without creating parameter-heavy helpers.
-// eslint-disable-next-line max-lines-per-function
-export const mountOnboarding = (doc: Document): (() => void) => {
-  const { host, hideLegacy, restoreLegacy } = resolveScreenHost(doc);
-  hideLegacy();
+const CUNY_REATTACHABLE_STATES: ReadonlySet<OnboardingState> = new Set([
+  "OPENING_CUNY",
+  "ALLOW_GATE",
+  "OAA_SPA_HOME",
+  "GUIDED_MANAGE",
+  "GUIDED_ADD_FACTOR",
+  "GUIDED_FACTOR_TYPE",
+  "GUIDED_SECRET_CAPTURE",
+  "VERIFY_LOGIN_CODE",
+  "SET_DEFAULT",
+]);
 
-  const { shell, screenHost, resumeButton, reopenCunyButton } =
-    buildOnboardingShell(doc, host);
+type OnboardingMountModel = {
+  readonly controller: OnboardingController;
+  readonly doc: Document;
+  readonly screenHost: HTMLElement;
+  readonly resumeButton: HTMLButtonElement;
+  readonly reopenCunyButton: HTMLButtonElement;
+  readonly shell: HTMLElement;
+  readonly header: ReturnType<typeof mountBeadHeader>;
+  readonly restoreLegacy: () => void;
+};
 
-  const header = mountBeadHeader(doc, shell);
+type OnboardingUnmountBag = {
+  readonly unsubscribe: () => void;
+  readonly uninstallBridge: () => void;
+  readonly unwireTabClose: () => void;
+  readonly resumeButton: HTMLButtonElement;
+  readonly reopenCunyButton: HTMLButtonElement;
+  readonly handleResume: () => void;
+  readonly handleReopenCuny: () => void;
+  readonly controller: OnboardingController;
+  readonly screenHandleRef: { current: ScreenHandle | null };
+  readonly header: ReturnType<typeof mountBeadHeader>;
+  readonly shell: HTMLElement;
+  readonly restoreLegacy: () => void;
+};
 
-  const controller = createOnboardingController();
-  let currentHandle: ScreenHandle | null = null;
+const runOnboardingUnmount = (bag: OnboardingUnmountBag): void => {
+  bag.unsubscribe();
+  bag.uninstallBridge();
+  bag.unwireTabClose();
+  bag.resumeButton.removeEventListener("click", bag.handleResume);
+  bag.reopenCunyButton.removeEventListener("click", bag.handleReopenCuny);
+  void saveResumeSnapshot(bag.controller.getSnapshot());
+  clearStagedOnboardingCredentials();
+  bag.screenHandleRef.current?.unmount();
+  bag.header.unmount();
+  bag.shell.remove();
+  bag.restoreLegacy();
+};
+
+const subscribeOnboardingController = (
+  controller: OnboardingController,
+  repaint: () => void
+): (() => void) => {
+  let lastState: OnboardingState = controller.getSnapshot().state;
+  return controller.subscribe((snapshot) => {
+    void saveResumeSnapshot(snapshot);
+    if (snapshot.state === "COMPLETE_DONE" && snapshot.state !== lastState) {
+      void markOnboardingComplete();
+    }
+    if (snapshot.state === lastState) return;
+    lastState = snapshot.state;
+    repaint();
+  });
+};
+
+const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
+  const { controller, doc, screenHost, resumeButton, reopenCunyButton, shell, header, restoreLegacy } =
+    model;
+  const screenHandleRef = { current: null as ScreenHandle | null };
   let pendingResumeSnapshot: PendingResumeSnapshot | null = null;
   let isCunyTabMissing = false;
   const activeCunyTabIdRef = { value: null as number | null };
-  const CUNY_REATTACHABLE_STATES = new Set<OnboardingState>([
-    "OPENING_CUNY",
-    "ALLOW_GATE",
-    "OAA_SPA_HOME",
-    "GUIDED_MANAGE",
-    "GUIDED_ADD_FACTOR",
-    "GUIDED_FACTOR_TYPE",
-    "GUIDED_SECRET_CAPTURE",
-    "VERIFY_LOGIN_CODE",
-    "SET_DEFAULT",
-  ]);
 
   const repaintInterruptionActions = (): void => {
     const currentState = controller.getSnapshot().state;
@@ -669,28 +660,16 @@ export const mountOnboarding = (doc: Document): (() => void) => {
   const repaint = (): void => {
     const state = controller.getSnapshot().state;
     header.renderFor(state);
-    currentHandle = renderActiveScreen(
+    screenHandleRef.current = renderActiveScreen(
       controller,
       screenHost,
       doc,
-      currentHandle
+      screenHandleRef.current
     );
     repaintInterruptionActions();
   };
 
-  // Only re-mount the screen when the state actually changes. Input-only
-  // updates (setEmail, setPassword, setCredentialError on the active screen)
-  // must not rip the screen out from under the student's cursor.
-  let lastState: OnboardingState = controller.getSnapshot().state;
-  const unsubscribe = controller.subscribe((snapshot) => {
-    void saveResumeSnapshot(snapshot);
-    if (snapshot.state === "COMPLETE_DONE" && snapshot.state !== lastState) {
-      void markOnboardingComplete();
-    }
-    if (snapshot.state === lastState) return;
-    lastState = snapshot.state;
-    repaint();
-  });
+  const unsubscribe = subscribeOnboardingController(controller, repaint);
 
   const uninstallBridge = installRuntimeMessageBridge(
     controller,
@@ -727,21 +706,43 @@ export const mountOnboarding = (doc: Document): (() => void) => {
 
   repaint();
   void loadAndApplyResumeSnapshot(
-    (snapshot) => { pendingResumeSnapshot = snapshot; },
+    (snapshot) => {
+      pendingResumeSnapshot = snapshot;
+    },
     repaintInterruptionActions
   );
 
-  return () => {
-    unsubscribe();
-    uninstallBridge();
-    unwireTabClose();
-    resumeButton.removeEventListener("click", handleResume);
-    reopenCunyButton.removeEventListener("click", handleReopenCuny);
-    void saveResumeSnapshot(controller.getSnapshot());
-    clearStagedOnboardingCredentials();
-    currentHandle?.unmount();
-    header.unmount();
-    shell.remove();
-    restoreLegacy();
+  const bag: OnboardingUnmountBag = {
+    unsubscribe,
+    uninstallBridge,
+    unwireTabClose,
+    resumeButton,
+    reopenCunyButton,
+    handleResume,
+    handleReopenCuny,
+    controller,
+    screenHandleRef,
+    header,
+    shell,
+    restoreLegacy,
   };
+  return () => runOnboardingUnmount(bag);
+};
+
+export const mountOnboarding = (doc: Document): (() => void) => {
+  const { host, hideLegacy, restoreLegacy } = resolveScreenHost(doc);
+  hideLegacy();
+  const { shell, screenHost, resumeButton, reopenCunyButton } = buildOnboardingShell(doc, host);
+  const header = mountBeadHeader(doc, shell);
+  const controller = createOnboardingController();
+  return bindOnboardingLifecycle({
+    controller,
+    doc,
+    screenHost,
+    resumeButton,
+    reopenCunyButton,
+    shell,
+    header,
+    restoreLegacy,
+  });
 };

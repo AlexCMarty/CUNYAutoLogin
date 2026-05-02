@@ -91,4 +91,19 @@ describe("loadVaultSessionSnapshot", () => {
     expect(snap.sessionPayload).toBeNull();
     expect(remove).toHaveBeenCalledWith(SESSION_MASTER_KEY);
   });
+
+  test("local.get rejects → degraded setup snapshot", async () => {
+    const storage = {
+      local: { get: vi.fn().mockRejectedValue(new Error("storage read failed")) },
+      session: {
+        get: vi.fn().mockResolvedValue({}),
+        remove: vi.fn().mockResolvedValue(undefined),
+      },
+    } as SnapshotStorage;
+    const snap = await loadVaultSessionSnapshot(storage);
+    expect(snap.mode).toBe("setup");
+    expect(snap.storedVault).toBeNull();
+    expect(snap.sessionMasterPassword).toBeNull();
+    expect(snap.sessionPayload).toBeNull();
+  });
 });

@@ -471,8 +471,11 @@ async function init(): Promise<void> {
         }
         void applyPendingTotpFromPage(els);
       });
-    } catch {
-      // listener registration failed
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn("[CUNYAutoLogin] session.onChanged listener not registered", error);
+      }
     }
   }
 
@@ -511,4 +514,9 @@ async function init(): Promise<void> {
   }
 }
 
-void init();
+void init().catch((error) => {
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.error("[CUNYAutoLogin] sidebar init failed", error);
+  }
+});

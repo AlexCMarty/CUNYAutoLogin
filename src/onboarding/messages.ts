@@ -41,8 +41,21 @@ export type AutoFillResponse =
   | { readonly success: true; readonly payload: VaultPayload }
   | {
       readonly success: false;
-      readonly reason: "no_session_master" | "no_vault" | "decrypt_error";
+      readonly reason:
+        | "no_session_master"
+        | "no_vault"
+        | "decrypt_error"
+        | "storage_error";
     };
+
+/** Narrow `otpContext` from an untyped message record; invalid values become `undefined`. */
+export const normalizeAutoFillOtpContext = (
+  value: unknown
+): "login_totp" | "enroll_verify" | undefined => {
+  if (value === undefined) return undefined;
+  if (value === "login_totp" || value === "enroll_verify") return value;
+  return undefined;
+};
 
 export type TotpSecretFromPage = {
   readonly type: "TOTP_SECRET_FROM_PAGE";

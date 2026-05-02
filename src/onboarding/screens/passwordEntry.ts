@@ -38,23 +38,30 @@ export const PASSWORD_TOGGLE_SELECTOR =
 export const PASSWORD_CREDENTIAL_ERROR_SELECTOR =
   "[data-onboarding-password-credential-error='true']";
 
-// eslint-disable-next-line max-lines-per-function
-export const mountPasswordEntryScreen: ScreenMount = (
-  ctx: OnboardingScreenContext
-) => {
-  const { doc, root, dispatch, setPassword, setCredentialError, getSnapshot } = ctx;
+type PasswordEntryDom = {
+  readonly container: HTMLElement;
+  readonly credentialError: HTMLParagraphElement;
+  readonly input: HTMLInputElement;
+  readonly toggle: HTMLButtonElement;
+  readonly forward: HTMLButtonElement;
+  readonly back: HTMLButtonElement;
+};
 
+const buildPasswordEntryDom = (
+  doc: Document,
+  initialPassword: string,
+  credentialErrorVisible: boolean
+): PasswordEntryDom => {
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "PASSWORD_ENTRY";
   container.className = "onboarding-screen onboarding-screen-password";
 
-  // Inline banner when the CUNY tab reported wrong credentials (copy matches email screen).
   const credentialError = doc.createElement("p");
   credentialError.dataset.onboardingPasswordCredentialError = "true";
   credentialError.className = "onboarding-credential-error";
   credentialError.setAttribute("role", "alert");
   credentialError.textContent = CREDENTIAL_ERROR_INLINE_COPY;
-  credentialError.hidden = getSnapshot().credentialError === null;
+  credentialError.hidden = !credentialErrorVisible;
 
   const label = doc.createElement("label");
   label.className = "onboarding-label";
@@ -73,7 +80,7 @@ export const mountPasswordEntryScreen: ScreenMount = (
   input.dataset.onboardingPasswordInput = "true";
   input.className = "onboarding-input onboarding-input-pill";
   input.autocomplete = "current-password";
-  input.value = getSnapshot().password;
+  input.value = initialPassword;
 
   const toggle = doc.createElement("button");
   toggle.type = "button";
@@ -113,8 +120,17 @@ export const mountPasswordEntryScreen: ScreenMount = (
   container.appendChild(label);
   container.appendChild(reassurance);
   container.appendChild(actions);
-  root.appendChild(container);
-  input.focus();
+
+  return { container, credentialError, input, toggle, forward, back };
+};
+
+const attachPasswordEntryHandlers = (
+  dispatch: OnboardingScreenContext["dispatch"],
+  setPassword: OnboardingScreenContext["setPassword"],
+  setCredentialError: OnboardingScreenContext["setCredentialError"],
+  dom: PasswordEntryDom
+): (() => void) => {
+  const { input, forward, back, toggle, credentialError } = dom;
 
   const refreshForwardDisabled = (): void => {
     forward.disabled = input.value.length === 0;
@@ -124,7 +140,6 @@ export const mountPasswordEntryScreen: ScreenMount = (
   const handleInput = (): void => {
     setPassword(input.value);
     refreshForwardDisabled();
-    // Per spec: once the student starts correcting, drop the stale red banner.
     if (!credentialError.hidden) {
       credentialError.hidden = true;
       setCredentialError(null);
@@ -157,14 +172,30 @@ export const mountPasswordEntryScreen: ScreenMount = (
   forward.addEventListener("click", handleForward);
   back.addEventListener("click", handleBack);
 
+  return () => {
+    input.removeEventListener("input", handleInput);
+    input.removeEventListener("keydown", handleKeydown);
+    toggle.removeEventListener("click", handleToggle);
+    forward.removeEventListener("click", handleForward);
+    back.removeEventListener("click", handleBack);
+  };
+};
+
+export const mountPasswordEntryScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
+  const { doc, root, dispatch, setPassword, setCredentialError, getSnapshot } = ctx;
+  const snap = getSnapshot();
+  const dom = buildPasswordEntryDom(
+    doc,
+    snap.password,
+    snap.credentialError !== null
+  );
+  root.appendChild(dom.container);
+  dom.input.focus();
+  const detach = attachPasswordEntryHandlers(dispatch, setPassword, setCredentialError, dom);
   return {
     unmount: () => {
-      input.removeEventListener("input", handleInput);
-      input.removeEventListener("keydown", handleKeydown);
-      toggle.removeEventListener("click", handleToggle);
-      forward.removeEventListener("click", handleForward);
-      back.removeEventListener("click", handleBack);
-      container.remove();
+      detach();
+      dom.container.remove();
     },
   };
 };

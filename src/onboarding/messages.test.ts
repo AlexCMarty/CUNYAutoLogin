@@ -14,6 +14,7 @@ import {
   isOnboardingStageDetected,
   isOnboardingTabReattached,
   isOnboardingVerifyStatus,
+  normalizeAutoFillOtpContext,
   type OnboardingMessageType,
 } from "./messages";
 
@@ -352,5 +353,19 @@ describe("isOnboardingMessage", () => {
     expect(isOnboardingMessage(undefined)).toBe(false);
     expect(isOnboardingMessage("ONBOARDING_STAGE_DETECTED")).toBe(false);
     expect(isOnboardingMessage([])).toBe(false);
+  });
+});
+
+describe("normalizeAutoFillOtpContext", () => {
+  test("undefined and recognised literals pass through unchanged", () => {
+    expect(normalizeAutoFillOtpContext(undefined)).toBeUndefined();
+    expect(normalizeAutoFillOtpContext("login_totp")).toBe("login_totp");
+    expect(normalizeAutoFillOtpContext("enroll_verify")).toBe("enroll_verify");
+  });
+
+  test("unknown or mistyped values become undefined", () => {
+    expect(normalizeAutoFillOtpContext("other")).toBeUndefined();
+    expect(normalizeAutoFillOtpContext(42)).toBeUndefined();
+    expect(normalizeAutoFillOtpContext(null)).toBeUndefined();
   });
 });

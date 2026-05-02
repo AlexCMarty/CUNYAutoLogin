@@ -18,8 +18,11 @@ export async function markOnboardingComplete(): Promise<void> {
       [ONBOARDING_COMPLETED_STORAGE_KEY]: true,
     });
     await browser.storage.local.remove(LEGACY_ONBOARDING_COMPLETED_STORAGE_KEY);
-  } catch {
-    // Ignore storage failures.
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn("[CUNYAutoLogin] markOnboardingComplete: storage failed", error);
+    }
   }
 }
 
@@ -27,7 +30,10 @@ export async function clearOnboardingComplete(): Promise<void> {
   try {
     await browser.storage.local.remove(ONBOARDING_COMPLETED_STORAGE_KEY);
     await browser.storage.local.remove(LEGACY_ONBOARDING_COMPLETED_STORAGE_KEY);
-  } catch {
-    // Ignore storage failures.
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn("[CUNYAutoLogin] clearOnboardingComplete: storage failed", error);
+    }
   }
 }

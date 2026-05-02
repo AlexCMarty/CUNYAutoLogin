@@ -56,6 +56,8 @@ const tryFillMfaEnrollVerifyOtp = async (otpInput: HTMLInputElement): Promise<bo
         log("vault locked — unlock the extension sidebar to fill the 6-digit code");
       } else if (response.reason === "no_vault") {
         log("vault not set up — save credentials in the extension first");
+      } else if (response.reason === "storage_error") {
+        log("extension storage unavailable — try reloading the sidebar");
       } else {
         log("cannot read vault:", response.reason);
       }

@@ -2,11 +2,11 @@
  * Progress bead header — five pills pinned to the top of the sidebar.
  *
  * Copy and stage mapping are locked by `state.ts` (`BEAD_LABELS`, `STATE_TO_BEAD`).
- * Status resolution (`pending`|`active`|`completed`) lives in `render.ts`
+ * Status resolution (`pending`|`active`|`completed`) lives in `beadViewModel.ts`
  * (`beadViewModelForState`). This module only paints.
  */
 
-import { beadViewModelForState } from "./render";
+import { beadViewModelForState } from "./beadViewModel";
 import type { OnboardingState } from "./state";
 
 export const BEAD_HEADER_SELECTOR = "[data-onboarding-bead-header='true']";
