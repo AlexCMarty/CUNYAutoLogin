@@ -1,10 +1,10 @@
 ---
-name: smell-hunt
+name: code-quality
 description: Spawn parallel subagents that aggressively audit the codebase for spaghetti code, code smells, and non-senior-dev patterns. Produces a severity-ranked findings report with exact file/line citations.
 disable-model-invocation: true
 ---
 
-# Smell Hunt
+# Code Quality
 
 ## Purpose
 
