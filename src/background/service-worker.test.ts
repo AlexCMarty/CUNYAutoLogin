@@ -34,6 +34,7 @@ vi.mock("webextension-polyfill", () => ({
     },
     cookies: {
       remove: vi.fn(),
+      getAll: vi.fn(),
     },
   },
 }));
@@ -104,10 +105,13 @@ beforeEach(() => {
     vi.mocked(tabsApi.sendMessage).mockResolvedValue(undefined);
   }
   const cookiesApi = (browser as unknown as {
-    cookies?: { remove: ReturnType<typeof vi.fn> };
+    cookies?: { remove: ReturnType<typeof vi.fn>; getAll: ReturnType<typeof vi.fn> };
   }).cookies;
   if (cookiesApi?.remove) {
     vi.mocked(cookiesApi.remove).mockResolvedValue(null);
+  }
+  if (cookiesApi?.getAll) {
+    vi.mocked(cookiesApi.getAll).mockResolvedValue([]);
   }
 });
 
@@ -905,7 +909,7 @@ describe("LOGOUT_CUNY_SESSIONS", () => {
       removedCount: 0,
     });
     const cookiesApi = (browser as unknown as {
-      cookies: { remove: ReturnType<typeof vi.fn> };
+      cookies: { remove: ReturnType<typeof vi.fn>; getAll: ReturnType<typeof vi.fn> };
     }).cookies;
     expect(vi.mocked(cookiesApi.remove).mock.calls).toEqual(
       expect.arrayContaining([
@@ -937,6 +941,13 @@ describe("LOGOUT_CUNY_SESSIONS", () => {
     expect(vi.mocked(tabsApi.query)).toHaveBeenCalledWith({
       url: ["https://ssologin.cuny.edu/*"],
     });
+    expect(vi.mocked(cookiesApi.getAll).mock.calls).toEqual(
+      expect.arrayContaining([
+        [{ url: "https://brightspace.cuny.edu/" }],
+        [{ url: "https://home.cunyfirst.cuny.edu/" }],
+        [{ url: "https://ssologin.cuny.edu/" }],
+      ])
+    );
   });
 
   test("invalid site payload rejects", async () => {

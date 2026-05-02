@@ -143,6 +143,87 @@ const resolveLogoutCookieSpecs = (site: LogoutSessionSite): readonly CookieRemov
   ];
 };
 
+/**
+ * Canonical URL Chrome/Firefox need for `cookies.remove` from a Cookie record.
+ */
+const removalUrlFromCookie = (cookie: browser.Cookies.Cookie): string => {
+  const protocol = cookie.secure !== false ? "https:" : "http:";
+  const domain = cookie.domain.startsWith(".") ? cookie.domain.slice(1) : cookie.domain;
+  const pathPart = cookie.path && cookie.path.length > 0 ? cookie.path : "/";
+  return `${protocol}//${domain}${pathPart}`;
+};
+
+/**
+ * Remove every cookie the browser would send on a navigation to `matchUrl`
+ * (host + path prefixes). Covers dynamic infra names (`BIGipServer*`) and IdP/OAA cookies
+ * that are not stable enough to enumerate in LOGOUT_COOKIE_SPECS_BY_SITE.
+ */
+const purgeCookiesMatchingUrl = async (matchUrl: string): Promise<number> => {
+  let removedCount = 0;
+  let list: readonly browser.Cookies.Cookie[];
+  try {
+    list = await browser.cookies.getAll({ url: matchUrl });
+  } catch {
+    return removedCount;
+  }
+
+  for (const cookie of list) {
+    try {
+      const removalDetails: Record<string, unknown> = {
+        name: cookie.name,
+        url: removalUrlFromCookie(cookie),
+      };
+      if (cookie.storeId !== undefined && cookie.storeId !== "") {
+        removalDetails.storeId = cookie.storeId;
+      }
+      /** CHIPS partitioned cookies — `chrome.*` globals are absent on Firefox MV3 builds */
+      if (
+        typeof (globalThis as { chrome?: unknown }).chrome !== "undefined" &&
+        "partitionKey" in cookie &&
+        cookie.partitionKey != null
+      ) {
+        removalDetails.partitionKey = cookie.partitionKey as unknown;
+      }
+
+      const removed = await browser.cookies.remove(
+        removalDetails as unknown as Parameters<typeof browser.cookies.remove>[0]
+      );
+      if (removed) {
+        removedCount += 1;
+      }
+    } catch {
+      // Ignore per-cookie failures; keep purging siblings.
+    }
+  }
+
+  return removedCount;
+};
+
+const LOGOUT_PURGE_URLS_BY_SITE = {
+  brightspace: "https://brightspace.cuny.edu/",
+  cunyfirst: "https://home.cunyfirst.cuny.edu/",
+  ssologin: "https://ssologin.cuny.edu/",
+} as const satisfies Record<Exclude<LogoutSessionSite, "all">, string>;
+
+const purgeScopedCookieJars = async (site: LogoutSessionSite): Promise<number> => {
+  let purged = 0;
+  const keys: Array<Exclude<LogoutSessionSite, "all">> = [];
+  if (site === "all") {
+    keys.push("brightspace", "cunyfirst", "ssologin");
+  } else {
+    keys.push(site);
+  }
+
+  const seen = new Set<string>();
+  for (const key of keys) {
+    const url = LOGOUT_PURGE_URLS_BY_SITE[key];
+    if (seen.has(url)) continue;
+    seen.add(url);
+    purged += await purgeCookiesMatchingUrl(url);
+  }
+  return purged;
+};
+
 const clearLoggedInCookies = async (site: LogoutSessionSite): Promise<{ ok: boolean; removedCount: number }> => {
   const specs = resolveLogoutCookieSpecs(site);
   let removedCount = 0;
@@ -161,6 +242,8 @@ const clearLoggedInCookies = async (site: LogoutSessionSite): Promise<{ ok: bool
       // block deleting other documented session cookies.
     }
   }
+
+  removedCount += await purgeScopedCookieJars(site);
 
   return { ok: true, removedCount };
 };
