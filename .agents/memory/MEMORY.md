@@ -1,0 +1,9 @@
+- [EXT_PASSWORD_SETUP live verification](project_ext_password_setup_verified.md) — Nine UI/storage claims confirmed 2026-04-27
+- [Interruption and resume behavior](project_interruption_resume_verified.md) — Five claims confirmed 2026-04-29
+- [Full flow and release checks](project_full_flow_release_verified.md) — End-to-end onboarding + tests snapshot 2026-04-29
+- [OTP fill — enroll-verify keystroke pattern](feedback_otp_fill.md) — Oracle JET OTP requires per-char InputEvents
+- [JET OTP targeting — oj-input-text#otp](feedback_jet_otp_input_targeting.md) — Never use first oj-input-text; Verify Now has no id
+- [Login TOTP input targeting](feedback_login_totp_input_targeting.md) — placeholder or otpValue|input, not first input
+- [Onboarding state injection limitation](feedback_state_injection.md) — Cannot fake stage messages from page inspect_dom
+- [Live final confirmation defaults](feedback_live_final_confirmation_defaults.md) — COMPLETE_DEMO checks and environment caveats
+- [End-of-run Bitwarden restore](feedback_end_of_run_restore_bitwarden_default.md) — Restore remembered default after factor changes
