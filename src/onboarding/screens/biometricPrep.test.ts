@@ -35,8 +35,22 @@ const makeCtx = (): { ctx: OnboardingScreenContext; root: HTMLElement; dispatche
   return { ctx, root, dispatched };
 };
 
-const flushPromises = (): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, 0));
+const originalNavigatorCredentialsDescriptor = Object.getOwnPropertyDescriptor(
+  navigator,
+  "credentials"
+);
+
+const restoreNavigatorCredentials = (): void => {
+  if (originalNavigatorCredentialsDescriptor) {
+    Object.defineProperty(
+      navigator,
+      "credentials",
+      originalNavigatorCredentialsDescriptor
+    );
+    return;
+  }
+  Reflect.deleteProperty(navigator, "credentials");
+};
 
 describe("mountBiometricPrepScreen — DOM structure", () => {
   let root: HTMLElement;
@@ -88,6 +102,7 @@ describe("mountBiometricPrepScreen — back button", () => {
 describe("mountBiometricPrepScreen — WebAuthn success", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    restoreNavigatorCredentials();
     document.body.innerHTML = "";
   });
 
@@ -98,15 +113,16 @@ describe("mountBiometricPrepScreen — WebAuthn success", () => {
 
     const continueBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
     continueBtn.click();
-    await flushPromises();
-
-    expect(dispatched).toContain("BIOMETRIC_PREP_DONE");
+    await vi.waitFor(() => {
+      expect(dispatched).toContain("BIOMETRIC_PREP_DONE");
+    });
   });
 });
 
 describe("mountBiometricPrepScreen — WebAuthn failure fallback", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    restoreNavigatorCredentials();
     document.body.innerHTML = "";
   });
 
@@ -117,12 +133,11 @@ describe("mountBiometricPrepScreen — WebAuthn failure fallback", () => {
 
     const continueBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
     continueBtn.click();
-    await flushPromises();
-
-    const statusMsg = root.querySelector<HTMLElement>(".onboarding-subtext")!;
-    expect(statusMsg.hidden).toBe(false);
-    expect(statusMsg.textContent).toContain("extension password");
-    expect(statusMsg.hidden).toBe(false);
+    await vi.waitFor(() => {
+      const statusMsg = root.querySelector<HTMLElement>(".onboarding-subtext");
+      expect(statusMsg?.hidden).toBe(false);
+      expect(statusMsg?.textContent).toContain("extension password");
+    });
   });
 
   test("dispatches BIOMETRIC_PREP_DONE when user clicks Continue after fallback", async () => {
@@ -132,9 +147,9 @@ describe("mountBiometricPrepScreen — WebAuthn failure fallback", () => {
 
     const continueBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
     continueBtn.click();
-    await flushPromises();
-
-    expect(continueBtn.textContent).toBe("Continue anyway");
+    await vi.waitFor(() => {
+      expect(continueBtn.textContent).toBe("Continue anyway");
+    });
     continueBtn.click();
     expect(dispatched).toContain("BIOMETRIC_PREP_DONE");
   });

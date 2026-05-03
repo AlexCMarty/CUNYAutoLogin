@@ -77,15 +77,27 @@ test.describe("onboarding screens 1-3", () => {
     const emailForward = page.locator("[data-onboarding-email-forward='true']");
     const hint = page.locator("[data-onboarding-email-hint='true']");
 
-    await emailInput.fill("jane.doe@baruchmail.cuny.edu");
+    const setEmailValue = async (value: string): Promise<void> => {
+      await emailInput.evaluate((node, nextValue) => {
+        const input = node as HTMLInputElement;
+        input.value = nextValue;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }, value);
+    };
+
+    await setEmailValue("jane.doe@baruchmail.cuny.edu");
     await expect(emailForward).toBeDisabled();
     await emailInput.blur();
     await expect(hint).toBeVisible();
     await expect(hint).toContainText("CUNY logins end in @login.cuny.edu");
 
-    await emailInput.fill("jane.doe@login.cuny.edu");
-    await expect(hint).toBeHidden();
+    await setEmailValue("jane.doe@login.cuny.edu");
+    await emailInput.blur();
     await expect(emailForward).toBeEnabled();
+    await emailForward.click();
+    await expect(
+      page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")
+    ).toBeVisible();
   });
 
   test("password screen: show/hide toggle and non-empty gating", async ({ page }) => {

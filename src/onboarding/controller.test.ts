@@ -113,5 +113,6 @@ describe("createOnboardingController", () => {
     const controller = createOnboardingController();
     controller.dispatch("NEXT");
     expect(logSpy).not.toHaveBeenCalled();
+    logSpy.mockRestore();
   });
 });

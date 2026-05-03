@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("webextension-polyfill", () => ({
   default: {
@@ -17,6 +17,9 @@ describe("installAllowConsentClickReporter", () => {
     vi.clearAllMocks();
     document.body.innerHTML = "";
     vi.stubGlobal("allow", vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   test("posts allow_button_clicked when allow button is clicked on consent page", () => {
@@ -39,6 +42,5 @@ describe("installAllowConsentClickReporter", () => {
       type: "ONBOARDING_STAGE_DETECTED",
       stage: "allow_button_clicked",
     });
-    vi.unstubAllGlobals();
   });
 });

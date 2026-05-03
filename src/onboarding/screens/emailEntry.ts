@@ -162,9 +162,13 @@ const attachEmailEntryHandlers = (
   };
 
   const handleInput = (): void => {
-    setEmail(stripDuplicateLoginSuffix(input.value));
+    const normalized = stripDuplicateLoginSuffix(input.value);
+    if (normalized !== input.value) {
+      input.value = normalized;
+    }
+    setEmail(normalized);
     refreshForwardDisabled();
-    if (!hint.hidden && validateEmail(input.value)) {
+    if (!hint.hidden && validateEmail(normalized)) {
       hint.hidden = true;
     }
     if (!credentialError.hidden) {

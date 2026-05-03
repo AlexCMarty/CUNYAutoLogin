@@ -85,8 +85,10 @@ describe("beadViewModelForState", () => {
 // eslint-disable-next-line max-lines-per-function
 describe("mountOnboarding", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     document.body.innerHTML = "";
+    vi.mocked(browser.storage.session.get).mockResolvedValue({});
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue(undefined);
   });
 
   test("mounts bead header + welcome screen into #onboarding-root and hides legacy main", () => {

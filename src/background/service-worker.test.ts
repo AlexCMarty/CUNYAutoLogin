@@ -75,7 +75,7 @@ beforeAll(async () => {
     .calls[0]![0]! as MessageHandler;
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetAllMocks();
   vi.mocked(browser.storage.session!.get).mockResolvedValue({
     [SESSION_MASTER_KEY]: MASTER,
@@ -97,6 +97,8 @@ beforeEach(() => {
   if (tabsApi?.query) vi.mocked(tabsApi.query).mockResolvedValue([]);
   if (tabsApi?.sendMessage) vi.mocked(tabsApi.sendMessage).mockResolvedValue(undefined);
   if (tabsApi?.update) vi.mocked(tabsApi.update).mockResolvedValue({} as never);
+  await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, SENDER);
+  await handler({ type: "ONBOARDING_OVERLAY_COMMAND", action: "hide" }, SENDER);
 });
 
 // ──── message routing ─────────────────────────────────────────────────────────
@@ -109,8 +111,10 @@ describe("message routing", () => {
     const sidePanelApi = (reloadedBrowser as unknown as {
       sidePanel?: { setPanelBehavior: ReturnType<typeof vi.fn> };
     }).sidePanel;
-    expect(vi.mocked(sidePanelApi!.setPanelBehavior)).toHaveBeenCalledWith({
-      openPanelOnActionClick: true,
+    await vi.waitFor(() => {
+      expect(vi.mocked(sidePanelApi!.setPanelBehavior)).toHaveBeenCalledWith({
+        openPanelOnActionClick: true,
+      });
     });
   });
 

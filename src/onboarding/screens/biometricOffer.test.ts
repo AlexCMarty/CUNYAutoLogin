@@ -21,12 +21,27 @@ const makeCtx = (): { ctx: OnboardingScreenContext; root: HTMLElement; dispatche
   return { ctx, root, dispatched };
 };
 
-const flushPromises = (): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, 0));
+const originalPublicKeyCredentialDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "PublicKeyCredential"
+);
+
+const restorePublicKeyCredential = (): void => {
+  if (originalPublicKeyCredentialDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "PublicKeyCredential",
+      originalPublicKeyCredentialDescriptor
+    );
+    return;
+  }
+  Reflect.deleteProperty(globalThis, "PublicKeyCredential");
+};
 
 describe("mountBiometricOfferScreen — platform authenticator unavailable", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    restorePublicKeyCredential();
     document.body.innerHTML = "";
   });
 
@@ -40,8 +55,9 @@ describe("mountBiometricOfferScreen — platform authenticator unavailable", () 
     });
     const { ctx, dispatched } = makeCtx();
     mountBiometricOfferScreen(ctx);
-    await flushPromises();
-    expect(dispatched).toEqual(["BIOMETRIC_DECLINED"]);
+    await vi.waitFor(() => {
+      expect(dispatched).toEqual(["BIOMETRIC_DECLINED"]);
+    });
   });
 
   test("dispatches BIOMETRIC_DECLINED when API throws", async () => {
@@ -54,8 +70,9 @@ describe("mountBiometricOfferScreen — platform authenticator unavailable", () 
     });
     const { ctx, dispatched } = makeCtx();
     mountBiometricOfferScreen(ctx);
-    await flushPromises();
-    expect(dispatched).toEqual(["BIOMETRIC_DECLINED"]);
+    await vi.waitFor(() => {
+      expect(dispatched).toEqual(["BIOMETRIC_DECLINED"]);
+    });
   });
 
   test("dispatches BIOMETRIC_DECLINED when PublicKeyCredential is undefined", async () => {
@@ -66,8 +83,9 @@ describe("mountBiometricOfferScreen — platform authenticator unavailable", () 
     });
     const { ctx, dispatched } = makeCtx();
     mountBiometricOfferScreen(ctx);
-    await flushPromises();
-    expect(dispatched).toEqual(["BIOMETRIC_DECLINED"]);
+    await vi.waitFor(() => {
+      expect(dispatched).toEqual(["BIOMETRIC_DECLINED"]);
+    });
   });
 });
 
@@ -87,11 +105,14 @@ describe("mountBiometricOfferScreen — platform authenticator available", () =>
     root = setup.root;
     dispatched = setup.dispatched;
     mountBiometricOfferScreen(setup.ctx);
-    await flushPromises();
+    await vi.waitFor(() => {
+      expect(dispatched.length).toBe(0);
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    restorePublicKeyCredential();
     document.body.innerHTML = "";
   });
 
@@ -123,6 +144,7 @@ describe("mountBiometricOfferScreen — platform authenticator available", () =>
 describe("mountBiometricOfferScreen — unmount", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    restorePublicKeyCredential();
     document.body.innerHTML = "";
   });
 
@@ -136,7 +158,9 @@ describe("mountBiometricOfferScreen — unmount", () => {
     });
     const { ctx, root } = makeCtx();
     const handle = mountBiometricOfferScreen(ctx);
-    await flushPromises();
+    await vi.waitFor(() => {
+      expect(root.querySelector("[data-onboarding-screen='BIOMETRIC_OFFER']")).toBeTruthy();
+    });
     expect(root.querySelector("[data-onboarding-screen='BIOMETRIC_OFFER']")).toBeTruthy();
     handle.unmount();
     expect(root.querySelector("[data-onboarding-screen='BIOMETRIC_OFFER']")).toBeNull();

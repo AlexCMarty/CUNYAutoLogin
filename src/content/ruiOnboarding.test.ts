@@ -64,6 +64,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+afterEach(async () => {
+  const { stopRuiOnboardingObserversForTest } = await importFresh();
+  stopRuiOnboardingObserversForTest();
+});
+
 const wasStagePosted = (stage: string): boolean =>
   vi
     .mocked(browser.runtime.sendMessage)

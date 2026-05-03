@@ -147,6 +147,15 @@ const installMenuProgressClickReporters = (): void => {
   );
 };
 
+export const stopRuiOnboardingObserversForTest = (): void => {
+  if (pollId !== null) {
+    window.clearInterval(pollId);
+    pollId = null;
+  }
+  disarmSetDefaultTimeout();
+  posted.clear();
+};
+
 export const startRuiOnboardingObservers = (): void => {
   if (pollId !== null) return;
   installMenuProgressClickReporters();

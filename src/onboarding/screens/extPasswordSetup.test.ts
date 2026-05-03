@@ -237,10 +237,9 @@ describe("mountExtPasswordSetupScreen — vault save failure", () => {
 
     forwardBtn.click();
 
-    // Wait for the async click handler to settle.
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
-
-    expect(errorMsg.hidden).toBe(false);
+    await vi.waitFor(() => {
+      expect(errorMsg.hidden).toBe(false);
+    });
     root.remove();
   });
 });

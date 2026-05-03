@@ -286,13 +286,14 @@ describe("setInputValue", () => {
     const spy = vi.spyOn(descriptor as { set: (v: string) => void }, "set");
     // Re-register the spy on the prototype so setInputValue picks it up
     Object.defineProperty(HTMLInputElement.prototype, "value", { ...descriptor, set: spy });
-
-    const el = createInput();
-    setInputValue(el, "test");
-    expect(spy).toHaveBeenCalledWith("test");
-
-    // Restore the original descriptor
-    Object.defineProperty(HTMLInputElement.prototype, "value", descriptor);
+    try {
+      const el = createInput();
+      setInputValue(el, "test");
+      expect(spy).toHaveBeenCalledWith("test");
+    } finally {
+      // Restore the original descriptor even if the assertion fails.
+      Object.defineProperty(HTMLInputElement.prototype, "value", descriptor);
+    }
   });
 
   test("both events fire on the same call", () => {

@@ -5,7 +5,6 @@ import {
   CREDENTIAL_ERROR_TEXT_MARKER,
   ENROLL_OVERLAY_REFRESH_INTERVAL_MS,
   matchesMfaConsentPage,
-  matchesRuiMfaEnrollVerifyPage,
   matchesTotpEnrollPage,
   matchesTotpPage,
 } from "../cuny/ssoSite";
@@ -74,14 +73,14 @@ async function autoFill(): Promise<void> {
 
 void autoFill();
 
-if (matchesRuiMfaEnrollVerifyPage(window.location.href)) {
-  startMfaEnrollVerifyOtpPolling();
-}
-
 void requestAndExecuteOverlayCommand();
 installAllowConsentClickReporter();
 
 if (matchesTotpEnrollPage(window.location.href)) {
+  // The verify OTP step can appear on multiple /oaa/rui URL variants.
+  // Start polling for `otp|input` across the whole RUI flow instead of
+  // depending on a specific query string.
+  startMfaEnrollVerifyOtpPolling();
   startRuiOnboardingObservers();
   void watchTotpSecretOnEnrollPage();
   window.setInterval(() => {

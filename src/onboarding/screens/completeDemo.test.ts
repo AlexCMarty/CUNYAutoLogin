@@ -14,6 +14,15 @@ vi.mock("webextension-polyfill", () => ({
 // Import the mock after vi.mock so we can access the spy
 import browser from "webextension-polyfill";
 
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.runOnlyPendingTimers();
+  vi.useRealTimers();
+});
+
 const makeCtx = (): { ctx: OnboardingScreenContext; root: HTMLElement; dispatched: string[] } => {
   const root = document.createElement("div");
   document.body.appendChild(root);
