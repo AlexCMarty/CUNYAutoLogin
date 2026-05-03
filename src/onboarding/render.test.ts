@@ -174,8 +174,17 @@ describe("mountOnboarding", () => {
     passwordInput.value = "pw-after-resume";
     passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
     passwordForward.click();
-    await Promise.resolve();
-    expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith({
+    await expect
+      .poll(() =>
+        vi.mocked(browser.runtime.sendMessage).mock.calls.some(
+          (args) => (args[0] as { type?: string }).type === "STAGE_ONBOARDING_CREDENTIALS"
+        )
+      )
+      .toBe(true);
+    expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenNthCalledWith(1, {
+      type: "LOGOUT_CUNY_SESSIONS",
+    });
+    expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenNthCalledWith(2, {
       type: "STAGE_ONBOARDING_CREDENTIALS",
       email: "resume@login.cuny.edu",
       password: "pw-after-resume",

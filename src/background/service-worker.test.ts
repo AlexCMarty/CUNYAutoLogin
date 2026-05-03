@@ -852,27 +852,29 @@ describe("AUTO_FILL_REQUEST onboarding fallback", () => {
 // ──── ONBOARDING_REOPEN_CUNY_TAB tab creation ────────────────────────────────
 
 describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
-  test("with url → fetches logout then opens tab at that url", async () => {
+  test("with url → terminates OAA session then opens tab at that url", async () => {
     const { OAA_RUI_LOGOUT_URL } = await import("../cuny/ssoSite");
     const url = "https://example.test/cuny-fixture";
+    const tabsApi = (browser as unknown as {
+      tabs: { create: ReturnType<typeof vi.fn>; query: ReturnType<typeof vi.fn> };
+    }).tabs;
     expect(
       await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB", url }, SENDER)
     ).toEqual({ ok: true });
+    expect(vi.mocked(tabsApi.query)).toHaveBeenCalledWith({ url: ["https://ssologin.cuny.edu/*"] });
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
-    const tabsApi = (browser as unknown as {
-      tabs: { create: ReturnType<typeof vi.fn> };
-    }).tabs;
     expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({ url, active: true });
   });
 
   test("without url → falls back to CUNY_LOGIN_ENTRY_URL", async () => {
     const { CUNY_LOGIN_ENTRY_URL } = await import("../cuny/ssoSite");
+    const tabsApi = (browser as unknown as {
+      tabs: { create: ReturnType<typeof vi.fn>; query: ReturnType<typeof vi.fn> };
+    }).tabs;
     expect(
       await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" }, SENDER)
     ).toEqual({ ok: true });
-    const tabsApi = (browser as unknown as {
-      tabs: { create: ReturnType<typeof vi.fn> };
-    }).tabs;
+    expect(vi.mocked(tabsApi.query)).toHaveBeenCalledWith({ url: ["https://ssologin.cuny.edu/*"] });
     expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({
       url: CUNY_LOGIN_ENTRY_URL,
       active: true,
@@ -898,7 +900,8 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
 });
 
 describe("LOGOUT_CUNY_SESSIONS", () => {
-  test("navigates ssologin tabs to the OAA logout URL", async () => {
+  test("navigates ssologin tabs to the OAA logout URL and fetches logout", async () => {
+    const { OAA_RUI_LOGOUT_URL } = await import("../cuny/ssoSite");
     const tabsApi = (browser as unknown as {
       tabs: {
         query: ReturnType<typeof vi.fn>;
@@ -911,10 +914,13 @@ describe("LOGOUT_CUNY_SESSIONS", () => {
     expect(vi.mocked(tabsApi.update)).toHaveBeenCalledWith(42, {
       url: "https://ssologin.cuny.edu/oaa/rui/user/v1/logout",
     });
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
   });
 
-  test("returns ok:true even when no ssologin tabs are open", async () => {
+  test("returns ok:true even when no ssologin tabs are open (fetch still runs)", async () => {
+    const { OAA_RUI_LOGOUT_URL } = await import("../cuny/ssoSite");
     expect(await handler({ type: "LOGOUT_CUNY_SESSIONS" }, SENDER)).toEqual({ ok: true });
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
   });
 
 });

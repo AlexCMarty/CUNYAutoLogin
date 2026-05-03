@@ -115,16 +115,21 @@ const logOutOaaRuiInTabs = async (): Promise<void> => {
 
 /**
  * Terminate the OAA server-side session via a direct fetch from the service
- * worker. Called before opening the CUNY credential page so the OAM always
- * presents the username/password form even when an existing session is live.
- * Best-effort — a network failure does not block tab creation.
+ * worker. Supplements tab navigation when no `ssologin.cuny.edu` tab is open.
+ * Best-effort — a network failure does not block callers.
  */
 const fetchLogOutOaaRui = async (): Promise<void> => {
   try {
     await fetch(OAA_RUI_LOGOUT_URL, { credentials: "include" });
   } catch {
-    // Best-effort; proceed to open the login tab regardless.
+    // Best-effort; proceed regardless.
   }
+};
+
+/** Navigate open SSO tabs to the OAA logout URL, then hit logout over fetch. */
+const terminateOaaRuiSessions = async (): Promise<void> => {
+  await logOutOaaRuiInTabs();
+  await fetchLogOutOaaRui();
 };
 
 /** Exported only for tests; not part of any wire contract. */
@@ -159,7 +164,7 @@ const handleOnboardingMessage = async (
   }
   if (isOnboardingReopenCunyTab(message)) {
     const url = message.url ?? CUNY_LOGIN_ENTRY_URL;
-    await fetchLogOutOaaRui();
+    await terminateOaaRuiSessions();
     try {
       await browser.tabs.create({ url, active: true });
       return { ok: true };
@@ -336,7 +341,7 @@ browser.runtime.onMessage.addListener(
           if (!isLogoutCunySessionsRequest(message)) {
             return { ok: false as const };
           }
-          await logOutOaaRuiInTabs();
+          await terminateOaaRuiSessions();
           return { ok: true as const };
         })(),
       AUTO_FILL_REQUEST: (typedMessage) =>

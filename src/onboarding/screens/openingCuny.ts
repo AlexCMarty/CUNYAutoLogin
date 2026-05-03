@@ -2,11 +2,16 @@
  * Screen 4 — "Opening CUNY…" transition.
  *
  * Behavior on mount:
- *   1. Stage the in-memory email+password into the service worker's ephemeral
+ *   1. Ask the service worker to terminate any live OAA session via
+ *      `LOGOUT_CUNY_SESSIONS` (navigates open `ssologin.cuny.edu` tabs to the
+ *      OAA logout endpoint and performs a best-effort fetch logout). Without
+ *      this step, a student who is already signed in at `/oaa/rui` would skip
+ *      the credential page and Screen 4 would hang waiting for auto-fill.
+ *   2. Stage the in-memory email+password into the service worker's ephemeral
  *      cache via `STAGE_ONBOARDING_CREDENTIALS`. The content script asks for
  *      credentials via the existing `AUTO_FILL_REQUEST` flow, which falls back
  *      to this staged payload when the vault isn't set up yet (pre-vault).
- *   2. Open the CUNY entry URL in a new tab directly from the sidebar via
+ *   3. Open the CUNY entry URL in a new tab directly from the sidebar via
  *      `browser.tabs.create(...)`. The URL defaults to
  *      `https://ssologin.cuny.edu/oaa/rui`; dev/e2e builds allow an
  *      override via the `#cuny=<encoded url>` hash param so the fixture server
@@ -36,7 +41,7 @@
 
 import browser from "webextension-polyfill";
 import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
-import type { StageOnboardingCredentials } from "../messages";
+import type { LogoutCunySessionsRequest, StageOnboardingCredentials } from "../messages";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const SCREEN_HEADLINE = "Opening CUNY Login\u2026";
@@ -179,10 +184,12 @@ export const mountOpeningCunyScreen: ScreenMount = (
   container.appendChild(actions);
   root.appendChild(container);
 
-  // Kick off the tab-open side effects. Order: stage credentials BEFORE the
-  // tab opens — otherwise a very fast content-script bootstrap could hit the
-  // AUTO_FILL_REQUEST path before the SW has the staged payload.
+  // Kick off the tab-open side effects. Order: log out any SSO session, then
+  // stage credentials BEFORE the tab opens — otherwise a very fast
+  // content-script bootstrap could hit the AUTO_FILL_REQUEST path before the
+  // SW has the staged payload.
   const snapshot = getSnapshot();
+  const logoutPayload: LogoutCunySessionsRequest = { type: "LOGOUT_CUNY_SESSIONS" };
   const stagePayload: StageOnboardingCredentials = {
     type: "STAGE_ONBOARDING_CREDENTIALS",
     email: snapshot.email,
@@ -190,6 +197,7 @@ export const mountOpeningCunyScreen: ScreenMount = (
   };
   const cunyUrl = resolveCunyEntryUrl();
   void (async () => {
+    await sendRuntimeMessage(logoutPayload, "LOGOUT_CUNY_SESSIONS");
     const staged = await sendRuntimeMessage(stagePayload, "STAGE_ONBOARDING_CREDENTIALS");
     await openCunyTab(cunyUrl);
     if (!staged) {

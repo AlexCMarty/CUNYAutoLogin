@@ -90,10 +90,11 @@ describe("mountOpeningCunyScreen", () => {
     mountOpeningCunyScreen(ctx);
     await flush();
 
-    // Stage first, tab-open second — credentials must be in the SW buffer
+    // Stage second, tab-open third — credentials must be in the SW buffer
     // before the content script can race for them via AUTO_FILL_REQUEST.
-    expect(sendMessageMock).toHaveBeenCalledTimes(1);
-    expect(sendMessageMock).toHaveBeenCalledWith({
+    expect(sendMessageMock).toHaveBeenCalledTimes(2);
+    expect(sendMessageMock).toHaveBeenNthCalledWith(1, { type: "LOGOUT_CUNY_SESSIONS" });
+    expect(sendMessageMock).toHaveBeenNthCalledWith(2, {
       type: "STAGE_ONBOARDING_CREDENTIALS",
       email: "alice@login.cuny.edu",
       password: "p4ss",
@@ -119,7 +120,8 @@ describe("mountOpeningCunyScreen", () => {
     const { ctx } = buildCtx(root, "restored@login.cuny.edu", "restored-password");
     mountOpeningCunyScreen(ctx);
     await flush();
-    expect(sendMessageMock).toHaveBeenCalledWith({
+    expect(sendMessageMock).toHaveBeenNthCalledWith(1, { type: "LOGOUT_CUNY_SESSIONS" });
+    expect(sendMessageMock).toHaveBeenNthCalledWith(2, {
       type: "STAGE_ONBOARDING_CREDENTIALS",
       email: "restored@login.cuny.edu",
       password: "restored-password",
@@ -151,13 +153,15 @@ describe("mountOpeningCunyScreen", () => {
   });
 
   test("silently recovers if the SW staging message rejects (tab still opens)", async () => {
-    sendMessageMock.mockRejectedValueOnce(new Error("SW torn down"));
+    sendMessageMock
+      .mockResolvedValueOnce({ ok: true })
+      .mockRejectedValueOnce(new Error("SW torn down"));
 
     const { ctx } = buildCtx(root);
     mountOpeningCunyScreen(ctx);
     await flush();
 
-    // The stage failed, but Screen 4 still opens the tab. This is an
+    // Logout succeeded, but the stage failed; Screen 4 still opens the tab. This is an
     // intentional resilience choice: the content script's AUTO_FILL_REQUEST
     // will fall back to whatever vault state exists, and the user can retry
     // from Screen 4's back button.
