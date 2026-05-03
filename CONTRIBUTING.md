@@ -62,6 +62,8 @@ For faster iteration after changing only tests, run `npx playwright test` (still
 2. Enter CUNY email (must end with `@login.cuny.edu`), password, Base32 TOTP secret, and a **local master password** (never stored in `storage.local`; used only to derive the encryption key).
 3. Use **Save encrypted vault**, **Unlock**, or **Save changes** depending on mode. To change the master password, fill both optional fields in unlocked mode.
 
+**`browser.storage.local`:** the encrypted vault lives under `cunyVault`. The only other documented key is the non-secret boolean `cunyOnboardingCompleted` (onboarding finished); see `.agents/rules/security.md` before adding any new `storage.local` writes.
+
 ## Content script: confirm injection
 
 1. Open a tab to any page under `https://ssologin.cuny.edu/` (exact path may vary).

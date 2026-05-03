@@ -24,10 +24,10 @@ Read every file that touches `email`, `password`, `totpSecret`, or `masterPasswo
 
 ### 2. Plaintext storage — is anything sensitive on disk?
 
-The only thing permitted in `browser.storage.local` is the encrypted vault blob (`StoredVault`). Everything else must be either in-memory (JS variables) or in `browser.storage.session` (cleared on browser close, never written to disk).
+`browser.storage.local` holds the encrypted vault blob (`StoredVault` under `cunyVault`) and **one documented non-secret exception**: the boolean `cunyOnboardingCompleted` (onboarding terminal UX flag in `src/onboarding/onboardingComplete.ts`). Everything sensitive otherwise must be in-memory (JS variables) or in `browser.storage.session` (cleared on browser close, not a durable disk store for secrets in the same way as `storage.local`).
 
 Check:
-- `browser.storage.local.set(...)` callsites — what is being stored? Is it only `{ cunyVault: StoredVault }`?
+- `browser.storage.local.set(...)` callsites — what is being stored? Should be `{ cunyVault: StoredVault }` and/or `{ cunyOnboardingCompleted: true }` only (see `.agents/rules/security.md`).
 - `localStorage.setItem(...)` — **any use of `localStorage` for sensitive data is a critical finding**. Extension `localStorage` persists to disk as LevelDB files readable by anyone with filesystem access.
 - `browser.storage.session.set(...)` callsites — what is stored? Is it scoped to in-memory only sensitive values (master password, setup draft, pending TOTP)? The onboarding `stagedOnboardingCredentials` in `service-worker.ts` must **not** appear here — it is a module-level JS variable only.
 - `browser.storage.session.set(...)` callsites — what is stored? Is it scoped to in-memory only sensitive values (master password, setup draft, pending TOTP, and resumable onboarding snapshot fields)? The onboarding `stagedOnboardingCredentials` in `service-worker.ts` must **not** appear here — it is a module-level JS variable only.
@@ -83,7 +83,7 @@ End with a **"What is NOT a problem"** table covering things that look suspiciou
 
 These are the security properties that should be true after the hardening done in this repo. If any of them are violated, that is a finding:
 
-- `browser.storage.local` contains only `{ cunyVault: StoredVault }` (encrypted blob, no plaintext)
+- `browser.storage.local` contains `{ cunyVault: StoredVault }` (encrypted blob) plus optional `{ cunyOnboardingCompleted: true }` (boolean UX flag, not a credential)
 - Draft autosave uses `browser.storage.session` (in-memory), not `localStorage`
 - Draft saving is gated to `setup` mode only (`currentMode === "setup"` check in input listeners)
 - `FILL_CREDENTIALS` message handler in `content.ts` is wrapped in `if (import.meta.env.DEV)`

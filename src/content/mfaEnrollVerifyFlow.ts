@@ -73,8 +73,10 @@ const tryFillMfaEnrollVerifyOtp = async (otpInput: HTMLInputElement): Promise<bo
     log("filled 6-digit code");
     return true;
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn("[CUNYAutoLogin] mfaEnrollVerifyFlow tick: unexpected error", error);
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn("[CUNYAutoLogin] mfaEnrollVerifyFlow tick: unexpected error", error);
+    }
     return false;
   }
 };

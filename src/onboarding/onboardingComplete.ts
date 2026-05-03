@@ -2,7 +2,9 @@
  * Local (non-secret) marker: user reached onboarding terminal COMPLETE_DONE.
  * Cleared when the vault is wiped so a fresh onboarding run can start clean.
  *
- * Reads/writes `cunyOnboardingCompleted`; migrates from legacy
+ * Reads/writes `cunyOnboardingCompleted` in `browser.storage.local` — the
+ * **only** documented non-vault `storage.local` key (boolean, not credentials).
+ * See `.agents/rules/security.md`. Migrates from legacy
  * `cunyOnboardingV2CompletedV1` on first successful mark.
  */
 
