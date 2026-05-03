@@ -6,7 +6,7 @@ Observed May 2026 via live flows through `ssologin.cuny.edu` MFA. Values are int
 
 | Layer | Same across Brightspace + CUNYFirst? |
 |-------|--------------------------------------|
-| **CUNY SSO (`ssologin.cuny.edu`)** — breaking MFA/password gate on the next federation hop | **Yes.** Same **`OAM_ID`** / **`ORA_OSFS_SESSION`** (and optionally **`OAM_JSESSIONID`**) guidance as below. **`OAACtxCookie`** still rotates mid-flow on `auth_cred_submit`. |
+| **CUNY SSO (`ssologin.cuny.edu`)** — breaking MFA/password gate on the next federation hop | **Yes.** Same **`OAM_ID`** guidance as below. **`oaaCtx`** rotates mid-flow on `auth_cred_submit`. |
 | **Service-specific app session** | **No.** Brightspace keeps **`d2lSessionVal`** / **`d2lSecureSessionVal`** on `brightspace.cuny.edu`. CUNYFirst keeps **PeopleSoft** cookies on **`.cunyfirst.cuny.edu`** (`PS_TOKEN`, `…PORTAL-PSJSESSIONID`, …) and an **`OAMAuthnCookie_<host>_<port>`** on **`home.cunyfirst.cuny.edu`**. Remove the **whole SP layer** relevant to whichever site you are resetting. |
 
 ## Entry URL shape (why the login page differs)
@@ -43,11 +43,11 @@ After successful SAML ACS, **`POST https://brightspace.cuny.edu/d2l/lp/auth/logi
 
 `document.cookie` on the LMS home shows **analytics/third-party IDs only** (`_ga*`, `_fbp`, …). LMS auth is carried on **HttpOnly** cookies above; scripts cannot read them.
 
-### Fewest removals to treat the user as “logged out” of Brightspace
+### Fewest removals to treat the user as "logged out" of Brightspace
 
 Delete **`d2lSessionVal`** and **`d2lSecureSessionVal`** on `https://brightspace.cuny.edu/`. Those are the two session cookies observed on SAML completion. Clearing the **`d2lSameSiteCanary*`** pair is optional (they are not the cryptographic session proofs but can be removed for a clean cookie jar).
 
-Reloading `/d2l/home` afterward should bounce through SAML again. If the **IdP SSO session is still alive**, the browser may return to Brightspace **without password/TOTP** (same problem as onboarding “Try it out” showing only a reload).
+Reloading `/d2l/home` afterward should bounce through SAML again. If the **IdP SSO session is still alive**, the browser may return to Brightspace **without password/TOTP**.
 
 ## CUNYFirst — `home.cunyfirst.cuny.edu` and `.cunyfirst.cuny.edu`
 
@@ -70,11 +70,11 @@ On the portal **`302`** and first **`200`**, **`Set-Cookie`** on **`.cunyfirst.c
 | **`cnyihprd-8080-PORTAL-PSJSESSIONID`** | Portal **Java servlet session** id (HttpOnly, `Secure`). Prefix **`cnyihprd-8080`** is environment/site-specific — treat as **`{instance}-{port}-PORTAL-PSJSESSIONID`** pattern. |
 | **`PS_TOKEN`** | PeopleSoft cryptographic session token (**HttpOnly**). |
 | `PS_LASTSITE`, `ExpirePage`, `PS_TokenSite`, `PS_TOKENEXPIRE`, `PS_LOGINLIST`, `SignOnDefault` | Routing / bookkeeping / timeouts (mostly `Secure`; several HttpOnly). |
-| `PS_DEVICEFEATURES`, `ps_theme`, `OAMAuthnHintCookie` | Feature hints / UX (not pure auth, but may be cleared when resetting cleanly). |
+| `PS_DEVICEFEATURES`, `ps_theme` | Feature hints / UX (not pure auth). |
 
 `BIGipServer*` on **`home.cunyfirst.cuny.edu`** / **`.cunyfirst.cuny.edu`** is load-balancer affinity, not proof of login.
 
-### Fewest removals to treat the user as “logged out” of CUNYFirst
+### Fewest removals to treat the user as "logged out" of CUNYFirst
 
 Minimal **portal session teardown** observed in practice:
 
@@ -83,7 +83,7 @@ Minimal **portal session teardown** observed in practice:
 
 Add **`OAMAuthnCookie_home.cunyfirst.cuny.edu_443`** on **`https://home.cunyfirst.cuny.edu/`** so the browser does not immediately present a stale WebGate assertion on the front door host.
 
-Reloading **`https://home.cunyfirst.cuny.edu/`** after that forces a fresh **`obrareq.cgi`** hand-off. To require **full MFA/password** again (not SSO slide), also clear **`OAM_ID`** / **`ORA_OSFS_SESSION`** on the IdP as in the SSO section below — **same recommendation as Brightspace**.
+Reloading **`https://home.cunyfirst.cuny.edu/`** after that forces a fresh **`obrareq.cgi`** hand-off. To require **full MFA/password** again (not SSO slide), also clear **`OAM_ID`** on the IdP as in the SSO section below.
 
 Subdomains (**`*.cunyfirst.cuny.edu`**, e.g. `hrsa.` / `cssa.` pings seen on home load) reuse **PeopleSoft-domain** cookies once issued; wiping **`.cunyfirst.cuny.edu`** scoped names covers those tabs as well unless the app split cookies onto a narrower host-only jar.
 
@@ -91,82 +91,80 @@ Subdomains (**`*.cunyfirst.cuny.edu`**, e.g. `hrsa.` / `cssa.` pings seen on hom
 
 ## CUNY SSO / OAM — `ssologin.cuny.edu`
 
-On the MFA completion path (`POST https://ssologin.cuny.edu/oam/server/auth_cred_submit`), responses included **`Set-Cookie`** updates such as:
+Cookies observed on the extension's `cookies.getAll` after a complete MFA login (May 2026, Chrome, `host_permissions: https://ssologin.cuny.edu/*`):
 
-| Cookie | Typical role |
-|--------|----------------|
-| **`ObSSOCookie`** | Oracle Access Manager SSO cookie used by protected OAM resources (HttpOnly) |
-| **`OAM_ID`** | Oracle OAM identity / SSO session artifact (HttpOnly) |
-| **`ORA_OSFS_SESSION`** | Oracle federation / session subsystem (HttpOnly) |
-| `OAACtxCookie` | OAM auxiliary context blob (often rotated mid-flow; HttpOnly) |
-| **`OAM_JSESSIONID`** | Java HTTP session on the IdP (affinity with app nodes) |
+| Cookie | Domain | SameSite | Typical role |
+|--------|--------|----------|--------------|
+| **`OAM_ID`** | `ssologin.cuny.edu` | `no_restriction` | Oracle OAM session artifact (HttpOnly, Secure) |
+| **`OAMAuthnCookie_ssologin.cuny.edu_443`** | `ssologin.cuny.edu` | `no_restriction` | Oracle WebGate bearer for this host/port (HttpOnly, Secure) |
+| **`oaaCtx`** | `.ssologin.cuny.edu` | `unspecified` | OAM auxiliary context blob; domain cookie sent to all subdomains of ssologin.cuny.edu (HttpOnly, Secure) |
+| **`_WL_AUTHCOOKIE_JSESSIONID`** | `ssologin.cuny.edu` | `unspecified` | WebLogic HTTP session affinity (HttpOnly, Secure) |
+| `OAM_REQ_0`, `OAM_REQ_1` | `ssologin.cuny.edu` | `no_restriction` | In-flight request state; set to `invalid` after successful auth |
+| `OAM_REQ_COUNT` | `ssologin.cuny.edu` | `no_restriction` | Request counter |
+| `BIGipServer/…`, `BIGipServera/…` | `ssologin.cuny.edu` | `unspecified` | Load-balancer affinity — **not** auth proofs |
+| `OAMAuthnHintCookie` | `.cuny.edu` | `no_restriction` | **Username hint only** — pre-fills login form username. Not a session token. Only visible to the extension with `https://*.cuny.edu/*` in `host_permissions`. |
 
-Load-balancer affinity cookies (**`BIGipServer*`** variants) appeared in requests but are **not** authentication proofs; skipping them avoids unnecessary infra churn.
+`ObSSOCookie`, `ORA_OSFS_SESSION`, and `OAM_JSESSIONID` were **not observed** in the May 2026 Chrome session post-login; they may be present in other flows or environments.
 
-Previously active request state cookies **`OAM_REQ_0`** / **`OAM_REQ_1`** were observed set to **`invalid`** on successful transition (replacing earlier large payloads).
+### Logging out of `/oaa/rui` — server-side session, not cookie-based
 
-### Fewest removals to break IdP SSO (force full challenge again)
+**The OAA SPA at `/oaa/rui/` maintains a server-side session.** Client-side cookie deletion alone does not log the user out. Even with zero browser cookies, the SPA loads as authenticated because the OAM server still considers the session valid.
 
-A practical **minimal pair** observed to matter for SSO continuity:
+**The correct logout procedure is to navigate to the OAA logout endpoint:**
 
-1. **`OAM_ID`** on the IdP host (or whichever `Domain=` the cookie uses when inspected in DevTools Application → Cookies).
-2. **`ORA_OSFS_SESSION`** (same caveat: match **name + domain + path** from DevTools).
+```
+GET https://ssologin.cuny.edu/oaa/rui/user/v1/logout
+```
 
-If a corner case still SSO-slides without MFA (or direct `/oaa/rui` remains authenticated), remove **`OAM_JSESSIONID`** and **`ObSSOCookie`** as well for that host. Clearing **`OAACtxCookie`** is a heavier-handed reset of auxiliary context.
+This endpoint:
+- Terminates the server-side OAA session
+- Redirects the browser to `https://ssologin.cuny.edu/cunylogin/pages/Logout.jsp` ("You Have Logged Out")
+- After which any navigation to `/oaa/rui` requires full re-authentication (redirects to `obrareq.cgi`)
 
-**Order of operations:** For onboarding UX that must show **real** re-auth, clear (**1**) SP session cookies (**Brightspace** *or* **CUNYFirst** per sections above), **then** (**2**) **IdP** cookies if you must kill SSO-slide, **then** navigate or reload.
+The logout URL is also available from the authenticated API: `GET /oaa/rui/user/v1` returns `{"key":"logout_location","val":"/oaa/rui/user/v1/logout"}`.
+
+The extension implements this via `browser.tabs.update(tabId, { url: OAA_RUI_LOGOUT_URL })` from the service worker. This works without the `tabs` permission because the URL matches the extension's existing `host_permissions` for `ssologin.cuny.edu`.
+
+### Fewest removals to break IdP SSO (force full challenge for Brightspace/CUNYFirst)
+
+Cookie deletion is the correct approach for **SP-layer sessions** (Brightspace, CUNYFirst). For those:
+
+1. **`OAM_ID`** on `ssologin.cuny.edu`
+2. **`OAMAuthnCookie_ssologin.cuny.edu_443`** on `ssologin.cuny.edu`
+
+Combined with the SP-specific cookies above, this forces a fresh credential challenge on the next login attempt to those services.
+
+**This approach does not apply to `/oaa/rui/`.** Use the logout endpoint instead (see above).
+
+---
 
 ## Extension implementation notes (MV3 / `browser.*`)
 
 - Clearing cookies requires the **`cookies` API permission** in the manifest (`"permissions": ["cookies", …]`).
-- **`browser.cookies.remove`** needs a URL whose **scheme + registrable domain** matches the cookie; e.g. `{ url: "https://brightspace.cuny.edu/", name: "d2lSessionVal" }` or `{ url: "https://home.cunyfirst.cuny.edu/", name: "PS_TOKEN" }`.
-- **`OAMAuthnCookie_*` names encode host and port.** Prefer **`browser.cookies.getAll`** filtered by **`domain`** / **`url`** rather than hard-coding literals for every vanity host WebGate exposes.
-- This repo currently grants **`host_permissions`** only for `https://ssologin.cuny.edu/*`. To programmatically wipe **Brightspace**, **home CUNYFirst**, or `.cunyfirst.cuny.edu` jars, extend host permissions (e.g. `https://brightspace.cuny.edu/*`, `https://*.cunyfirst.cuny.edu/*`) to match only hosts you deliberately support.
+- **`browser.cookies.remove`** needs a URL whose scheme + registrable domain matches the cookie; e.g. `{ url: "https://brightspace.cuny.edu/", name: "d2lSessionVal" }` or `{ url: "https://home.cunyfirst.cuny.edu/", name: "PS_TOKEN" }`.
+- **`OAMAuthnCookie_*` names encode host and port.** Prefer **`browser.cookies.getAll`** filtered by `domain` / `url` rather than hard-coding literals for every vanity host WebGate exposes.
+- Current `host_permissions`: `https://ssologin.cuny.edu/*`, `https://brightspace.cuny.edu/*`, `https://home.cunyfirst.cuny.edu/*`, `https://*.cunyfirst.cuny.edu/*`. `OAMAuthnHintCookie` on `.cuny.edu` is **not** visible without `https://*.cuny.edu/*`, which is intentionally omitted (too broad; the hint cookie is not a session token and does not affect logout).
 - HttpOnly cookies **cannot** be cleared from content scripts via `document.cookie`; use the **`cookies`** API from a background/service worker.
+- **`browser.tabs.update(tabId, { url })` works without `tabs` permission** if the URL matches `host_permissions`. Use this to navigate a CUNY tab to the OAA logout endpoint from the service worker.
 
 ### Live validation note (May 2026, dev build)
 
-- Extension runtime now exposes **`LOGOUT_CUNY_SESSIONS`** with optional `site` (`all`, `brightspace`, `cunyfirst`, `ssologin`).
-- Handler returns `{ ok: boolean, removedCount: number }` so tests can assert removal attempts without inspecting cookie values.
-- Observed in live dev runs: `LOGOUT_CUNY_SESSIONS { site: "all" }` returned success with 7-9 removals depending on whether optional IdP cookies (`OAM_JSESSIONID`, `ObSSOCookie`) are present.
-- Important: this ack confirms deletion operations ran, but does **not** by itself prove a logged-in user was transitioned to logged-out. That requires a pre-authenticated state check.
+- Extension exposes **`LOGOUT_CUNY_SESSIONS`** with optional `site` (`all`, `brightspace`, `cunyfirst`, `ssologin`).
+- Handler returns `{ ok: boolean, removedCount: number }`. `removedCount` reflects how many `cookies.remove` calls found and removed a cookie; it does **not** prove the user is logged out.
+- Observed: `LOGOUT_CUNY_SESSIONS { site: "all" }` returns `removedCount` of approximately 17–18 (all three site spec lists: 2 Brightspace + 3 CUNYFirst + 12 ssologin, plus any extras found by the URL-based purge).
+- `/oaa/rui` logout is confirmed by the tab navigating to `Logout.jsp` and subsequent `/oaa/rui` access redirecting to `obrareq.cgi`.
 
 ## Verification protocol (for logout claims)
 
-1. Establish a known logged-in state on each target URL:
-   - `https://brightspace.cuny.edu`
-   - `https://home.cunyfirst.cuny.edu`
-   - `https://ssologin.cuny.edu/oaa/rui`
-2. Trigger extension logout (`LOGOUT_CUNY_SESSIONS` via debug panel or runtime message).
-3. Revisit each target URL and verify forced re-auth.
-4. Record evidence as final URL + visible login markers (never cookie values).
-
-## Complications discovered in live testing
-
-- Clearing the documented IdP cookies (`OAM_ID`, `ORA_OSFS_SESSION`, `OAM_JSESSIONID`, `ObSSOCookie`) plus SP cookies reliably forces re-auth for:
-  - `https://brightspace.cuny.edu`
-  - `https://home.cunyfirst.cuny.edu`
-- Direct `https://ssologin.cuny.edu/oaa/rui` may still render an authenticated OAA UI in the same browser context even after:
-  - cookie removal succeeds, and
-  - in-page storage reset runs (`localStorage["jc"]` removed, `sessionStorage` cleared).
-- Oracle logout endpoints (`/oam/server/logout` with common params) can show logout pages without guaranteeing `/oaa/rui` re-auth on the next load.
-- Treat `/oaa/rui` as a separate strict check in every logout validation run; do not infer it from Brightspace/CUNYFirst redirects.
-
-### `/oaa/rui` deep-pass survivor cookies (name/domain/path only)
-
-In repeated live runs, these cookies survived extension logout but disappeared when clearing all `*.cuny.edu` cookies:
-
-- `oaaCtx` / `.ssologin.cuny.edu` / `/`
-- `_WL_AUTHCOOKIE_JSESSIONID` / `ssologin.cuny.edu` / `/`
-- `OAMAuthnCookie_ssologin.cuny.edu_443` / `ssologin.cuny.edu` / `/`
-- `OAM_REQ_0` / `ssologin.cuny.edu` / `/`
-- `OAM_REQ_1` / `ssologin.cuny.edu` / `/`
-- `OAM_REQ_COUNT` / `ssologin.cuny.edu` / `/`
-- `BIGipServer/1cH5tvcc6Xb1GCKLdbbKA` / `ssologin.cuny.edu` / `/`
-- `BIGipServera/wVmqC4X189EXHfdIK97w` / `ssologin.cuny.edu` / `/`
-
-The extension `ssologin` logout set now includes these names plus existing OAM session cookies to align with the observed full-domain-clear behavior.
+1. Establish a known logged-in state on each target:
+   - `https://brightspace.cuny.edu` — observe the LMS home
+   - `https://home.cunyfirst.cuny.edu` — observe the portal home
+   - `https://ssologin.cuny.edu/oaa/rui` — observe the OAA dashboard ("Hi, what are you managing today?")
+2. Trigger extension logout (dev panel button or `LOGOUT_CUNY_SESSIONS` runtime message).
+3. For Brightspace and CUNYFirst: reload each URL and verify redirect to credential page.
+4. For `/oaa/rui`: confirm the tab navigated to `Logout.jsp`, then navigate to `/oaa/rui` and verify redirect to `obrareq.cgi`.
+5. Record evidence as final URL + visible page text (never cookie values).
 
 ## Disclaimer
 
-Oracle, WebGate, and D2L/PeopleSoft may add or rename cookies; always confirm in DevTools **Application → Cookies** for failing cases. SAML / `obrar.cgi` flows for other portals may attach auxiliary cookies — the **minimal pairs** above are pragmatic baselines observed on `brightspace.cuny.edu` / `home.cunyfirst.cuny.edu` May 2026.
+Oracle, WebGate, and D2L/PeopleSoft may add or rename cookies; always confirm in DevTools **Application → Cookies** for failing cases. SAML / `obrar.cgi` flows for other portals may attach auxiliary cookies — the observations above are from `ssologin.cuny.edu` / `brightspace.cuny.edu` / `home.cunyfirst.cuny.edu` May 2026.
