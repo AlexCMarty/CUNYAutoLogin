@@ -1,6 +1,6 @@
 # Contributing to CUNYAutoLogin
 
-Manifest V3 extension for Chromium and Firefox: encrypted credential storage in the sidebar vault (PBKDF2 + AES-GCM), session unlock via `browser.storage.session`, and a content script for `https://ssologin.cuny.edu` that auto-fills login and TOTP when the vault is unlocked.
+Manifest V3 extension for Chromium (114+) and Firefox (115+), per `src/manifest.json`: encrypted credential storage in the sidebar vault (PBKDF2 + AES-GCM), session unlock via `browser.storage.session`, and a content script for `https://ssologin.cuny.edu` that auto-fills login and TOTP when the vault is unlocked.
 
 ## Build
 
@@ -14,7 +14,7 @@ This runs TypeScript checks, then Vite for the sidebar and background, then a se
 - **`npm run build`** — **Production** (default Vite mode): minified where appropriate, no sidebar debug controls (test fill / clear vault).
 - **`npm run build:dev`** — **Development**: unminified sidebar/background and readable `content.js` when possible; sidebar includes **Send test FILL_CREDENTIALS** and **Clear vault — debug**.
 
-CI and GitHub Releases use `npm run build` only.
+The [release workflow](.github/workflows/release.yml) runs `npm run build` only. This repository does not run unit or E2E tests in CI — run `npm run test` locally before merging.
 
 | Script | Purpose |
 |--------|---------|
@@ -26,18 +26,16 @@ CI and GitHub Releases use `npm run build` only.
 | `npm run build:e2e` | Same as `build:dev`, but copies [`src/manifest.e2e.json`](src/manifest.e2e.json) to `dist/manifest.json` (adds `http://127.0.0.1:4173/*` for local HTML fixtures used by Playwright). |
 | `npm run test:e2e` | Runs `build:e2e`, then [Playwright](https://playwright.dev/) Chromium tests against `dist/` (see **End-to-end tests** below). |
 
-Load `dist/` as an unpacked / temporary extension (see below), or install from a [release zip](./releases) like beta testers.
+Load `dist/` as an unpacked / temporary extension (see below), or install from a zip attached to a [GitHub Release](https://github.com/AlexCMarty/CUNYAutoLogin/releases) (same as end users in `README.md`).
 
 ## End-to-end tests (Chromium + Playwright)
 
 Automated tests load the unpacked extension from `dist/` and static HTML fixtures served at `http://127.0.0.1:4173` (paths and element ids match [`src/cuny/ssoSite.ts`](src/cuny/ssoSite.ts)). **Firefox is not covered** — Playwright’s documented extension loading uses Chromium only.
 
 1. One-time browser install: `npx playwright install chromium`
-2. `npm run test:e2e` — rebuilds with the E2E manifest, starts the fixture server, and runs [`e2e/autofill.spec.ts`](e2e/autofill.spec.ts).
+2. `npm run test:e2e` — rebuilds with the E2E manifest, starts the fixture server, and runs Playwright specs under `e2e/` (for example `onboarding.spec.ts`, `onboarding-guided.spec.ts`, `onboarding-completion.spec.ts`, `locked.spec.ts`, `unlocked.spec.ts`).
 
 For faster iteration after changing only tests, run `npx playwright test` (still starts the fixture server via [`playwright.config.ts`](playwright.config.ts); use a recent `npm run build:e2e` so `dist/manifest.json` matches the E2E host permissions).
-
-CI should call `npm run test:e2e` so `dist/manifest.json` always includes the localhost `host_permissions` / `matches` entries required for fixtures.
 
 ## Load unpacked (from source)
 
@@ -56,7 +54,7 @@ CI should call `npm run test:e2e` so `dist/manifest.json` always includes the lo
 
 **Publishing a release (maintainer):** Update `version` in `src/manifest.json` if needed, commit, then create and push a tag whose name matches that version with a `v` prefix (for example `v0.2.2` for manifest version `0.2.2`). Pushing the tag runs [`.github/workflows/release.yml`](.github/workflows/release.yml), which builds on GitHub and attaches `CUNYAutoLogin-<tag>.zip` (contents of `dist/`) to a new release. Tags whose names contain `beta` or `rc` are marked as prereleases.
 
-**Installing from a release:** On the [**Releases**](./releases) page, download the zip, unzip to a folder with `manifest.json` at the top level, then load that folder using **Load unpacked** / **Load Temporary Add-on** as above.
+**Installing from a release:** On the [**Releases**](https://github.com/AlexCMarty/CUNYAutoLogin/releases) page, download the zip, unzip to a folder with `manifest.json` at the top level, then load that folder using **Load unpacked** / **Load Temporary Add-on** as above.
 
 ## Sidebar vault: first run and update
 

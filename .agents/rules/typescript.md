@@ -87,16 +87,20 @@ Never leave commented-out code in a committed branch.
 
 ## Async fire-and-forget
 
-`void promise` must chain `.catch()`. `try/catch` does **not** catch async rejections from a voided Promise.
+`try/catch` around `void someAsync()` does **not** catch rejections from the promise. Either handle errors **inside** the async function, or attach **`.catch()`** on the promise at the call site when the callee might reject and you are not awaiting it.
 
 ```typescript
-// Wrong — catch is unreachable for async errors
-try { void browser.runtime.sendMessage(msg); } catch { ... }
+// Wrong — outer catch never sees async rejection from voided call
+try {
+  void browser.runtime.sendMessage(msg);
+} catch {
+  /* unreachable for promise rejection */
+}
 
-// Correct
+// Fine when the async function catches internally (see e.g. content `autoFill`)
+
+// Fine when you surface failures explicitly
 void browser.runtime.sendMessage(msg).catch((error) => handleError(error));
-
-// Also correct — genuinely don't care about failure
 void browser.runtime.sendMessage(msg).catch(() => undefined);
 ```
 

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "lint": "eslint src e2e",
+    "lint": "eslint --max-warnings 0 src e2e",
     "build": "npm run lint && tsc --noEmit && vite build && vite build -c vite.content.config.ts",
     "build:dev": "npm run lint && tsc --noEmit && vite build --mode development && vite build -c vite.content.config.ts --mode development",
     "build:e2e": "cross-env E2E_MANIFEST=1 npm run build:dev",

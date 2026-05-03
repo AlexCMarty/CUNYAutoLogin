@@ -1,4 +1,4 @@
-<!-- Load when: touching vault, credentials, storage, crypto, SSO session cookies (`browser.cookies`), or any sensitive data path -->
+<!-- Load when: touching vault, credentials, storage, crypto, SSO session termination, or any sensitive data path -->
 
 > **Security stakes**: This extension stores institutional login credentials for 275,000+ CUNY students. It is subject to CUNY IT security review and Chrome Web Store scrutiny. A credential exposure is institutional-scale — extensions get removed and developers face discipline. **Never suggest `localStorage`, unencrypted `storage.local`, or any on-disk store for sensitive plaintext data.** The only permitted locations are `browser.storage.session` (in-memory, cleared on browser close) and encrypted `browser.storage.local` (vault ciphertext only).
 
@@ -29,16 +29,24 @@ The master password is **never written to `storage.local` or disk**. It lives on
 | Cipher | AES-GCM-256 |
 | Storage format | `{ version: 1, saltB64, ivB64, ciphertextB64 }` |
 
-## Browser SSO session cookies (PeopleSoft / D2L / OAM shells)
+## SSO session termination (OAM / `ssologin.cuny.edu`)
 
-Rare code paths may need to **simulate a logout** locally (for example onboarding “try again” UX) so the next navigation hits SSO like a cold browser would. **`browser.cookies`** is the API surface involved. Misuse is a credential **and session** incident.
+Some flows (for example onboarding “try again”) must end the IdP session so the next navigation behaves like a cold login. **Mis-handling sessions is a credential and session incident.**
 
-Treat this as policy for **implementers and reviewers** — including AI agents tooling on this repo:
+### What the code does today
 
-1. **Delete only.** The **only** permitted programmatic action on SSO-related cookies is **`browser.cookies.remove`**. Do **not** call **`cookies.set`** (or equivalents), do **not** inject `Set-Cookie` via redirects, proxies, DevTools payloads, MCP tools, scripts, tests, or one-off tooling that **writes** jar state for users’ real browsers.
-2. **Minimum footprint.** Delete the **fewest cookies** documented to invalidate the targeted layer — see [.map/cookies/session-and-logout.md](../../.map/cookies/session-and-logout.md). Do **not** carpet-bomb `cookies.getAll({ domain })` deletes “to be safe” unless a human explicitly widened scope after verifying behavior; oversized deletion is breakage and phishing-adjacent if misdirected.
-3. **Never store cookie material.** Cookie **names** okay in source as string literals matching the live map **names only**. Cookie **values** must **never** land in **`storage.local`**, **`storage.session`**, SQLite, telemetry, Markdown runbooks pasted from DevTools captures, **`console`** output in production builds, screenshots, MCP transcripts, clipboard helpers, fixtures, mock servers, git history, PR bodies, comments, tests that snapshot real dumps, etc. Rotate any secret that was pasted by mistake — values are bearer tokens.
-4. **Never transit cookie payloads.** Do **not** attach `Cookie` headers manually to `fetch` / WebSocket / `XMLHttpRequest` / third-party endpoints. Do **not** forward DevTools **`Set-Cookie`** lines to chats, bots, observability backends, CI logs, or off-repo HTTP. **Reads** (`cookies.get*` / MCP network captures) exist only where automation **must** understand shape — still **never** emit values off-machine.
-5. **Manifest parity.** Clearing host-only or SP-scoped jars requires **`"cookies"`** permission and matching **`host_permissions`**. Lack of permission is **not** an excuse to work around with content-script `document.cookie` writes or remote cookie injection — downgrade to **documentation / user instruction** instead.
+`src/background/service-worker.ts` terminates the Oracle OAA server-side session by:
 
-Violation of §1–4 is severity **critical** regardless of alleged convenience.
+1. Navigating open `https://ssologin.cuny.edu/*` tabs to **`OAA_RUI_LOGOUT_URL`** (`src/cuny/ssoSite.ts`), and  
+2. A best-effort **`fetch(OAA_RUI_LOGOUT_URL, { credentials: "include" })`** so logout still runs when no SSO tab is open.
+
+That matches the live-site procedure documented in [.map/cookies/session-and-logout.md](../../.map/cookies/session-and-logout.md). It uses the browser’s normal jar for **same-origin** logout — it is **not** “scrape cookies” or “attach `Cookie` to a random API”.
+
+### Rules for **implementers and reviewers** (including agents)
+
+1. **Same-origin session flows only** — Use `credentials: "include"` only for requests that are explicitly part of the supported CUNY logout or session contract (e.g. the documented OAA logout URL). Do **not** attach manual `Cookie` headers to arbitrary `fetch` / XHR / WebSocket / third-party endpoints.
+2. **Never store or exfiltrate cookie material** — Cookie **names** in source are fine as string literals aligned with the live map. Cookie **values** must **never** land in `storage.local`, `storage.session`, telemetry, production `console`, screenshots, MCP transcripts, fixtures from real captures, git history, PR bodies, etc. Rotate anything pasted by mistake.
+3. **Do not forward raw cookie lines** — Do not paste DevTools **`Set-Cookie`** / network cookie payloads into chats, bots, CI logs, or off-repo HTTP. **Reads** (`cookies.get*` / captures) for automation must **never** emit values off-machine.
+4. **`browser.cookies` is not used today.** If you add it later: **`cookies.remove` only** on the **smallest** documented set; never **`cookies.set`** or jar carpet-bombing without explicit human verification. Add **`"cookies"`** permission and matching **`host_permissions`** — lack of permission is **not** an excuse for content-script `document.cookie` writes or remote cookie injection; use **documentation / user steps** instead.
+
+Violations of §1–3 or careless use of §4 are **critical** severity regardless of convenience.

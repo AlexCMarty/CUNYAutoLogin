@@ -39,10 +39,12 @@ src/
   onboarding/beadHeader.ts      Five-bead progress header
   onboarding/render.ts          mountOnboarding — mounts shell + screen + runtime.onMessage bridge;
                                 fires CLEAR_ONBOARDING_CREDENTIALS on unmount
-  onboarding/screens/           welcome, emailEntry, passwordEntry, openingCuny, allowGate,
+  onboarding/screens/           welcome, emailEntry, passwordEntry, cunyTotp, openingCuny, allowGate,
                                 oaaSpaHome, guidedManage, guidedAddFactor, guidedFactorType,
                                 guidedSecretCapture, verifyLoginCode, setDefault, extPasswordSetup,
                                 biometricOffer, biometricPrep, completeDemo, completeDone.
+                                CREDENTIAL_ERROR is an onboarding state (not a separate file): inline UX
+                                lives in emailEntry.ts / passwordEntry.ts.
                                 guidedCommon.ts — shared guided-flow helpers
                                 screenContext.ts — shared mount context
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; VAULT_STORAGE_KEY
@@ -60,7 +62,8 @@ src/
   content/content.utils.ts      Pure helpers (TOTP normalization, KO-aware input setter)
   background/service-worker.ts  Opens side panel on toolbar click; handles AUTO_FILL_REQUEST,
                                 STAGE/CLEAR_ONBOARDING_CREDENTIALS, TOTP_SECRET_FROM_PAGE,
-                                ONBOARDING_REOPEN_CUNY_TAB
+                                ONBOARDING_REOPEN_CUNY_TAB, LOGOUT_CUNY_SESSIONS (OAA logout via tab
+                                navigation + best-effort fetch — see .map/cookies/session-and-logout.md)
   manifest.json                 Source manifest (Vite writes dist/manifest.json)
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host_permissions
 vite.config.ts                  Builds sidebar + background as ES modules
@@ -92,6 +95,8 @@ dist/                           Built extension — load this folder in the brow
 The two-step Vite build is intentional: `vite.config.ts` bundles sidebar + background as ES modules; `vite.content.config.ts` produces a single-file IIFE (`dist/content.js`) with `inlineDynamicImports` — required for reliable MV3 content script injection and to ship `totp-generator` + `neverthrow` inside the content bundle.
 
 ## Loading the extension
+
+Minimum versions: Firefox **115+**, Chromium **114+** (`src/manifest.json`).
 
 **Firefox:** `about:debugging` → Load Temporary Add-on → select `dist/manifest.json`
 **Chrome/Chromium:** `chrome://extensions` → Developer mode → Load unpacked → select `dist/`

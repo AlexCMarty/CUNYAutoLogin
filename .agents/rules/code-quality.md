@@ -20,13 +20,12 @@
 
 ## Pre-merge checklist
 
-- [ ] `npm run lint` passes zero errors and zero warnings?
+- [ ] `npm run lint` passes zero errors and zero warnings (ESLint uses `--max-warnings 0`)?
 - [ ] Every function does exactly one thing?
 - [ ] Every function is under 80 lines (excluding blank lines / comments)?
 - [ ] Can a stranger understand each variable's purpose from its name alone?
 - [ ] No single-letter variables outside a `for` loop counter?
 - [ ] All error paths handled explicitly (typed, not swallowed)?
-- [ ] Every `void somePromise()` chains `.catch(...)` instead of wrapping in `try/catch`?
 - [ ] Tests for the new behavior — including edge cases?
 - [ ] A test that would catch a regression if this broke?
 - [ ] No stub or placeholder files that are never imported?

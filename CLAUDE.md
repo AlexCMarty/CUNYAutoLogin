@@ -10,11 +10,9 @@ MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storag
 - All CUNY page constants (selectors, URL paths, timing) go in `src/cuny/ssoSite.ts` only
 - Content script must stay a single IIFE — never add ESM imports to `src/content/`
 - No `console.log`/`console.debug` outside `if (import.meta.env.DEV)` guards
-- No single-letter variable names (enforced by `id-length` in `eslint.config.js`)
-- `void promise` must chain `.catch()` — never wrap in `try/catch`
-- `npm run lint` must pass zero errors and zero warnings before any merge
+- **Lint:** `npm run lint` runs ESLint with `--max-warnings 0` (covers `id-length`, `no-console`, etc.); must pass with zero errors and zero warnings before merge
 - Do NOT assume completion just because unit tests pass. Run full `npm run test`.
-- **Cookies:** only **`browser.cookies.remove`**, targeting the **minimal** documented set (`.agents/rules/security.md`, `.map/cookies/`). **Never add, transmit, persist, log, or speculatively scrape** SSO cookie payloads (see `.agents/rules/security.md`, section *Browser SSO session cookies*). 
+- **Minimum browsers** (see `src/manifest.json`): Firefox **115+** (`strict_min_version`), Chromium **114+** (`minimum_chrome_version`). Do not document or relax below these without updating the manifest and fallbacks.
 
 ## Build
 
@@ -48,3 +46,4 @@ Commit format: `<type>(<scope>): short summary (≤50 chars)` — body explains 
 - Writing or running unit tests (`src/**/*.test.ts`) → `.agents/rules/unit-testing.md`
 - Writing or running E2E tests (`e2e/`) → `.agents/rules/e2e-testing.md`
 - Prime directives, pre-merge quality checklist → `.agents/rules/code-quality.md`
+
