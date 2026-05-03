@@ -37,6 +37,15 @@ export const CUNY_LOGIN_ENTRY_URL =
   `${SSO_LOGIN_ORIGIN}/oaa/rui` as const;
 
 /**
+ * OAA server-side logout endpoint. Navigating here terminates the Oracle Access
+ * Manager session on the server so subsequent page loads require re-authentication.
+ * Client-side cookie deletion alone is insufficient — OAA maintains a server-side
+ * session that survives cookie removal.
+ */
+export const OAA_RUI_LOGOUT_URL =
+  `${SSO_LOGIN_ORIGIN}/oaa/rui/user/v1/logout` as const;
+
+/**
  * Path CUNY redirects to when username/password submission is rejected. Having
  * the browser end up here — while still on the SSO origin — is our primary
  * signal for wrong-credential detection. Secondary signal is the

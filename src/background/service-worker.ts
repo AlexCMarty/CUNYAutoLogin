@@ -7,6 +7,7 @@ import {
 } from "../crypto/vault";
 import {
   CUNY_LOGIN_ENTRY_URL,
+  OAA_RUI_LOGOUT_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
   normalizeTotpSecretCandidate,
@@ -253,9 +254,13 @@ const clearSsoSiteDataInTabs = async (): Promise<void> => {
   for (const ssoTab of ssoTabs) {
     if (typeof ssoTab.id !== "number") continue;
     try {
-      await browser.tabs.sendMessage(ssoTab.id, { type: "CLEAR_SSO_SITE_DATA" });
+      // Navigate to the OAA server-side logout URL. Cookie deletion alone is not
+      // sufficient on Chrome: the OAA maintains a server-side session that survives
+      // client-side cookie removal. Navigating to the logout endpoint terminates
+      // that session and then redirects the tab to the login page.
+      await browser.tabs.update(ssoTab.id, { url: OAA_RUI_LOGOUT_URL });
     } catch {
-      // Ignore tabs without an attached content script.
+      // Ignore tabs that cannot be navigated (e.g. already closed).
     }
   }
 };
