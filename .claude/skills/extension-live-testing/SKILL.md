@@ -104,6 +104,35 @@ This extension has **no** `popup.html`. Always:
 
 Never rely on popup interaction helpers — they fail with missing popup.
 
+### Visual QA (dev build only)
+
+For **layout and styling**, jump straight to a mounted onboarding screen with a URL hash instead of walking the flow. Requires `npm run build:dev` (**development** or **e2e** Vite mode); production bundles ignore `#qa=` and fall through to normal boot.
+
+Open the sidebar with a hash (MCP callers: pass URL `chrome-extension://<id>/sidebar.html#qa=…`; hash changes reload the sidebar in dev per `sidebar.ts`).
+
+| Param | Purpose |
+| --- | --- |
+| `qa` | **Required** for a jump. Value = onboarding screen id (same as `[data-onboarding-screen]`): any state that has a real mount (`src/onboarding/screenMounts.ts`). **Not** supported: `CREDENTIAL_ERROR` (no mounted screen — use `qa=PASSWORD_ENTRY` / `qa=EMAIL_ENTRY` with `qaCred` instead). |
+| `qaEmail` | Optional seed for onboarding email fields (defaults to `visual-qa@login.cuny.edu`). URL-encoded if needed. |
+| `qaPassword` | Optional seed for password drafts (defaults to a harmless dev placeholder). |
+| `qaCred` | Optional `email` or `password` — sets inline credential-error UI on login screens. |
+
+Examples:
+
+```
+sidebar.html#qa=EXT_PASSWORD_SETUP
+sidebar.html#qa=CUNY_TOTP
+sidebar.html#qa=PASSWORD_ENTRY&qaCred=password
+```
+
+Effects when `#qa=` is valid: session resume snapshot is cleared first; onboarding mounts with the requested screen; resume UI is suppressed; optional yellow **Dev QA jump: …** banner (`[data-dev-qa-jump-banner='true']`) appears above the bead header.
+
+**Caveats:**
+
+- **`OPENING_CUNY`** still runs logout + credential staging + `tabs.create`; pair with **`#cuny=<encoded benign or fixture URL>`** (existing dev escape hatch in `openingCuny.ts`) if you must avoid hitting live SSO during layout passes.
+- **Guided screens** (e.g. **ALLOW_GATE**) may still post overlay messages — fine for sidebar CSS; may no-op without a matching CUNY tab.
+- **BIOMETRIC_PREP** depends on WebAuthn / automation support (same environment caveat as biometrics elsewhere in this skill).
+
 ---
 
 ## Interaction rules

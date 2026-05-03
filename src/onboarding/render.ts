@@ -37,6 +37,7 @@ import type {
   OnboardingScreenContext,
   ScreenHandle,
 } from "./screens/screenContext";
+import type { DevQaJumpParseResult } from "./devQaJump";
 import {
   clearResumeSnapshotSession,
   loadResumeSnapshotFromSession,
@@ -51,6 +52,11 @@ import { type OnboardingEvent } from "./transitions";
 import { routeByType } from "../runtime/messageRouter";
 
 export { beadViewModelForState, type BeadViewModel } from "./beadViewModel";
+
+/** Dev QA deep link options — pass `qaJump` from `tryParseDevQaOnboardingJumpFromWindow`. */
+export type MountOnboardingOptions = {
+  readonly qaJump?: DevQaJumpParseResult;
+};
 
 export type ScreenRenderer = {
   readonly state: OnboardingState;
@@ -483,6 +489,18 @@ const saveResumeSnapshot = async (
   });
 };
 
+const mountDevQaBanner = (
+  doc: Document,
+  state: OnboardingState
+): HTMLElement => {
+  const aside = doc.createElement("aside");
+  aside.className = "onboarding-dev-qa-strip";
+  aside.dataset.devQaJumpBanner = "true";
+  aside.setAttribute("aria-label", "Development visual QA");
+  aside.textContent = `Dev QA jump: ${state}`;
+  return aside;
+};
+
 // Skeleton shell + refs split out so `mountOnboarding` stays under eslint max-lines.
 const buildOnboardingShell = (
   doc: Document,
@@ -595,6 +613,7 @@ type OnboardingMountModel = {
   readonly shell: HTMLElement;
   readonly header: ReturnType<typeof mountBeadHeader>;
   readonly restoreLegacy: () => void;
+  readonly suppressResumeSnapshots: boolean;
 };
 
 type OnboardingUnmountBag = {
@@ -610,6 +629,7 @@ type OnboardingUnmountBag = {
   readonly header: ReturnType<typeof mountBeadHeader>;
   readonly shell: HTMLElement;
   readonly restoreLegacy: () => void;
+  readonly suppressResumeSnapshots: boolean;
 };
 
 const runOnboardingUnmount = (bag: OnboardingUnmountBag): void => {
@@ -618,7 +638,7 @@ const runOnboardingUnmount = (bag: OnboardingUnmountBag): void => {
   bag.unwireTabClose();
   bag.resumeButton.removeEventListener("click", bag.handleResume);
   bag.reopenCunyButton.removeEventListener("click", bag.handleReopenCuny);
-  void saveResumeSnapshot(bag.controller.getSnapshot());
+  if (!bag.suppressResumeSnapshots) void saveResumeSnapshot(bag.controller.getSnapshot());
   clearStagedOnboardingCredentials();
   bag.screenHandleRef.current?.unmount();
   bag.header.unmount();
@@ -628,11 +648,12 @@ const runOnboardingUnmount = (bag: OnboardingUnmountBag): void => {
 
 const subscribeOnboardingController = (
   controller: OnboardingController,
-  repaint: () => void
+  repaint: () => void,
+  suppressResumeSnapshots: boolean
 ): (() => void) => {
   let lastState: OnboardingState = controller.getSnapshot().state;
   return controller.subscribe((snapshot) => {
-    void saveResumeSnapshot(snapshot);
+    if (!suppressResumeSnapshots) void saveResumeSnapshot(snapshot);
     if (snapshot.state === "COMPLETE_DONE" && snapshot.state !== lastState) {
       void markOnboardingComplete();
     }
@@ -642,19 +663,79 @@ const subscribeOnboardingController = (
   });
 };
 
+type SidebarResumeLatch = { snapshot: PendingResumeSnapshot | null };
+
+const registerSidebarInterruptionBindings = ({
+  latch,
+  controller,
+  resumeButton,
+  reopenCunyButton,
+  repaint,
+  repaintInterruptionActions,
+  activeCunyTabIdRef,
+  isCunyTabMissingFlag,
+}: {
+  latch: SidebarResumeLatch;
+  controller: OnboardingController;
+  resumeButton: HTMLButtonElement;
+  reopenCunyButton: HTMLButtonElement;
+  repaint: () => void;
+  repaintInterruptionActions: () => void;
+  activeCunyTabIdRef: { value: number | null };
+  isCunyTabMissingFlag: { value: boolean };
+}): {
+  readonly handleResume: () => void;
+  readonly handleReopenCuny: () => void;
+  readonly unwireTabClose: () => void;
+} => {
+  const handleResume = (): void => {
+    if (!latch.snapshot) return;
+    controller.setEmail(latch.snapshot.email);
+    controller.setPassword(latch.snapshot.password);
+    controller.setState(latch.snapshot.state);
+    latch.snapshot = null;
+    repaint();
+  };
+  resumeButton.addEventListener("click", handleResume);
+
+  const handleReopenCuny = (): void => {
+    const message: OnboardingMessage = { type: "ONBOARDING_REOPEN_CUNY_TAB" };
+    isCunyTabMissingFlag.value = false;
+    repaintInterruptionActions();
+    void browser.runtime.sendMessage(message).catch(() => undefined);
+  };
+  reopenCunyButton.addEventListener("click", handleReopenCuny);
+
+  const unwireTabClose = wireTabCloseDetection(activeCunyTabIdRef, () => {
+    isCunyTabMissingFlag.value = true;
+    repaintInterruptionActions();
+  });
+
+  return { handleResume, handleReopenCuny, unwireTabClose };
+};
+
 const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
-  const { controller, doc, screenHost, resumeButton, reopenCunyButton, shell, header, restoreLegacy } =
-    model;
+  const {
+    controller,
+    doc,
+    screenHost,
+    resumeButton,
+    reopenCunyButton,
+    shell,
+    header,
+    restoreLegacy,
+    suppressResumeSnapshots,
+  } = model;
   const screenHandleRef = { current: null as ScreenHandle | null };
-  let pendingResumeSnapshot: PendingResumeSnapshot | null = null;
-  let isCunyTabMissing = false;
+  const resumeLatch: SidebarResumeLatch = { snapshot: null };
+  const isCunyTabMissingFlag = { value: false };
   const activeCunyTabIdRef = { value: null as number | null };
 
   const repaintInterruptionActions = (): void => {
     const currentState = controller.getSnapshot().state;
-    resumeButton.hidden = pendingResumeSnapshot === null;
+    resumeButton.hidden = resumeLatch.snapshot === null;
     reopenCunyButton.hidden =
-      !CUNY_REATTACHABLE_STATES.has(currentState) || !isCunyTabMissing;
+      !CUNY_REATTACHABLE_STATES.has(currentState) || !isCunyTabMissingFlag.value;
   };
 
   const repaint = (): void => {
@@ -669,48 +750,36 @@ const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
     repaintInterruptionActions();
   };
 
-  const unsubscribe = subscribeOnboardingController(controller, repaint);
+  const unsubscribe = subscribeOnboardingController(controller, repaint, suppressResumeSnapshots);
 
   const uninstallBridge = installRuntimeMessageBridge(
     controller,
     screenHost,
     (tabId) => {
       activeCunyTabIdRef.value = tabId;
-      isCunyTabMissing = false;
+      isCunyTabMissingFlag.value = false;
       repaintInterruptionActions();
     }
   );
 
-  const handleResume = (): void => {
-    if (!pendingResumeSnapshot) return;
-    controller.setEmail(pendingResumeSnapshot.email);
-    controller.setPassword(pendingResumeSnapshot.password);
-    controller.setState(pendingResumeSnapshot.state);
-    pendingResumeSnapshot = null;
-    repaint();
-  };
-  resumeButton.addEventListener("click", handleResume);
-
-  const handleReopenCuny = (): void => {
-    const message: OnboardingMessage = { type: "ONBOARDING_REOPEN_CUNY_TAB" };
-    isCunyTabMissing = false;
-    repaintInterruptionActions();
-    void browser.runtime.sendMessage(message).catch(() => undefined);
-  };
-  reopenCunyButton.addEventListener("click", handleReopenCuny);
-
-  const unwireTabClose = wireTabCloseDetection(activeCunyTabIdRef, () => {
-    isCunyTabMissing = true;
-    repaintInterruptionActions();
-  });
+  const { handleResume, handleReopenCuny, unwireTabClose } =
+    registerSidebarInterruptionBindings({
+      latch: resumeLatch,
+      controller,
+      resumeButton,
+      reopenCunyButton,
+      repaint,
+      repaintInterruptionActions,
+      activeCunyTabIdRef,
+      isCunyTabMissingFlag,
+    });
 
   repaint();
-  void loadAndApplyResumeSnapshot(
-    (snapshot) => {
-      pendingResumeSnapshot = snapshot;
-    },
-    repaintInterruptionActions
-  );
+  if (!suppressResumeSnapshots) {
+    void loadAndApplyResumeSnapshot((snapshot) => {
+      resumeLatch.snapshot = snapshot;
+    }, repaintInterruptionActions);
+  }
 
   const bag: OnboardingUnmountBag = {
     unsubscribe,
@@ -725,16 +794,28 @@ const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
     header,
     shell,
     restoreLegacy,
+    suppressResumeSnapshots,
   };
   return () => runOnboardingUnmount(bag);
 };
 
-export const mountOnboarding = (doc: Document): (() => void) => {
+export const mountOnboarding = (
+  doc: Document,
+  options?: MountOnboardingOptions
+): (() => void) => {
+  const qaJumpBundle = options?.qaJump;
+  const qaJumpActive = qaJumpBundle !== undefined;
   const { host, hideLegacy, restoreLegacy } = resolveScreenHost(doc);
   hideLegacy();
   const { shell, screenHost, resumeButton, reopenCunyButton } = buildOnboardingShell(doc, host);
+
+  if (qaJumpActive) {
+    const jumpState = qaJumpBundle.controllerInit.initialState ?? "WELCOME";
+    shell.prepend(mountDevQaBanner(doc, jumpState));
+  }
+
   const header = mountBeadHeader(doc, shell);
-  const controller = createOnboardingController();
+  const controller = createOnboardingController(qaJumpBundle?.controllerInit ?? {});
   return bindOnboardingLifecycle({
     controller,
     doc,
@@ -744,5 +825,6 @@ export const mountOnboarding = (doc: Document): (() => void) => {
     shell,
     header,
     restoreLegacy,
+    suppressResumeSnapshots: qaJumpActive,
   });
 };

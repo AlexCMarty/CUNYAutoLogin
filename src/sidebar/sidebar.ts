@@ -1,4 +1,8 @@
-import { loadResumeSnapshotFromSession } from "../onboarding/resumeSession";
+import { tryParseDevQaOnboardingJumpFromWindow } from "../onboarding/devQaJump";
+import {
+  clearResumeSnapshotSession,
+  loadResumeSnapshotFromSession,
+} from "../onboarding/resumeSession";
 import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 
 /**
@@ -8,6 +12,9 @@ import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
  *
  * Onboarding mounts when there is no vault yet, when a session resume snapshot
  * exists (mid-flow), or when the dev/e2e `#onboarding=1` hash is set.
+ *
+ * Dev/e2e `#qa=<STATE>` jumps to a mounted onboarding screen for visual QA
+ * (extension-live-testing skill). Session resume is cleared first.
  *
  * Dev/e2e `#vault=1` forces the vault form (e2e uses this for setup on a
  * fresh profile; production builds ignore unknown hash params).
@@ -45,6 +52,14 @@ const vaultRequestedByDevHash = (): boolean => {
 };
 
 const bootSidebar = async (): Promise<void> => {
+  const qaJump = tryParseDevQaOnboardingJumpFromWindow(import.meta.env.MODE);
+  if (qaJump !== null) {
+    await clearResumeSnapshotSession();
+    const { mountOnboarding } = await import("../onboarding/render");
+    mountOnboarding(document, { qaJump });
+    return;
+  }
+
   if (onboardingRequestedByDevHash()) {
     const { mountOnboarding } = await import("../onboarding/render");
     mountOnboarding(document);
