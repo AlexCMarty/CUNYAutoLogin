@@ -1,5 +1,6 @@
 import browser from "webextension-polyfill";
-import type { LogoutCunySessionsRequest, OnboardingReopenCunyTab } from "../messages";
+import type { OnboardingReopenCunyTab } from "../messages";
+import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const NARRATION_STEPS = [
@@ -28,7 +29,7 @@ export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContex
   const body = doc.createElement("p");
   body.className = "onboarding-body";
   body.textContent =
-    "Next time you open Brightspace, this is what happens -- no password needed.";
+    "Next time you need to sign in to CUNY, this is what happens — no password needed.";
   container.appendChild(body);
 
   const showBtn = doc.createElement("button");
@@ -57,14 +58,9 @@ export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContex
     skipBtn.hidden = true;
     statusEl.hidden = false;
 
-    const logoutMsg: LogoutCunySessionsRequest = {
-      type: "LOGOUT_CUNY_SESSIONS",
-      site: "all",
-    };
-    void browser.runtime.sendMessage(logoutMsg).catch(() => undefined);
     const msg: OnboardingReopenCunyTab = {
       type: "ONBOARDING_REOPEN_CUNY_TAB",
-      url: "https://brightspace.cuny.edu/d2l/home",
+      url: CUNY_LOGIN_ENTRY_URL,
     };
     void browser.runtime.sendMessage(msg).catch(() => undefined);
 

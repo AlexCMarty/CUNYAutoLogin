@@ -30,11 +30,8 @@ vi.mock("webextension-polyfill", () => ({
       create: vi.fn(),
       query: vi.fn(),
       sendMessage: vi.fn(),
+      update: vi.fn(),
       onRemoved: { addListener: vi.fn() },
-    },
-    cookies: {
-      remove: vi.fn(),
-      getAll: vi.fn(),
     },
   },
 }));
@@ -93,26 +90,13 @@ beforeEach(() => {
       create: ReturnType<typeof vi.fn>;
       query: ReturnType<typeof vi.fn>;
       sendMessage: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
     };
   }).tabs;
-  if (tabsApi?.create) {
-    vi.mocked(tabsApi.create).mockResolvedValue({ id: 1 } as never);
-  }
-  if (tabsApi?.query) {
-    vi.mocked(tabsApi.query).mockResolvedValue([]);
-  }
-  if (tabsApi?.sendMessage) {
-    vi.mocked(tabsApi.sendMessage).mockResolvedValue(undefined);
-  }
-  const cookiesApi = (browser as unknown as {
-    cookies?: { remove: ReturnType<typeof vi.fn>; getAll: ReturnType<typeof vi.fn> };
-  }).cookies;
-  if (cookiesApi?.remove) {
-    vi.mocked(cookiesApi.remove).mockResolvedValue(null);
-  }
-  if (cookiesApi?.getAll) {
-    vi.mocked(cookiesApi.getAll).mockResolvedValue([]);
-  }
+  if (tabsApi?.create) vi.mocked(tabsApi.create).mockResolvedValue({ id: 1 } as never);
+  if (tabsApi?.query) vi.mocked(tabsApi.query).mockResolvedValue([]);
+  if (tabsApi?.sendMessage) vi.mocked(tabsApi.sendMessage).mockResolvedValue(undefined);
+  if (tabsApi?.update) vi.mocked(tabsApi.update).mockResolvedValue({} as never);
 });
 
 // ──── message routing ─────────────────────────────────────────────────────────
@@ -903,59 +887,23 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
 });
 
 describe("LOGOUT_CUNY_SESSIONS", () => {
-  test("default site=all removes documented SP and IdP cookies", async () => {
-    expect(await handler({ type: "LOGOUT_CUNY_SESSIONS" }, SENDER)).toEqual({
-      ok: true,
-      removedCount: 0,
-    });
-    const cookiesApi = (browser as unknown as {
-      cookies: { remove: ReturnType<typeof vi.fn>; getAll: ReturnType<typeof vi.fn> };
-    }).cookies;
-    expect(vi.mocked(cookiesApi.remove).mock.calls).toEqual(
-      expect.arrayContaining([
-        [{ name: "d2lSessionVal", url: "https://brightspace.cuny.edu/" }],
-        [{ name: "d2lSecureSessionVal", url: "https://brightspace.cuny.edu/" }],
-        [{ name: "PS_TOKEN", url: "https://home.cunyfirst.cuny.edu/" }],
-        [{ name: "cnyihprd-8080-PORTAL-PSJSESSIONID", url: "https://home.cunyfirst.cuny.edu/" }],
-        [{ name: "OAMAuthnCookie_home.cunyfirst.cuny.edu_443", url: "https://home.cunyfirst.cuny.edu/" }],
-        [{ name: "oaaCtx", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "_WL_AUTHCOOKIE_JSESSIONID", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "OAMAuthnCookie_ssologin.cuny.edu_443", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "OAM_REQ_0", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "OAM_REQ_1", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "OAM_REQ_COUNT", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "BIGipServer/1cH5tvcc6Xb1GCKLdbbKA", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "BIGipServera/wVmqC4X189EXHfdIK97w", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "OAM_ID", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "ORA_OSFS_SESSION", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "OAM_JSESSIONID", url: "https://ssologin.cuny.edu/" }],
-        [{ name: "ObSSOCookie", url: "https://ssologin.cuny.edu/" }],
-      ])
-    );
+  test("navigates ssologin tabs to the OAA logout URL", async () => {
     const tabsApi = (browser as unknown as {
       tabs: {
         query: ReturnType<typeof vi.fn>;
-        sendMessage: ReturnType<typeof vi.fn>;
+        update: ReturnType<typeof vi.fn>;
       };
     }).tabs;
-    expect(vi.mocked(tabsApi.query)).toHaveBeenCalledWith({
-      url: ["https://ssologin.cuny.edu/*"],
+    vi.mocked(tabsApi.query).mockResolvedValueOnce([{ id: 42, url: "https://ssologin.cuny.edu/oaa/rui/index.html" }]);
+    expect(await handler({ type: "LOGOUT_CUNY_SESSIONS" }, SENDER)).toEqual({ ok: true });
+    expect(vi.mocked(tabsApi.query)).toHaveBeenCalledWith({ url: ["https://ssologin.cuny.edu/*"] });
+    expect(vi.mocked(tabsApi.update)).toHaveBeenCalledWith(42, {
+      url: "https://ssologin.cuny.edu/oaa/rui/user/v1/logout",
     });
-    expect(vi.mocked(cookiesApi.getAll).mock.calls).toEqual(
-      expect.arrayContaining([
-        [{ url: "https://brightspace.cuny.edu/" }],
-        [{ url: "https://home.cunyfirst.cuny.edu/" }],
-        [{ url: "https://ssologin.cuny.edu/" }],
-      ])
-    );
   });
 
-  test("invalid site payload rejects", async () => {
-    expect(
-      await handler({ type: "LOGOUT_CUNY_SESSIONS", site: "unknown-site" }, SENDER)
-    ).toEqual({
-      ok: false,
-      removedCount: 0,
-    });
+  test("returns ok:true even when no ssologin tabs are open", async () => {
+    expect(await handler({ type: "LOGOUT_CUNY_SESSIONS" }, SENDER)).toEqual({ ok: true });
   });
+
 });

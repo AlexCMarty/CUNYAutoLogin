@@ -443,10 +443,7 @@ async function maybeMountDevDebugPanel(els: SidebarDom): Promise<void> {
     getSessionPayload: () => sessionPayload,
     onClearVault: () => void resetToFreshInstall(els),
     onClearLiveSessions: async () => {
-      const message: LogoutCunySessionsRequest = {
-        type: "LOGOUT_CUNY_SESSIONS",
-        site: "all",
-      };
+      const message: LogoutCunySessionsRequest = { type: "LOGOUT_CUNY_SESSIONS" };
       try {
         const response = (await browser.runtime.sendMessage(message)) as
           | LogoutCunySessionsAck

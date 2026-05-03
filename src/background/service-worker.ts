@@ -22,7 +22,6 @@ import {
   isStageOnboardingCredentials,
   normalizeAutoFillOtpContext,
   type AutoFillResponse,
-  type LogoutSessionSite,
   type OnboardingAck,
   type OnboardingCredentialsAck,
   type OnboardingOverlayCommand,
@@ -102,162 +101,11 @@ let stagedOnboardingCredentials: StagedOnboardingCredentials | null = null;
  */
 let stagedOverlayCommand: OnboardingOverlayCommand | null = null;
 
-type CookieRemovalSpec = {
-  readonly name: string;
-  readonly url: string;
-};
-
-const LOGOUT_COOKIE_SPECS_BY_SITE: Record<Exclude<LogoutSessionSite, "all">, readonly CookieRemovalSpec[]> = {
-  brightspace: [
-    { name: "d2lSessionVal", url: "https://brightspace.cuny.edu/" },
-    { name: "d2lSecureSessionVal", url: "https://brightspace.cuny.edu/" },
-  ],
-  cunyfirst: [
-    { name: "PS_TOKEN", url: "https://home.cunyfirst.cuny.edu/" },
-    { name: "cnyihprd-8080-PORTAL-PSJSESSIONID", url: "https://home.cunyfirst.cuny.edu/" },
-    { name: "OAMAuthnCookie_home.cunyfirst.cuny.edu_443", url: "https://home.cunyfirst.cuny.edu/" },
-  ],
-  ssologin: [
-    { name: "oaaCtx", url: "https://ssologin.cuny.edu/" },
-    { name: "_WL_AUTHCOOKIE_JSESSIONID", url: "https://ssologin.cuny.edu/" },
-    { name: "OAMAuthnCookie_ssologin.cuny.edu_443", url: "https://ssologin.cuny.edu/" },
-    { name: "OAM_REQ_0", url: "https://ssologin.cuny.edu/" },
-    { name: "OAM_REQ_1", url: "https://ssologin.cuny.edu/" },
-    { name: "OAM_REQ_COUNT", url: "https://ssologin.cuny.edu/" },
-    { name: "BIGipServer/1cH5tvcc6Xb1GCKLdbbKA", url: "https://ssologin.cuny.edu/" },
-    { name: "BIGipServera/wVmqC4X189EXHfdIK97w", url: "https://ssologin.cuny.edu/" },
-    { name: "OAM_ID", url: "https://ssologin.cuny.edu/" },
-    { name: "ORA_OSFS_SESSION", url: "https://ssologin.cuny.edu/" },
-    { name: "OAM_JSESSIONID", url: "https://ssologin.cuny.edu/" },
-    { name: "ObSSOCookie", url: "https://ssologin.cuny.edu/" },
-  ],
-};
-
-const resolveLogoutCookieSpecs = (site: LogoutSessionSite): readonly CookieRemovalSpec[] => {
-  if (site !== "all") {
-    return LOGOUT_COOKIE_SPECS_BY_SITE[site];
-  }
-  return [
-    ...LOGOUT_COOKIE_SPECS_BY_SITE.brightspace,
-    ...LOGOUT_COOKIE_SPECS_BY_SITE.cunyfirst,
-    ...LOGOUT_COOKIE_SPECS_BY_SITE.ssologin,
-  ];
-};
-
-/**
- * Canonical URL Chrome/Firefox need for `cookies.remove` from a Cookie record.
- */
-const removalUrlFromCookie = (cookie: browser.Cookies.Cookie): string => {
-  const protocol = cookie.secure !== false ? "https:" : "http:";
-  const domain = cookie.domain.startsWith(".") ? cookie.domain.slice(1) : cookie.domain;
-  const pathPart = cookie.path && cookie.path.length > 0 ? cookie.path : "/";
-  return `${protocol}//${domain}${pathPart}`;
-};
-
-/**
- * Remove every cookie the browser would send on a navigation to `matchUrl`
- * (host + path prefixes). Covers dynamic infra names (`BIGipServer*`) and IdP/OAA cookies
- * that are not stable enough to enumerate in LOGOUT_COOKIE_SPECS_BY_SITE.
- */
-const purgeCookiesMatchingUrl = async (matchUrl: string): Promise<number> => {
-  let removedCount = 0;
-  let list: readonly browser.Cookies.Cookie[];
-  try {
-    list = await browser.cookies.getAll({ url: matchUrl });
-  } catch {
-    return removedCount;
-  }
-
-  for (const cookie of list) {
-    try {
-      const removalDetails: Record<string, unknown> = {
-        name: cookie.name,
-        url: removalUrlFromCookie(cookie),
-      };
-      if (cookie.storeId !== undefined && cookie.storeId !== "") {
-        removalDetails.storeId = cookie.storeId;
-      }
-      /** CHIPS partitioned cookies — `chrome.*` globals are absent on Firefox MV3 builds */
-      if (
-        typeof (globalThis as { chrome?: unknown }).chrome !== "undefined" &&
-        "partitionKey" in cookie &&
-        cookie.partitionKey != null
-      ) {
-        removalDetails.partitionKey = cookie.partitionKey as unknown;
-      }
-
-      const removed = await browser.cookies.remove(
-        removalDetails as unknown as Parameters<typeof browser.cookies.remove>[0]
-      );
-      if (removed) {
-        removedCount += 1;
-      }
-    } catch {
-      // Ignore per-cookie failures; keep purging siblings.
-    }
-  }
-
-  return removedCount;
-};
-
-const LOGOUT_PURGE_URLS_BY_SITE = {
-  brightspace: "https://brightspace.cuny.edu/",
-  cunyfirst: "https://home.cunyfirst.cuny.edu/",
-  ssologin: "https://ssologin.cuny.edu/",
-} as const satisfies Record<Exclude<LogoutSessionSite, "all">, string>;
-
-const purgeScopedCookieJars = async (site: LogoutSessionSite): Promise<number> => {
-  let purged = 0;
-  const keys: Array<Exclude<LogoutSessionSite, "all">> = [];
-  if (site === "all") {
-    keys.push("brightspace", "cunyfirst", "ssologin");
-  } else {
-    keys.push(site);
-  }
-
-  const seen = new Set<string>();
-  for (const key of keys) {
-    const url = LOGOUT_PURGE_URLS_BY_SITE[key];
-    if (seen.has(url)) continue;
-    seen.add(url);
-    purged += await purgeCookiesMatchingUrl(url);
-  }
-  return purged;
-};
-
-const clearLoggedInCookies = async (site: LogoutSessionSite): Promise<{ ok: boolean; removedCount: number }> => {
-  const specs = resolveLogoutCookieSpecs(site);
-  let removedCount = 0;
-
-  for (const spec of specs) {
-    try {
-      const removed = await browser.cookies.remove({
-        name: spec.name,
-        url: spec.url,
-      });
-      if (removed) {
-        removedCount += 1;
-      }
-    } catch {
-      // Ignore per-cookie failures so one missing permission/host does not
-      // block deleting other documented session cookies.
-    }
-  }
-
-  removedCount += await purgeScopedCookieJars(site);
-
-  return { ok: true, removedCount };
-};
-
-const clearSsoSiteDataInTabs = async (): Promise<void> => {
+const logOutOaaRuiInTabs = async (): Promise<void> => {
   const ssoTabs = await browser.tabs.query({ url: ["https://ssologin.cuny.edu/*"] });
   for (const ssoTab of ssoTabs) {
     if (typeof ssoTab.id !== "number") continue;
     try {
-      // Navigate to the OAA server-side logout URL. Cookie deletion alone is not
-      // sufficient on Chrome: the OAA maintains a server-side session that survives
-      // client-side cookie removal. Navigating to the logout endpoint terminates
-      // that session and then redirects the tab to the login page.
       await browser.tabs.update(ssoTab.id, { url: OAA_RUI_LOGOUT_URL });
     } catch {
       // Ignore tabs that cannot be navigated (e.g. already closed).
@@ -471,18 +319,10 @@ browser.runtime.onMessage.addListener(
       LOGOUT_CUNY_SESSIONS: () =>
         (async () => {
           if (!isLogoutCunySessionsRequest(message)) {
-            return { ok: false as const, removedCount: 0 };
+            return { ok: false as const };
           }
-          const site = message.site ?? "all";
-          const result = await clearLoggedInCookies(site);
-          if (site === "all" || site === "ssologin") {
-            try {
-              await clearSsoSiteDataInTabs();
-            } catch {
-              // Keep cookie-logout success even if tab-scoped storage clear fails.
-            }
-          }
-          return result;
+          await logOutOaaRuiInTabs();
+          return { ok: true as const };
         })(),
       AUTO_FILL_REQUEST: (typedMessage) =>
         resolveAutoFillResponse(normalizeAutoFillOtpContext(typedMessage.otpContext)),

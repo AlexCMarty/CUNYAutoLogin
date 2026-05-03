@@ -33,7 +33,7 @@ export function mountDebugPanel(deps: DebugPanelDeps): void {
   clearLiveSessionsBtn.type = "button";
   clearLiveSessionsBtn.id = "clear-live-sessions-debug-btn";
   clearLiveSessionsBtn.className = "secondary";
-  clearLiveSessionsBtn.textContent = "Log out of CUNY sites (clear session cookies)";
+  clearLiveSessionsBtn.textContent = "Log out of /oaa/rui";
 
   section.append(testBtn, clearVaultBtn, clearLiveSessionsBtn);
   deps.els.form.parentElement?.appendChild(section);
@@ -87,9 +87,9 @@ export function mountDebugPanel(deps: DebugPanelDeps): void {
   clearLiveSessionsBtn.addEventListener("click", async () => {
     const ok = await deps.onClearLiveSessions();
     if (!ok) {
-      deps.setStatus("Could not clear CUNY session cookies.");
+      deps.setStatus("Could not log out of /oaa/rui.");
       return;
     }
-    deps.setStatus("Cleared CUNY session cookies. Reload the live tab to verify logout.", true);
+    deps.setStatus("Navigated /oaa/rui tab to logout endpoint.", true);
   });
 }

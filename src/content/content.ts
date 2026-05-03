@@ -10,7 +10,6 @@ import {
   matchesTotpPage,
 } from "../cuny/ssoSite";
 import {
-  isClearSsoSiteDataMessage,
   isFillMessage,
   type FillMessage,
 } from "./content.utils";
@@ -117,14 +116,3 @@ if (import.meta.env.DEV) {
   );
 }
 
-browser.runtime.onMessage.addListener((message: unknown, sender: Runtime.MessageSender) => {
-  if (sender?.id !== browser.runtime.id) return;
-  if (!isClearSsoSiteDataMessage(message)) return;
-  try {
-    window.localStorage.removeItem("jc");
-    window.sessionStorage.clear();
-  } catch {
-    // Ignore storage-clear failures and keep the logout flow best-effort.
-  }
-  window.location.reload();
-});
