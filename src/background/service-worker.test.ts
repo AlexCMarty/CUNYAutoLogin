@@ -97,6 +97,7 @@ beforeEach(async () => {
   if (tabsApi?.query) vi.mocked(tabsApi.query).mockResolvedValue([]);
   if (tabsApi?.sendMessage) vi.mocked(tabsApi.sendMessage).mockResolvedValue(undefined);
   if (tabsApi?.update) vi.mocked(tabsApi.update).mockResolvedValue({} as never);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, SENDER);
   await handler({ type: "ONBOARDING_OVERLAY_COMMAND", action: "hide" }, SENDER);
 });
@@ -851,18 +852,17 @@ describe("AUTO_FILL_REQUEST onboarding fallback", () => {
 // ──── ONBOARDING_REOPEN_CUNY_TAB tab creation ────────────────────────────────
 
 describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
-  test("with url → opens tab at that url and acks { ok: true }", async () => {
+  test("with url → fetches logout then opens tab at that url", async () => {
+    const { OAA_RUI_LOGOUT_URL } = await import("../cuny/ssoSite");
     const url = "https://example.test/cuny-fixture";
     expect(
       await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB", url }, SENDER)
     ).toEqual({ ok: true });
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
     const tabsApi = (browser as unknown as {
       tabs: { create: ReturnType<typeof vi.fn> };
     }).tabs;
-    expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({
-      url,
-      active: true,
-    });
+    expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({ url, active: true });
   });
 
   test("without url → falls back to CUNY_LOGIN_ENTRY_URL", async () => {
@@ -887,6 +887,13 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
     expect(
       await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" }, SENDER)
     ).toEqual({ ok: false, reason: "forward_failed" });
+  });
+
+  test("fetch failure does not prevent tab from opening", async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error("network error"));
+    expect(
+      await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" }, SENDER)
+    ).toEqual({ ok: true });
   });
 });
 

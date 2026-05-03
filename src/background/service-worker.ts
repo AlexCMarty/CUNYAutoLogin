@@ -113,6 +113,20 @@ const logOutOaaRuiInTabs = async (): Promise<void> => {
   }
 };
 
+/**
+ * Terminate the OAA server-side session via a direct fetch from the service
+ * worker. Called before opening the CUNY credential page so the OAM always
+ * presents the username/password form even when an existing session is live.
+ * Best-effort — a network failure does not block tab creation.
+ */
+const fetchLogOutOaaRui = async (): Promise<void> => {
+  try {
+    await fetch(OAA_RUI_LOGOUT_URL, { credentials: "include" });
+  } catch {
+    // Best-effort; proceed to open the login tab regardless.
+  }
+};
+
 /** Exported only for tests; not part of any wire contract. */
 export const __test_getStagedOverlayCommand = (): OnboardingOverlayCommand | null =>
   stagedOverlayCommand;
@@ -145,6 +159,7 @@ const handleOnboardingMessage = async (
   }
   if (isOnboardingReopenCunyTab(message)) {
     const url = message.url ?? CUNY_LOGIN_ENTRY_URL;
+    await fetchLogOutOaaRui();
     try {
       await browser.tabs.create({ url, active: true });
       return { ok: true };
