@@ -26,7 +26,7 @@ The [release workflow](.github/workflows/release.yml) runs `npm run build` only.
 | `npm run typecheck`     | `tsc --noEmit` only                                                                                                                                                                   |
 | `npm run build:e2e`     | Same as `build:dev`, but copies `[src/manifest.e2e.json](src/manifest.e2e.json)` to `dist/manifest.json` (adds `http://127.0.0.1:4173/*` for local HTML fixtures used by Playwright). |
 | `npm run test:e2e`      | Runs `build:e2e`, then [Playwright](https://playwright.dev/) Chromium tests against `dist/` (see **End-to-end tests** below).                                                         |
-| `npm run capture-sidebar` | CLI wrapper for [`scripts/capture-sidebar.mjs`](scripts/capture-sidebar.mjs): writes a PNG of `sidebar.html` with a given URL hash and prints the image path to stdout (see **Sidebar screenshots** below). |
+| `npm run capture-sidebar` | CLI wrapper for [`scripts/capture-sidebar.mjs`](scripts/capture-sidebar.mjs): writes a PNG of `sidebar.html` with a given URL hash and prints the image path to stdout (see **Sidebar screenshots** below). Uses a side-panel-shaped viewport by default (380×800); override with `--width` / `--height`. |
 
 
 Load `dist/` as an unpacked / temporary extension (see below), or install from a zip attached to a [GitHub Release](https://github.com/AlexCMarty/CUNYAutoLogin/releases) (same as end users in `README.md`).
@@ -45,9 +45,9 @@ For faster iteration after changing only tests, run `npx playwright test` (still
 For **visual QA of the sidebar only** (layout, CSS, hash-driven onboarding jumps like `#qa=…` or `#vault=1`), you can capture a PNG without loading real CUNY pages or using browser MCP:
 
 1. `npm run build:e2e` — ensures `dist/` exists with **development** mode and the E2E manifest (same as Playwright; hash flags like `#vault=1` and `#qa=` are honored in dev/e2e builds per `src/sidebar/sidebar.ts`).
-2. `npm run capture-sidebar -- '#vault=1'` — opens Chromium with the unpacked extension, navigates to `chrome-extension://…/sidebar.html` plus your hash, saves a PNG under `agent_screenshots/` (gitignored), and prints the **absolute file path** on stdout. Errors go to stderr.
+2. `npm run capture-sidebar -- '#vault=1'` — opens Chromium with the unpacked extension, navigates to `chrome-extension://…/sidebar.html` plus your hash, sizes the **viewport** like a Chrome side panel by default (**380×800** pixels), saves a PNG under `agent_screenshots/` (gitignored), and prints the **absolute file path** on stdout. Errors go to stderr. Use `--width` and `--height` to match another panel size (for example `npm run capture-sidebar -- --width 400 --height 900 '#vault=1'`).
 
-Options are documented in `node scripts/capture-sidebar.mjs --help` (`--hash`, `--out-dir`, `--extension-dir`, full-page toggles). This reuses the same extension-loading approach as [`e2e/extension-fixture.ts`](e2e/extension-fixture.ts).
+Options are documented in `node scripts/capture-sidebar.mjs --help` (`--hash`, `--out-dir`, `--extension-dir`, `--width`, `--height`, full-page toggles). This reuses the same extension-loading approach as [`e2e/extension-fixture.ts`](e2e/extension-fixture.ts).
 
 ## Load unpacked (from source)
 

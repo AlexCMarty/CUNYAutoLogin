@@ -8,6 +8,7 @@
  *   node scripts/capture-sidebar.mjs '#vault=1'
  *   node scripts/capture-sidebar.mjs --hash '#qa=SOME_STATE'
  *   node scripts/capture-sidebar.mjs --out-dir /tmp/caps '#vault=1'
+ *   node scripts/capture-sidebar.mjs --width 400 --height 900 '#vault=1'
  *
  * On success, prints a single absolute path to stdout (the PNG file).
  * Logs and errors go to stderr.
@@ -23,6 +24,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, "..");
 const defaultExtensionDir = path.join(repoRoot, "dist");
 const defaultOutDir = path.join(repoRoot, "agent_screenshots");
+/** Defaults approximate a Chrome side panel (narrow, tall). */
+const defaultViewportWidth = 380;
+const defaultViewportHeight = 800;
 
 function usage() {
   process.stderr.write(`Usage: capture-sidebar.mjs [options] [<hash-fragment>]
@@ -31,6 +35,8 @@ Options:
   --hash <string>     URL hash (e.g. #vault=1). Overrides positional fragment.
   --out-dir <path>    Directory for PNG (default: agent_screenshots under repo root)
   --extension-dir     Unpacked extension directory (default: dist)
+  --width <px>        Browser viewport width (default: ${defaultViewportWidth})
+  --height <px>       Browser viewport height (default: ${defaultViewportHeight})
   --full-page         Use full-page screenshot (default: true)
   --no-full-page      Viewport-only screenshot
 
@@ -41,12 +47,14 @@ Requires: npm run build:e2e (or equivalent) so dist/ exists.
 }
 
 function parseArgs(argv) {
-  /** @type {{ hash: string; outDir: string; extensionDir: string; fullPage: boolean }} */
+  /** @type {{ hash: string; outDir: string; extensionDir: string; fullPage: boolean; viewportWidth: number; viewportHeight: number }} */
   const opts = {
     hash: "",
     outDir: defaultOutDir,
     extensionDir: defaultExtensionDir,
     fullPage: true,
+    viewportWidth: defaultViewportWidth,
+    viewportHeight: defaultViewportHeight,
   };
   const positionals = [];
   for (let i = 2; i < argv.length; i++) {
@@ -66,6 +74,14 @@ function parseArgs(argv) {
       opts.extensionDir = path.resolve(argv[++i] ?? "");
       continue;
     }
+    if (a === "--width") {
+      opts.viewportWidth = parseViewportPx(argv[++i], "width");
+      continue;
+    }
+    if (a === "--height") {
+      opts.viewportHeight = parseViewportPx(argv[++i], "height");
+      continue;
+    }
     if (a === "--full-page") {
       opts.fullPage = true;
       continue;
@@ -83,6 +99,18 @@ function parseArgs(argv) {
     opts.hash = positionals[0];
   }
   return { help: false, opts, positionals };
+}
+
+/** @param {string | undefined} raw @param {"width" | "height"} label */
+function parseViewportPx(raw, label) {
+  if (raw === undefined || raw === "") {
+    throw new Error(`Missing value for --${label}`);
+  }
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || String(n) !== raw.trim() || n < 1 || n > 4096) {
+    throw new Error(`--${label} must be an integer between 1 and 4096, got: ${raw}`);
+  }
+  return n;
 }
 
 /** @param {string} raw */
@@ -135,6 +163,7 @@ async function main() {
 
   const context = await chromium.launchPersistentContext("", {
     channel: "chromium",
+    viewport: { width: opts.viewportWidth, height: opts.viewportHeight },
     args: [
       `--disable-extensions-except=${opts.extensionDir}`,
       `--load-extension=${opts.extensionDir}`,

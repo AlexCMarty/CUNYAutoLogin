@@ -24,7 +24,7 @@ npm run build:e2e   # dev + manifest.e2e.json for Playwright
 npm run test        # unit + e2e
 npm run test:unit   # vitest run (no build step needed)
 npm run test:e2e    # build:e2e + playwright
-npm run capture-sidebar -- '#vault=1'  # PNG of sidebar.html + hash → path on stdout (after build:e2e)
+npm run capture-sidebar -- '#vault=1'  # PNG of sidebar.html + hash → path on stdout (after build:e2e); 380×800 viewport by default; --width / --height optional
 npm run typecheck   # tsc --noEmit
 ```
 
