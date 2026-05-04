@@ -53,6 +53,8 @@ export const mountBeadHeader = (
       item.dataset.beadStage = String(model.stage);
       item.dataset.beadStatus = model.status;
       item.setAttribute("aria-current", model.status === "active" ? "step" : "false");
+      const dotEl = item.querySelector<HTMLElement>(".onboarding-bead-dot");
+      dotEl?.style.setProperty("--bead-stage", `"${model.stage}"`);
       const label = item.querySelector(".onboarding-bead-label");
       if (label) label.textContent = model.label;
     });
