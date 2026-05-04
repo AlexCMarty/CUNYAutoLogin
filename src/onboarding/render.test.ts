@@ -46,6 +46,7 @@ import {
   LEGACY_ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY,
   ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY,
 } from "./resumeSession";
+import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
 import browser from "webextension-polyfill";
 
 const renderMain = (): HTMLElement => {
@@ -578,7 +579,10 @@ describe("mountOnboarding", () => {
     expect(controller.getSnapshot().state).toBe("VERIFY_LOGIN_CODE");
   });
 
-  test("ONBOARDING_STAGE_DETECTED(factors_list_after_enroll) from VERIFY_LOGIN_CODE advances to SET_DEFAULT", () => {
+  test("ONBOARDING_STAGE_DETECTED(factors_list_after_enroll) from VERIFY_LOGIN_CODE advances to SET_DEFAULT", async () => {
+    vi.mocked(browser.storage.session.get).mockResolvedValue({
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "FAKESECRET",
+    });
     const controller = createOnboardingController({
       initialState: "VERIFY_LOGIN_CODE",
     });
@@ -586,10 +590,14 @@ describe("mountOnboarding", () => {
       type: "ONBOARDING_STAGE_DETECTED",
       stage: "factors_list_after_enroll",
     });
+    await Promise.resolve(); // flush async secret check
     expect(controller.getSnapshot().state).toBe("SET_DEFAULT");
   });
 
-  test("ONBOARDING_STAGE_DETECTED(factors_list_after_enroll) from ALLOW_GATE fast-forwards to SET_DEFAULT", () => {
+  test("ONBOARDING_STAGE_DETECTED(factors_list_after_enroll) from ALLOW_GATE fast-forwards to SET_DEFAULT", async () => {
+    vi.mocked(browser.storage.session.get).mockResolvedValue({
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "FAKESECRET",
+    });
     const controller = createOnboardingController({
       initialState: "ALLOW_GATE",
     });
@@ -597,6 +605,7 @@ describe("mountOnboarding", () => {
       type: "ONBOARDING_STAGE_DETECTED",
       stage: "factors_list_after_enroll",
     });
+    await Promise.resolve(); // flush async secret check
     expect(controller.getSnapshot().state).toBe("SET_DEFAULT");
   });
 

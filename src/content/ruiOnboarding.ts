@@ -8,6 +8,7 @@ import { setInputValue } from "./content.utils";
 import type { OnboardingPageStage } from "../onboarding/messages";
 import { detectRuiSpaView } from "./ruiSpaView";
 import {
+  ENROLLED_FACTOR_ALIAS_SESSION_KEY,
   EXTENSION_NAME,
   RUI_FACTOR_NAME_INPUT_ID,
   RUI_FACTOR_PANEL_SELECTOR,
@@ -21,6 +22,14 @@ export { detectRuiSpaView } from "./ruiSpaView";
 export type { RuiSpaView } from "./ruiSpaView";
 
 const posted = new Set<OnboardingPageStage>();
+
+let enrolledFactorAlias: string | null = null;
+
+const generateFactorAlias = (): string => {
+  const bytes = crypto.getRandomValues(new Uint8Array(2));
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${EXTENSION_NAME}-${hex}`;
+};
 
 type RuiFactorJson = {
   readonly factorAlias?: unknown;
@@ -47,12 +56,13 @@ const postStage = (stage: OnboardingPageStage): void => {
 };
 
 const findUnverifiedCunyAutologin = (doc: Document): boolean => {
+  const targetAlias = enrolledFactorAlias ?? EXTENSION_NAME;
   for (const el of doc.querySelectorAll(RUI_FACTOR_PANEL_SELECTOR)) {
     const raw = el.getAttribute("factor");
     if (!raw) continue;
     const parsedFactor = parseRuiFactorAttribute(raw);
     if (!parsedFactor) continue;
-    if (parsedFactor.factorAlias === EXTENSION_NAME && parsedFactor.factorIsValidated === false) {
+    if (parsedFactor.factorAlias === targetAlias && parsedFactor.factorIsValidated === false) {
       return true;
     }
   }
@@ -63,12 +73,13 @@ const findCunyAutologinPanel = (doc: Document): {
   isValidated: boolean;
   isPreferred: boolean;
 } | null => {
+  const targetAlias = enrolledFactorAlias ?? EXTENSION_NAME;
   for (const el of doc.querySelectorAll(RUI_FACTOR_PANEL_SELECTOR)) {
     const raw = el.getAttribute("factor");
     if (!raw) continue;
     const parsedFactor = parseRuiFactorAttribute(raw);
     if (!parsedFactor) continue;
-    if (parsedFactor.factorAlias !== EXTENSION_NAME) continue;
+    if (parsedFactor.factorAlias !== targetAlias) continue;
     return {
       isValidated: parsedFactor.factorIsValidated === true,
       isPreferred: parsedFactor.factorIsPreferred === true,
@@ -110,7 +121,7 @@ const isCunyAutologinKebabClick = (target: Element): boolean => {
   const raw = panel.getAttribute("factor");
   if (!raw) return false;
   const parsedFactor = parseRuiFactorAttribute(raw);
-  return parsedFactor !== null && parsedFactor.factorAlias === EXTENSION_NAME;
+  return parsedFactor !== null && parsedFactor.factorAlias === (enrolledFactorAlias ?? EXTENSION_NAME);
 };
 
 const installMenuProgressClickReporters = (): void => {
@@ -158,6 +169,19 @@ export const stopRuiOnboardingObserversForTest = (): void => {
 
 export const startRuiOnboardingObservers = (): void => {
   if (pollId !== null) return;
+
+  void (async () => {
+    try {
+      const got = await browser.storage.session?.get(ENROLLED_FACTOR_ALIAS_SESSION_KEY);
+      const saved = got?.[ENROLLED_FACTOR_ALIAS_SESSION_KEY];
+      if (typeof saved === "string" && saved.length > 0 && enrolledFactorAlias === null) {
+        enrolledFactorAlias = saved;
+      }
+    } catch {
+      // storage.session unavailable — proceed without restoring alias
+    }
+  })();
+
   installMenuProgressClickReporters();
 
   const tick = (): void => {
@@ -199,7 +223,17 @@ export const startRuiOnboardingObservers = (): void => {
       postStage("totp_enroll_secret");
       const nameInput = document.getElementById(RUI_FACTOR_NAME_INPUT_ID);
       if (nameInput instanceof HTMLInputElement) {
-        setInputValue(nameInput, EXTENSION_NAME);
+        // Regenerate if the input doesn't already show our alias.
+        // This handles both fresh enrollment (empty input) and the case where
+        // a stale alias was restored from a prior session but this is a new
+        // enrollment attempt.
+        if (nameInput.value !== enrolledFactorAlias) {
+          enrolledFactorAlias = generateFactorAlias();
+          void browser.storage.session
+            ?.set({ [ENROLLED_FACTOR_ALIAS_SESSION_KEY]: enrolledFactorAlias })
+            .catch(() => undefined);
+        }
+        setInputValue(nameInput, enrolledFactorAlias);
       }
       return;
     }

@@ -131,6 +131,9 @@ export const SESSION_MASTER_KEY = "cunySessionMaster" as const;
 /** Session-only staging for a secret scraped from the enroll page (sidebar vault controller consumes + clears). */
 export const PENDING_TOTP_SECRET_SESSION_KEY = "cunyPendingTotpSecretFromSso" as const;
 
+/** Session-only key holding the unique factor alias enrolled in this onboarding session. */
+export const ENROLLED_FACTOR_ALIAS_SESSION_KEY = "cunyEnrolledFactorAlias" as const;
+
 /** Login form element ids on the credential page (Oracle JET). */
 export const CREDENTIAL_INPUT_IDS = {
   username: "CUNYLoginUsernameDisplay",

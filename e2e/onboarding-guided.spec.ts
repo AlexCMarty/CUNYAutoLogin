@@ -13,7 +13,11 @@
  */
 import type { Page } from "@playwright/test";
 import { TOTP } from "totp-generator";
-import { RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID, TOTP_GENERATION_OPTIONS } from "../src/cuny/ssoSite";
+import {
+  PENDING_TOTP_SECRET_SESSION_KEY,
+  RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID,
+  TOTP_GENERATION_OPTIONS,
+} from "../src/cuny/ssoSite";
 import {
   ALLOW_GATE_FIXTURE_URL,
   ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL,
@@ -325,8 +329,8 @@ test.describe("guided: secret capture (totp-enroll-secret)", () => {
     await cunyTab.close().catch(() => {});
   });
 
-  test("extension fills name|input with 'CUNYAutoLogin' on totp-enroll-secret fixture", async () => {
-    await expect(cunyTab.locator("[id='name|input']")).toHaveValue("CUNYAutoLogin", {
+  test("extension fills name|input with a unique CUNYAutoLogin alias on totp-enroll-secret fixture", async () => {
+    await expect(cunyTab.locator("[id='name|input']")).toHaveValue(/^CUNYAutoLogin-[0-9a-f]{4}$/i, {
       timeout: 5_000,
     });
   });
@@ -561,6 +565,14 @@ test.describe("set as default", () => {
 
   test.beforeEach(async ({ page, context, extensionId }) => {
     cunyTab = await setupToAllowGate(page, context, extensionId);
+    // Stage a pending TOTP secret so handleFactorsListAfterEnroll sees a secret
+    // and advances to SET_DEFAULT (the post-enroll fixture skips the enrollment flow).
+    const [sw] = context.serviceWorkers();
+    await sw.evaluate(
+      ({ key, secret }: { key: string; secret: string }) =>
+          (self as { chrome: { storage: { session: { set: (v: Record<string, string>) => Promise<void> } } } }).chrome.storage.session.set({ [key]: secret }),
+      { key: PENDING_TOTP_SECRET_SESSION_KEY, secret: E2E_TOTP_SECRET }
+    );
     await cunyTab.goto(FACTORS_POST_ENROLL_FIXTURE_URL);
   });
 

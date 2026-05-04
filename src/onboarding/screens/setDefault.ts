@@ -1,13 +1,7 @@
-import { EXTENSION_NAME } from "../../cuny/ssoSite";
+import browser from "webextension-polyfill";
+import { ENROLLED_FACTOR_ALIAS_SESSION_KEY, EXTENSION_NAME } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
-
-// Scope to the CUNYAutoLogin factor-panel so the overlay does not anchor on
-// another factor's kebab. The `factor` attribute is JSON; substring match on
-// the alias is safe because alias text is unique within that payload. Target
-// the inner <button> so the tooltip anchors on the clickable element.
-const KEBAB_SELECTOR =
-  `factor-panel[factor*="${EXTENSION_NAME}"] oj-menu-button.oj-button-sm button`;
 
 export const showSetDefaultOptionOverlay = (): void => {
   sendShowOverlayCommand({
@@ -43,12 +37,34 @@ export const mountSetDefaultScreen: ScreenMount = (ctx: OnboardingScreenContext)
   container.append(headline, body, recovery);
   root.appendChild(container);
 
-  sendShowOverlayCommand({
-    targetSpec: { type: "css", selector: KEBAB_SELECTOR },
-    tooltipText: "Open this menu",
-    stepIndex: 7,
-    stepTotal: 8,
-  });
+  // Read the enrolled alias from session so the overlay and UI text name the
+  // exact factor the user just created (e.g. "CUNYAutoLogin-a3f2") rather than
+  // the generic constant, which may ambiguously match an older factor.
+  void (async () => {
+    let alias: string = EXTENSION_NAME;
+    try {
+      const got = await browser.storage.session?.get(ENROLLED_FACTOR_ALIAS_SESSION_KEY);
+      const stored = got?.[ENROLLED_FACTOR_ALIAS_SESSION_KEY];
+      if (typeof stored === "string" && stored.length > 0) alias = stored;
+    } catch {
+      // storage.session unavailable — keep the generic name
+    }
+
+    headline.textContent = `Make ${alias} your default method`;
+    body.textContent = `On the CUNY tab, open the ${alias} menu, then select Set as Default.`;
+    recovery.textContent =
+      `We could not find the Set as Default action. Open the ${alias} menu and choose Set as Default manually.`;
+
+    sendShowOverlayCommand({
+      targetSpec: {
+        type: "css",
+        selector: `factor-panel[factor*="${alias}"] oj-menu-button.oj-button-sm button`,
+      },
+      tooltipText: "Open this menu",
+      stepIndex: 7,
+      stepTotal: 8,
+    });
+  })();
 
   return {
     unmount: () => {

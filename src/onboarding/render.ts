@@ -30,6 +30,7 @@ import {
   type OnboardingPageStage,
   isOnboardingMessage,
 } from "./messages";
+import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
 import { markOnboardingComplete } from "./onboardingComplete";
 import { SCREEN_MOUNTS } from "./screenMounts";
 import { showSetDefaultOptionOverlay } from "./screens/setDefault";
@@ -309,22 +310,48 @@ const handleTotpEnrollVerify = (controller: OnboardingController): void => {
 };
 
 const handleFactorsListAfterEnroll = (controller: OnboardingController): void => {
-  const state = controller.getSnapshot().state;
-  if (state === "VERIFY_LOGIN_CODE") {
-    controller.dispatch("VERIFY_SUCCEEDED");
-    return;
-  }
-  if (
-    state === "CUNY_TOTP" ||
-    state === "ALLOW_GATE" ||
-    state === "OAA_SPA_HOME" ||
-    state === "GUIDED_MANAGE" ||
-    state === "GUIDED_ADD_FACTOR" ||
-    state === "GUIDED_FACTOR_TYPE" ||
-    state === "GUIDED_SECRET_CAPTURE"
-  ) {
-    fastForwardToSetDefault(controller);
-  }
+  // Check in the sidebar (where storage.session is reliably available) rather
+  // than the content script, which may lack session-storage access.
+  void (async () => {
+    let hasSecret = true; // safe default if storage is unavailable
+    try {
+      const got = await browser.storage.session?.get(PENDING_TOTP_SECRET_SESSION_KEY);
+      const val = got?.[PENDING_TOTP_SECRET_SESSION_KEY];
+      hasSecret = typeof val === "string" && val.length > 0;
+    } catch {
+      /* storage.session threw — keep hasSecret = true to avoid blocking the flow */
+    }
+
+    if (!hasSecret) {
+      const recoveryEl = document.querySelector<HTMLElement>(
+        "[data-onboarding-recovery-message='true']"
+      );
+      if (recoveryEl) {
+        recoveryEl.textContent =
+          "We found an existing authentication factor but don't have its secret key. " +
+          "Please delete it from the CUNY tab and re-enroll.";
+        recoveryEl.hidden = false;
+      }
+      return;
+    }
+
+    const state = controller.getSnapshot().state;
+    if (state === "VERIFY_LOGIN_CODE") {
+      controller.dispatch("VERIFY_SUCCEEDED");
+      return;
+    }
+    if (
+      state === "CUNY_TOTP" ||
+      state === "ALLOW_GATE" ||
+      state === "OAA_SPA_HOME" ||
+      state === "GUIDED_MANAGE" ||
+      state === "GUIDED_ADD_FACTOR" ||
+      state === "GUIDED_FACTOR_TYPE" ||
+      state === "GUIDED_SECRET_CAPTURE"
+    ) {
+      fastForwardToSetDefault(controller);
+    }
+  })();
 };
 
 const handleSetDefaultMenuOpened = (controller: OnboardingController): void => {
