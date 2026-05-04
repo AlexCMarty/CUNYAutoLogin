@@ -64,6 +64,13 @@ export type TotpSecretFromPage = {
 
 export type TotpSecretFromPageAck = { readonly ok: boolean };
 
+/** Content script → service worker: stage the enrolled factor alias so the
+ *  sidebar can read it from storage.session (content scripts lack session access). */
+export type EnrolledAliasFromPage = {
+  readonly type: "ENROLLED_ALIAS_FROM_PAGE";
+  readonly alias: string;
+};
+
 /**
  * Sidebar → service-worker: stage the in-memory onboarding credentials so the
  * content script can auto-fill them on the CUNY tab opened from the sidebar.

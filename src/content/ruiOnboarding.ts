@@ -8,7 +8,6 @@ import { setInputValue } from "./content.utils";
 import type { OnboardingPageStage } from "../onboarding/messages";
 import { detectRuiSpaView } from "./ruiSpaView";
 import {
-  ENROLLED_FACTOR_ALIAS_SESSION_KEY,
   EXTENSION_NAME,
   RUI_FACTOR_NAME_INPUT_ID,
   RUI_FACTOR_PANEL_SELECTOR,
@@ -170,18 +169,6 @@ export const stopRuiOnboardingObserversForTest = (): void => {
 export const startRuiOnboardingObservers = (): void => {
   if (pollId !== null) return;
 
-  void (async () => {
-    try {
-      const got = await browser.storage.session?.get(ENROLLED_FACTOR_ALIAS_SESSION_KEY);
-      const saved = got?.[ENROLLED_FACTOR_ALIAS_SESSION_KEY];
-      if (typeof saved === "string" && saved.length > 0 && enrolledFactorAlias === null) {
-        enrolledFactorAlias = saved;
-      }
-    } catch {
-      // storage.session unavailable — proceed without restoring alias
-    }
-  })();
-
   installMenuProgressClickReporters();
 
   const tick = (): void => {
@@ -229,8 +216,10 @@ export const startRuiOnboardingObservers = (): void => {
         // enrollment attempt.
         if (nameInput.value !== enrolledFactorAlias) {
           enrolledFactorAlias = generateFactorAlias();
-          void browser.storage.session
-            ?.set({ [ENROLLED_FACTOR_ALIAS_SESSION_KEY]: enrolledFactorAlias })
+          // Route through the service worker — content scripts cannot write
+          // to storage.session directly in Firefox.
+          void browser.runtime
+            .sendMessage({ type: "ENROLLED_ALIAS_FROM_PAGE", alias: enrolledFactorAlias })
             .catch(() => undefined);
         }
         setInputValue(nameInput, enrolledFactorAlias);

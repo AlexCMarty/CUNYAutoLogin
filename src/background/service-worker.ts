@@ -7,6 +7,7 @@ import {
 } from "../crypto/vault";
 import {
   CUNY_LOGIN_ENTRY_URL,
+  ENROLLED_FACTOR_ALIAS_SESSION_KEY,
   OAA_RUI_LOGOUT_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
@@ -22,6 +23,7 @@ import {
   isStageOnboardingCredentials,
   normalizeAutoFillOtpContext,
   type AutoFillResponse,
+  type EnrolledAliasFromPage,
   type OnboardingAck,
   type OnboardingCredentialsAck,
   type OnboardingOverlayCommand,
@@ -309,6 +311,21 @@ browser.runtime.onMessage.addListener(
           try {
             await browser.storage.session?.set({
               [PENDING_TOTP_SECRET_SESSION_KEY]: normalized,
+            });
+            return { ok: true as const };
+          } catch {
+            return { ok: false as const };
+          }
+        })(),
+      ENROLLED_ALIAS_FROM_PAGE: (typedMessage) =>
+        (async () => {
+          const alias = (typedMessage as EnrolledAliasFromPage).alias;
+          if (typeof alias !== "string" || !alias.length) {
+            return { ok: false as const };
+          }
+          try {
+            await browser.storage.session?.set({
+              [ENROLLED_FACTOR_ALIAS_SESSION_KEY]: alias,
             });
             return { ok: true as const };
           } catch {
