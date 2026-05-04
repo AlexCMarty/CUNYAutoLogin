@@ -26,6 +26,10 @@ Local HTTP server on `FIXTURE_PORT` serving `e2e/fixtures/`. Current routes:
 
 Extends Playwright `test` with a `context` fixture that launches Chromium via `chromium.launchPersistentContext` with `--load-extension=dist/`. Provides `extensionId` fixture.
 
+## Sidebar screenshot CLI (`scripts/capture-sidebar.mjs`)
+
+For agents or humans who need a **single PNG** of `sidebar.html` with a URL hash (no fixture server, no full Playwright suite): `npm run build:e2e` then `npm run capture-sidebar -- '#vault=1'` (or `--hash '…'`). Writes under `agent_screenshots/` by default; stdout is the absolute path. See `CONTRIBUTING.md` → **Sidebar screenshots (CLI)**.
+
 ## Test isolation and concurrency
 
 `playwright.config.ts`: `workers: 6`, `fullyParallel: true`. Each worker gets its own browser context + fresh extension instance. Storage is isolated per context.

@@ -108,6 +108,8 @@ Never rely on popup interaction helpers — they fail with missing popup.
 
 For **layout and styling**, jump straight to a mounted onboarding screen with a URL hash instead of walking the flow. Requires `npm run build:dev` (**development** or **e2e** Vite mode); production bundles ignore `#qa=` and fall through to normal boot.
 
+**CLI screenshots (no MCP, no CUNY):** When the task is only sidebar appearance, prefer `npm run build:e2e` then `npm run capture-sidebar -- '#qa=EXT_PASSWORD_SETUP'` (or any other hash). [`scripts/capture-sidebar.mjs`](../../../scripts/capture-sidebar.mjs) loads the unpacked `dist/` extension in headless Chromium, opens `sidebar.html` with the hash, saves a PNG (default `agent_screenshots/`), and prints the absolute path on stdout — see **Sidebar screenshots (CLI)** in `CONTRIBUTING.md`. Use MCP `take_screenshot` only when you need live tabs, runtime interaction, or claims that depend on real SSO.
+
 Open the sidebar with a hash (MCP callers: pass URL `chrome-extension://<id>/sidebar.html#qa=…`; hash changes reload the sidebar in dev per `sidebar.ts`).
 
 | Param | Purpose |
