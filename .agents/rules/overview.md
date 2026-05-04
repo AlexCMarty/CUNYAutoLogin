@@ -31,12 +31,19 @@ src/
   sidebar/sidebar.utils.ts      Pure helpers (email validation, draft parse, status strings,
                                 MIN_MASTER_PASSWORD_LENGTH = 12)
   sidebar/debugPanel.ts         Dev-only debug panel (FILL_CREDENTIALS tester + clear-vault)
-  sidebar/sidebar.css           Base vault UI styles
+  sidebar/sidebar.css           Single stylesheet for all sidebar surfaces (vault + onboarding).
+                                CSS custom properties at the top are the design-token source of
+                                truth — color, font, and spacing changes propagate everywhere.
+                                Classes: shared (.primary/.secondary), vault (.wrap, .field, …),
+                                onboarding shell (.onboarding-shell, .onboarding-bead-header, …),
+                                screens (.onboarding-screen, .onboarding-headline, …),
+                                and password-input wrappers (.onboarding-input-wrap/toggle).
   onboarding/state.ts           18-state enum, bead mapping, resume policy
   onboarding/transitions.ts     Declarative TRANSITION_TABLE + advance / backStateFor
   onboarding/controller.ts      createOnboardingController — closure-only state; subscribe/dispatch
   onboarding/messages.ts        Wire contract + is* guards for all onboarding messages
-  onboarding/beadHeader.ts      Five-bead progress header
+  onboarding/beadHeader.ts      Five-bead circular progress header; sets --bead-stage CSS custom
+                                property on each dot so CSS can render stage numbers via content:
   onboarding/render.ts          mountOnboarding — mounts shell + screen + runtime.onMessage bridge;
                                 fires CLEAR_ONBOARDING_CREDENTIALS on unmount
   onboarding/screens/           welcome, emailEntry, passwordEntry, cunyTotp, openingCuny, allowGate,
