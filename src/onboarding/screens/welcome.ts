@@ -22,7 +22,7 @@ const SCREEN_BODY =
 const REASSURANCE_LINE =
   "Everything stays on this computer, locked behind a password only you know.";
 const AUTHORSHIP_LINE =
-  "An independent open-source project. Not affiliated with CUNY.";
+  "An independent open-source project. Not affiliated with CUNY. Created by Alexander Marty.";
 const CTA_LABEL = "Let's set it up";
 
 export const WELCOME_CTA_SELECTOR = "[data-onboarding-welcome-cta='true']";

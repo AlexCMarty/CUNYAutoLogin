@@ -42,9 +42,11 @@ export const mountSetDefaultScreen: ScreenMount = (ctx: OnboardingScreenContext)
   appendStepProgress(doc, container, 7, 8);
   root.appendChild(container);
 
-  // Read the enrolled alias from session so the overlay and UI text name the
+  // Read the enrolled alias from session so the recovery text names the
   // exact factor the user just created (e.g. "CUNYAutoLogin-a3f2") rather than
   // the generic constant, which may ambiguously match an older factor.
+  // UI text uses EXTENSION_NAME name because those four random letters 
+  // look out of place & will scare users "why is this so complicated!"
   void (async () => {
     let alias: string = EXTENSION_NAME;
     try {
@@ -55,8 +57,8 @@ export const mountSetDefaultScreen: ScreenMount = (ctx: OnboardingScreenContext)
       // storage.session unavailable — keep the generic name
     }
 
-    headline.textContent = `Make ${alias} your default method.`;
-    body.textContent = `On the CUNY tab, open the ${alias} menu, then select Set as Default.`;
+    headline.textContent = `Make ${EXTENSION_NAME} your default method.`;
+    body.textContent = `On the CUNY tab, open the ${EXTENSION_NAME} menu, then select Set as Default.`;
     recovery.textContent =
       `We could not find the Set as Default action. Open the ${alias} menu and choose Set as Default manually.`;
 

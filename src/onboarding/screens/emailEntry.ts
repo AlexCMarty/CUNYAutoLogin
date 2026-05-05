@@ -21,7 +21,7 @@ import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const SCREEN_LABEL = "What email do you sign in to CUNY with?";
 const SCREEN_SUBTEXT =
-  "Usually firstname.lastname@login.cuny.edu — not your @baruchmail.cuny.edu or other school email.";
+  "It's firstname.lastname12@login.cuny.edu — not your @stu-mail.baruch.cuny.edu or other school email.";
 const INLINE_HINT_COPY =
   "CUNY logins end in @login.cuny.edu \u2014 check your CUNYfirst welcome email if you're unsure.";
 export const CREDENTIAL_ERROR_INLINE_COPY =

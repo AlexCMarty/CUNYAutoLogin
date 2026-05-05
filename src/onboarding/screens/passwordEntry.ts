@@ -17,7 +17,7 @@
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const SCREEN_LABEL = "And your CUNY password.";
-const SCREEN_SUBTEXT = "The password you use to log in to CUNY.";
+const SCREEN_SUBTEXT = "The password you use to log in to Brightspace or CUNYFirst.";
 const REASSURANCE_COPY =
   "We'll save it on this computer and use it now to sign you in so you can watch it work.";
 export const CREDENTIAL_ERROR_INLINE_COPY =
