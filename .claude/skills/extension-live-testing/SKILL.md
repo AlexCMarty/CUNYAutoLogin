@@ -311,7 +311,7 @@ Logs may be sparse.
 | JET value doesn’t stick | Native setter / keystroke patterns per memory |
 | TOTP rejected | Regenerate; window may have rolled |
 | Stuck on OPENING_CUNY | Confirm CUNY tab opened |
-| V2 screens missing | `ONBOARDING_V2_ENABLED` or dev hash `#onboarding=1` |
+| Onboarding screen missing in QA | Dev hash `#onboarding=1` or `#qa=<STATE>` (dev/e2e builds only) |
 | Biometric enrollment | MCP or browser may block WebAuthn flows — skip if tooling cannot proceed |
 
 ---

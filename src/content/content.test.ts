@@ -14,6 +14,9 @@ import {
 import {
   CREDENTIAL_ERROR_ELEMENT_ID,
   CREDENTIAL_ERROR_TEXT_MARKER,
+  OAA_RUI_OIDC_ACCESS_DENIED_ERROR,
+  OAA_RUI_OIDC_REDIRECT_PATH,
+  SSO_LOGIN_ORIGIN,
 } from "../cuny/ssoSite";
 import { detectRuiSpaView } from "./ruiSpaView";
 import {
@@ -504,7 +507,7 @@ describe("detectRuiSpaView", () => {
     expect(
       detectRuiSpaView(
         document,
-        "https://ssologin.cuny.edu/oaa/rui/oidc/redirect?error=access_denied"
+        `${SSO_LOGIN_ORIGIN}${OAA_RUI_OIDC_REDIRECT_PATH}?error=${OAA_RUI_OIDC_ACCESS_DENIED_ERROR}`
       )
     ).toBe("access_denied");
   });

@@ -4,22 +4,18 @@
  *
  * Reads/writes `cunyOnboardingCompleted` in `browser.storage.local` — the
  * **only** documented non-vault `storage.local` key (boolean, not credentials).
- * See `.agents/rules/security.md`. Migrates from legacy
- * `cunyOnboardingV2CompletedV1` on first successful mark.
+ * See `.agents/rules/security.md`.
  */
 
 import browser from "webextension-polyfill";
 
 const ONBOARDING_COMPLETED_STORAGE_KEY = "cunyOnboardingCompleted" as const;
 
-const LEGACY_ONBOARDING_COMPLETED_STORAGE_KEY = "cunyOnboardingV2CompletedV1" as const;
-
 export async function markOnboardingComplete(): Promise<void> {
   try {
     await browser.storage.local.set({
       [ONBOARDING_COMPLETED_STORAGE_KEY]: true,
     });
-    await browser.storage.local.remove(LEGACY_ONBOARDING_COMPLETED_STORAGE_KEY);
   } catch (error) {
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
@@ -31,7 +27,6 @@ export async function markOnboardingComplete(): Promise<void> {
 export async function clearOnboardingComplete(): Promise<void> {
   try {
     await browser.storage.local.remove(ONBOARDING_COMPLETED_STORAGE_KEY);
-    await browser.storage.local.remove(LEGACY_ONBOARDING_COMPLETED_STORAGE_KEY);
   } catch (error) {
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console

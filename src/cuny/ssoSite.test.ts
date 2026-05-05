@@ -2,10 +2,14 @@ import { describe, expect, test } from "vitest";
 import {
   CREDENTIAL_PAGE_PATH_MARKERS,
   LOGIN_EMAIL_SUFFIX,
+  OAA_RUI_OIDC_ACCESS_DENIED_ERROR,
+  OAA_RUI_OIDC_REDIRECT_PATH,
   RUI_MFA_ENROLL_VERIFY_PAGE_URL,
   SSO_LOGIN_HOST,
   SSO_LOGIN_ORIGIN,
+  SSO_LOGIN_TABS_QUERY_URL_PATTERN,
   matchesCredentialPage,
+  matchesOaaRuiAccessDeniedRedirect,
   matchesRuiMfaEnrollVerifyPage,
   matchesTotpEnrollPage,
   matchesTotpPage,
@@ -131,7 +135,41 @@ describe("matchesRuiMfaEnrollVerifyPage", () => {
   });
 });
 
+describe("matchesOaaRuiAccessDeniedRedirect", () => {
+  test("OIDC redirect with access_denied → true", () => {
+    expect(
+      matchesOaaRuiAccessDeniedRedirect(
+        `${SSO_LOGIN_ORIGIN}${OAA_RUI_OIDC_REDIRECT_PATH}?error=${OAA_RUI_OIDC_ACCESS_DENIED_ERROR}`
+      )
+    ).toBe(true);
+  });
+
+  test("relative href with access_denied → true", () => {
+    expect(
+      matchesOaaRuiAccessDeniedRedirect(
+        `${OAA_RUI_OIDC_REDIRECT_PATH}?error=${OAA_RUI_OIDC_ACCESS_DENIED_ERROR}`
+      )
+    ).toBe(true);
+  });
+
+  test("missing error param → false", () => {
+    expect(matchesOaaRuiAccessDeniedRedirect(`${SSO_LOGIN_ORIGIN}/oaa/rui/`)).toBe(false);
+  });
+});
+
 describe("constants", () => {
+  test("SSO_LOGIN_TABS_QUERY_URL_PATTERN matches manifest host pattern", () => {
+    expect(SSO_LOGIN_TABS_QUERY_URL_PATTERN).toBe(`${SSO_LOGIN_ORIGIN}/*`);
+  });
+
+  test('OAA_RUI_OIDC_ACCESS_DENIED_ERROR is "access_denied"', () => {
+    expect(OAA_RUI_OIDC_ACCESS_DENIED_ERROR).toBe("access_denied");
+  });
+
+  test('OAA_RUI_OIDC_REDIRECT_PATH is "/oaa/rui/oidc/redirect"', () => {
+    expect(OAA_RUI_OIDC_REDIRECT_PATH).toBe("/oaa/rui/oidc/redirect");
+  });
+
   test('SSO_LOGIN_HOST is "ssologin.cuny.edu"', () => {
     expect(SSO_LOGIN_HOST).toBe("ssologin.cuny.edu");
   });

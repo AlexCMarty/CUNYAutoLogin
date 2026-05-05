@@ -1,6 +1,6 @@
 # CUNYAutoLogin
 
-MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storage.local` via PBKDF2 + AES-GCM, auto-fills `ssologin.cuny.edu` via content script, guides students through an 18-state onboarding flow.
+MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storage.local` via PBKDF2 + AES-GCM, auto-fills `ssologin.cuny.edu` via content script, guides students through a 19-state onboarding flow.
 
 ## Hard rules — never violate
 

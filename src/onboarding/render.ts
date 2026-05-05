@@ -115,31 +115,31 @@ const mountPlaceholderScreen = (ctx: OnboardingScreenContext): ScreenHandle => {
 
 const resolveScreenHost = (doc: Document): {
   host: HTMLElement;
-  hideLegacy: () => void;
-  restoreLegacy: () => void;
+  hideVaultMainWrap: () => void;
+  restoreVaultMainWrap: () => void;
 } => {
   const configured = doc.getElementById(ONBOARDING_ROOT_ID);
   if (configured instanceof HTMLElement) {
     const wasHidden = configured.hidden;
-    const legacy = doc.querySelector<HTMLElement>("main.vault-wrap");
-    const legacyWasHidden = legacy?.hidden ?? true;
+    const mainVaultWrap = doc.querySelector<HTMLElement>("main.vault-wrap");
+    const mainVaultWrapWasHidden = mainVaultWrap?.hidden ?? true;
     return {
       host: configured,
-      hideLegacy: () => {
+      hideVaultMainWrap: () => {
         configured.hidden = false;
-        if (legacy) legacy.hidden = true;
+        if (mainVaultWrap) mainVaultWrap.hidden = true;
       },
-      restoreLegacy: () => {
+      restoreVaultMainWrap: () => {
         configured.hidden = wasHidden;
-        if (legacy) legacy.hidden = legacyWasHidden;
+        if (mainVaultWrap) mainVaultWrap.hidden = mainVaultWrapWasHidden;
       },
     };
   }
   const fallback = doc.body;
   return {
     host: fallback,
-    hideLegacy: () => undefined,
-    restoreLegacy: () => undefined,
+    hideVaultMainWrap: () => undefined,
+    restoreVaultMainWrap: () => undefined,
   };
 };
 
@@ -639,7 +639,7 @@ type OnboardingMountModel = {
   readonly reopenCunyButton: HTMLButtonElement;
   readonly shell: HTMLElement;
   readonly header: ReturnType<typeof mountBeadHeader>;
-  readonly restoreLegacy: () => void;
+  readonly restoreVaultMainWrap: () => void;
   readonly suppressResumeSnapshots: boolean;
 };
 
@@ -655,7 +655,7 @@ type OnboardingUnmountBag = {
   readonly screenHandleRef: { current: ScreenHandle | null };
   readonly header: ReturnType<typeof mountBeadHeader>;
   readonly shell: HTMLElement;
-  readonly restoreLegacy: () => void;
+  readonly restoreVaultMainWrap: () => void;
   readonly suppressResumeSnapshots: boolean;
 };
 
@@ -670,7 +670,7 @@ const runOnboardingUnmount = (bag: OnboardingUnmountBag): void => {
   bag.screenHandleRef.current?.unmount();
   bag.header.unmount();
   bag.shell.remove();
-  bag.restoreLegacy();
+  bag.restoreVaultMainWrap();
 };
 
 const subscribeOnboardingController = (
@@ -750,7 +750,7 @@ const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
     reopenCunyButton,
     shell,
     header,
-    restoreLegacy,
+    restoreVaultMainWrap,
     suppressResumeSnapshots,
   } = model;
   const screenHandleRef = { current: null as ScreenHandle | null };
@@ -820,7 +820,7 @@ const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
     screenHandleRef,
     header,
     shell,
-    restoreLegacy,
+    restoreVaultMainWrap,
     suppressResumeSnapshots,
   };
   return () => runOnboardingUnmount(bag);
@@ -832,8 +832,8 @@ export const mountOnboarding = (
 ): (() => void) => {
   const qaJumpBundle = options?.qaJump;
   const qaJumpActive = qaJumpBundle !== undefined;
-  const { host, hideLegacy, restoreLegacy } = resolveScreenHost(doc);
-  hideLegacy();
+  const { host, hideVaultMainWrap, restoreVaultMainWrap } = resolveScreenHost(doc);
+  hideVaultMainWrap();
   const { shell, screenHost, resumeButton, reopenCunyButton } = buildOnboardingShell(doc, host);
 
   if (qaJumpActive) {
@@ -851,7 +851,7 @@ export const mountOnboarding = (
     reopenCunyButton,
     shell,
     header,
-    restoreLegacy,
+    restoreVaultMainWrap,
     suppressResumeSnapshots: qaJumpActive,
   });
 };

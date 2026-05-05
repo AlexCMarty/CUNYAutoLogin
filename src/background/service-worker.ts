@@ -11,6 +11,7 @@ import {
   OAA_RUI_LOGOUT_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
+  SSO_LOGIN_TABS_QUERY_URL_PATTERN,
   normalizeTotpSecretCandidate,
 } from "../cuny/ssoSite";
 import {
@@ -104,7 +105,7 @@ let stagedOnboardingCredentials: StagedOnboardingCredentials | null = null;
 let stagedOverlayCommand: OnboardingOverlayCommand | null = null;
 
 const logOutOaaRuiInTabs = async (): Promise<void> => {
-  const ssoTabs = await browser.tabs.query({ url: ["https://ssologin.cuny.edu/*"] });
+  const ssoTabs = await browser.tabs.query({ url: [SSO_LOGIN_TABS_QUERY_URL_PATTERN] });
   for (const ssoTab of ssoTabs) {
     if (typeof ssoTab.id !== "number") continue;
     try {
@@ -117,7 +118,7 @@ const logOutOaaRuiInTabs = async (): Promise<void> => {
 
 /**
  * Terminate the OAA server-side session via a direct fetch from the service
- * worker. Supplements tab navigation when no `ssologin.cuny.edu` tab is open.
+ * worker. Supplements tab navigation when no SSO login host tab is open.
  * Best-effort — a network failure does not block callers.
  */
 const fetchLogOutOaaRui = async (): Promise<void> => {

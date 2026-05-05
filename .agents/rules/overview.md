@@ -38,7 +38,7 @@ src/
                                 onboarding shell (.onboarding-shell, .onboarding-bead-header, …),
                                 screens (.onboarding-screen, .onboarding-headline, …),
                                 and password-input wrappers (.onboarding-input-wrap/toggle).
-  onboarding/state.ts           18-state enum, bead mapping, resume policy
+  onboarding/state.ts           19-state enum, bead mapping, resume policy
   onboarding/transitions.ts     Declarative TRANSITION_TABLE + advance / backStateFor
   onboarding/controller.ts      createOnboardingController — closure-only state; subscribe/dispatch
   onboarding/messages.ts        Wire contract + is* guards for all onboarding messages
@@ -73,6 +73,7 @@ src/
                                 navigation + best-effort fetch — see .map/cookies/session-and-logout.md)
   manifest.json                 Source manifest (Vite writes dist/manifest.json)
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host_permissions
+                                and content_scripts.matches
 vite.config.ts                  Builds sidebar + background as ES modules
 vite.content.config.ts          Builds content.ts as single IIFE (inlineDynamicImports)
 e2e/

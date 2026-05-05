@@ -3,17 +3,16 @@
  *
  * Behavior on mount:
  *   1. Ask the service worker to terminate any live OAA session via
- *      `LOGOUT_CUNY_SESSIONS` (navigates open `ssologin.cuny.edu` tabs to the
- *      OAA logout endpoint and performs a best-effort fetch logout). Without
- *      this step, a student who is already signed in at `/oaa/rui` would skip
+ *      `LOGOUT_CUNY_SESSIONS` (navigates open SSO tabs to `OAA_RUI_LOGOUT_URL`
+ *      in `src/cuny/ssoSite.ts` and performs a best-effort fetch logout). Without
+ *      this step, a student who is already signed in at the RUI entry would skip
  *      the credential page and Screen 4 would hang waiting for auto-fill.
  *   2. Stage the in-memory email+password into the service worker's ephemeral
  *      cache via `STAGE_ONBOARDING_CREDENTIALS`. The content script asks for
  *      credentials via the existing `AUTO_FILL_REQUEST` flow, which falls back
  *      to this staged payload when the vault isn't set up yet (pre-vault).
  *   3. Open the CUNY entry URL in a new tab directly from the sidebar via
- *      `browser.tabs.create(...)`. The URL defaults to
- *      `https://ssologin.cuny.edu/oaa/rui`; dev/e2e builds allow an
+ *      `browser.tabs.create(...)`. The URL defaults to `CUNY_LOGIN_ENTRY_URL`;
  *      override via the `#cuny=<encoded url>` hash param so the fixture server
  *      can stand in for CUNY.
  *

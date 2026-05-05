@@ -11,6 +11,12 @@ export const SSO_LOGIN_HOST = "ssologin.cuny.edu" as const;
 
 export const SSO_LOGIN_ORIGIN = `https://${SSO_LOGIN_HOST}` as const;
 
+/**
+ * Match pattern for `browser.tabs.query({ url: [...] })` — every page on the SSO host.
+ * Keep in sync with manifest `host_permissions` / `content_scripts.matches`.
+ */
+export const SSO_LOGIN_TABS_QUERY_URL_PATTERN = `${SSO_LOGIN_ORIGIN}/*` as const;
+
 /** Saved vault email must use CUNY’s login email domain. */
 export const LOGIN_EMAIL_SUFFIX = "@login.cuny.edu" as const;
 
@@ -44,6 +50,27 @@ export const CUNY_LOGIN_ENTRY_URL =
  */
 export const OAA_RUI_LOGOUT_URL =
   `${SSO_LOGIN_ORIGIN}/oaa/rui/user/v1/logout` as const;
+
+/** `error` query value on Oracle OIDC redirect when the user denies consent. */
+export const OAA_RUI_OIDC_ACCESS_DENIED_ERROR = "access_denied" as const;
+
+/**
+ * True when `href` resolves to an OAuth redirect whose `error` query is access denied
+ * (deny path on the allow gate). Uses {@link SSO_LOGIN_ORIGIN} as the parse base so
+ * relative `href` values still resolve.
+ */
+export const matchesOaaRuiAccessDeniedRedirect = (href: string): boolean => {
+  try {
+    return (
+      new URL(href, SSO_LOGIN_ORIGIN).searchParams.get("error") ===
+      OAA_RUI_OIDC_ACCESS_DENIED_ERROR
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const OAA_RUI_OIDC_REDIRECT_PATH = "/oaa/rui/oidc/redirect" as const;
 
 /**
  * Path CUNY redirects to when username/password submission is rejected. Having

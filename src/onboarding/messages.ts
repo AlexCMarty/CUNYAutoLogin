@@ -201,7 +201,7 @@ export type OnboardingCredentialError = {
 export type OnboardingOverlayCommand = {
   readonly type: "ONBOARDING_OVERLAY_COMMAND";
   readonly action: OverlayAction;
-  /** CSS selector hint (legacy; prefer targetSpec for new commands). */
+  /** Optional CSS selector hint; prefer `targetSpec` for new overlay commands. */
   readonly target?: string;
   /** Typed target spec — supports css and a11y click patterns. */
   readonly targetSpec?: TargetSpec;

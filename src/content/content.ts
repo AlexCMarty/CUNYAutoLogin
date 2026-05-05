@@ -77,9 +77,8 @@ void requestAndExecuteOverlayCommand();
 installAllowConsentClickReporter();
 
 if (matchesTotpEnrollPage(window.location.href)) {
-  // The verify OTP step can appear on multiple /oaa/rui URL variants.
-  // Start polling for `otp|input` across the whole RUI flow instead of
-  // depending on a specific query string.
+  // Enrollment verify OTP can appear on several RUI URL shapes; see
+  // `matchesTotpEnrollPage` / `matchesRuiMfaEnrollVerifyPage` in `ssoSite.ts`.
   startMfaEnrollVerifyOtpPolling();
   startRuiOnboardingObservers();
   void watchTotpSecretOnEnrollPage();

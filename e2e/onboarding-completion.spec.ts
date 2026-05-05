@@ -504,9 +504,7 @@ test.describe("post-onboarding: vault UI after completion", () => {
           | undefined;
         const sessionArea = extensionChrome?.storage?.session;
         if (sessionArea?.remove) {
-          sessionArea.remove("cunyOnboardingResumeSnapshot", () => {
-            sessionArea.remove("cunyOnboardingResumeSnapshotV1", () => resolve());
-          });
+          sessionArea.remove("cunyOnboardingResumeSnapshot", () => resolve());
         } else {
           resolve();
         }

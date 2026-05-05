@@ -19,13 +19,13 @@ describe("markOnboardingComplete", () => {
     vi.clearAllMocks();
   });
 
-  test("sets cunyOnboardingCompleted and removes legacy storage key", async () => {
+  test("sets cunyOnboardingCompleted", async () => {
     await markOnboardingComplete();
     expect(browser.storage.local.set).toHaveBeenCalledTimes(1);
     expect(browser.storage.local.set).toHaveBeenCalledWith({
       cunyOnboardingCompleted: true,
     });
-    expect(browser.storage.local.remove).toHaveBeenCalledWith("cunyOnboardingV2CompletedV1");
+    expect(browser.storage.local.remove).not.toHaveBeenCalled();
   });
 });
 
@@ -34,10 +34,9 @@ describe("clearOnboardingComplete", () => {
     vi.clearAllMocks();
   });
 
-  test("removes current and legacy onboarding-complete keys", async () => {
+  test("removes cunyOnboardingCompleted", async () => {
     await clearOnboardingComplete();
-    expect(browser.storage.local.remove).toHaveBeenCalledTimes(2);
-    expect(browser.storage.local.remove).toHaveBeenNthCalledWith(1, "cunyOnboardingCompleted");
-    expect(browser.storage.local.remove).toHaveBeenNthCalledWith(2, "cunyOnboardingV2CompletedV1");
+    expect(browser.storage.local.remove).toHaveBeenCalledTimes(1);
+    expect(browser.storage.local.remove).toHaveBeenCalledWith("cunyOnboardingCompleted");
   });
 });

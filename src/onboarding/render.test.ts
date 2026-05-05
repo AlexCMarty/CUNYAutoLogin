@@ -42,10 +42,7 @@ import {
   PASSWORD_INPUT_SELECTOR,
 } from "./screens/passwordEntry";
 import { WELCOME_CTA_SELECTOR } from "./screens/welcome";
-import {
-  LEGACY_ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY,
-  ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY,
-} from "./resumeSession";
+import { ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY } from "./resumeSession";
 import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
 import browser from "webextension-polyfill";
 
@@ -92,14 +89,14 @@ describe("mountOnboarding", () => {
     vi.mocked(browser.runtime.sendMessage).mockResolvedValue(undefined);
   });
 
-  test("mounts bead header + welcome screen into #onboarding-root and hides legacy main", () => {
-    const legacy = renderMain();
+  test("mounts bead header + welcome screen into #onboarding-root and hides vault main", () => {
+    const mainVaultWrap = renderMain();
     const onboardingRoot = renderOnboardingRoot();
 
     const unmount = mountOnboarding(document);
 
     expect(onboardingRoot.hidden).toBe(false);
-    expect(legacy.hidden).toBe(true);
+    expect(mainVaultWrap.hidden).toBe(true);
     expect(onboardingRoot.querySelector(BEAD_HEADER_SELECTOR)).not.toBeNull();
     expect(
       onboardingRoot.querySelector(BEAD_ITEM_SELECTOR)?.textContent
@@ -111,7 +108,7 @@ describe("mountOnboarding", () => {
 
     unmount();
     expect(onboardingRoot.hidden).toBe(true);
-    expect(legacy.hidden).toBe(false);
+    expect(mainVaultWrap.hidden).toBe(false);
     expect(onboardingRoot.querySelector(BEAD_HEADER_SELECTOR)).toBeNull();
   });
 
@@ -190,26 +187,6 @@ describe("mountOnboarding", () => {
       email: "resume@login.cuny.edu",
       password: "pw-after-resume",
     });
-  });
-
-  test("legacy session resume key still loads snapshot", async () => {
-    vi.mocked(browser.storage.session.get).mockResolvedValue({
-      [LEGACY_ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: { state: "PASSWORD_ENTRY" },
-    });
-    renderOnboardingRoot();
-    mountOnboarding(document);
-    await expect
-      .poll(
-        () =>
-          document
-            .querySelector<HTMLButtonElement>(ONBOARDING_RESUME_BUTTON_SELECTOR)
-            ?.hidden
-      )
-      .toBe(false);
-    document
-      .querySelector<HTMLButtonElement>(ONBOARDING_RESUME_BUTTON_SELECTOR)
-      ?.click();
-    expect(document.querySelector(PASSWORD_INPUT_SELECTOR)).not.toBeNull();
   });
 
   test("closing tracked CUNY tab shows reopen button in guided states", () => {

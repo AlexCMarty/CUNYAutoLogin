@@ -53,7 +53,7 @@ Polling instead of `MutationObserver` because the Oracle SPA re-renders in ways 
 
 On sidebar unmount, `mountOnboarding` fires `CLEAR_ONBOARDING_CREDENTIALS`.
 
-Session resume snapshot (`cunyOnboardingResumeSnapshot` in `storage.session`; migrates legacy `cunyOnboardingResumeSnapshotV1`) stores `{ state, email, password }` for resumable states only. Never persisted to `storage.local`.
+Session resume snapshot (`cunyOnboardingResumeSnapshot` in `storage.session`) stores `{ state, email, password }` for resumable states only. Never persisted to `storage.local`.
 
 ## Extension banner on CUNY tab
 
@@ -61,6 +61,6 @@ Session resume snapshot (`cunyOnboardingResumeSnapshot` in `storage.session`; mi
 
 ## SSO site constants
 
-All URL path markers, DOM element IDs, and timing constants are in `src/cuny/ssoSite.ts`. Never hardcode paths, input IDs, or TOTP parameters in `content.ts` or `service-worker.ts`.
+All URL path markers, DOM element IDs, timing constants, and host-level patterns used at runtime (including `browser.tabs.query` URL filters) live in `src/cuny/ssoSite.ts`. Do not duplicate SSO hosts, paths, or CUNY DOM ids in `content.ts`, `service-worker.ts`, or other modules — import from `ssoSite.ts` instead.
 
 For live page structure — selectors, timing, DOM skeletons — consult `.map/`. Start with `.map/README.md`, then the relevant `pages/*.md` and `conventions.md`.
