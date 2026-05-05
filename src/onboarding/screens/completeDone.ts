@@ -1,5 +1,6 @@
 import browser from "webextension-polyfill";
 import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
+import { showOnboardingIllustrationPlaceholders } from "../illustrationPlaceholders";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const FEATURES = [
@@ -14,11 +15,6 @@ export const mountCompleteDoneScreen: ScreenMount = (ctx: OnboardingScreenContex
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "COMPLETE_DONE";
   container.className = "onboarding-screen onboarding-screen-complete-done";
-
-  const placeholder = doc.createElement("div");
-  placeholder.className = "onboarding-placeholder";
-  placeholder.setAttribute("aria-hidden", "true");
-  placeholder.textContent = "// confetti · graduation cap";
 
   const h2 = doc.createElement("h2");
   h2.className = "onboarding-headline";
@@ -58,7 +54,13 @@ export const mountCompleteDoneScreen: ScreenMount = (ctx: OnboardingScreenContex
   actions.className = "onboarding-actions";
   actions.appendChild(cta);
 
-  container.appendChild(placeholder);
+  if (showOnboardingIllustrationPlaceholders) {
+    const placeholder = doc.createElement("div");
+    placeholder.className = "onboarding-placeholder";
+    placeholder.setAttribute("aria-hidden", "true");
+    placeholder.textContent = "// confetti · graduation cap";
+    container.appendChild(placeholder);
+  }
   container.appendChild(h2);
   container.appendChild(body);
   container.appendChild(featureCard);

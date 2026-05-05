@@ -1,3 +1,4 @@
+import { showOnboardingIllustrationPlaceholders } from "../illustrationPlaceholders";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const isPlatformAuthenticatorAvailable = async (): Promise<boolean> => {
@@ -24,12 +25,14 @@ export const mountBiometricOfferScreen: ScreenMount = (ctx: OnboardingScreenCont
       return;
     }
 
-    const placeholder = doc.createElement("div");
-    placeholder.className = "onboarding-placeholder";
-    placeholder.setAttribute("aria-hidden", "true");
-    placeholder.textContent = "// fingerprint · soft halo";
-    placeholder.style.height = "120px";
-    container.appendChild(placeholder);
+    if (showOnboardingIllustrationPlaceholders) {
+      const placeholder = doc.createElement("div");
+      placeholder.className = "onboarding-placeholder";
+      placeholder.setAttribute("aria-hidden", "true");
+      placeholder.textContent = "// fingerprint · soft halo";
+      placeholder.style.height = "120px";
+      container.appendChild(placeholder);
+    }
 
     const h2 = doc.createElement("h2");
     h2.className = "onboarding-headline";

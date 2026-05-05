@@ -14,6 +14,7 @@
  *  - No exclamation points in body copy.
  */
 
+import { showOnboardingIllustrationPlaceholders } from "../illustrationPlaceholders";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const SCREEN_HEADLINE = "Stop typing your CUNY password.";
@@ -37,11 +38,6 @@ export const mountWelcomeScreen: ScreenMount = (
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "WELCOME";
   container.className = "onboarding-screen onboarding-screen-welcome";
-
-  const placeholder = doc.createElement("div");
-  placeholder.className = "onboarding-placeholder";
-  placeholder.setAttribute("aria-hidden", "true");
-  placeholder.textContent = "// welcome · key + door";
 
   const headline = doc.createElement("h2");
   headline.className = "onboarding-headline";
@@ -72,7 +68,13 @@ export const mountWelcomeScreen: ScreenMount = (
   };
   cta.addEventListener("click", advanceToEmailEntry);
 
-  container.appendChild(placeholder);
+  if (showOnboardingIllustrationPlaceholders) {
+    const placeholder = doc.createElement("div");
+    placeholder.className = "onboarding-placeholder";
+    placeholder.setAttribute("aria-hidden", "true");
+    placeholder.textContent = "// welcome · key + door";
+    container.appendChild(placeholder);
+  }
   container.appendChild(headline);
   container.appendChild(body);
   container.appendChild(reassurance);
