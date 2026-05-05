@@ -40,6 +40,11 @@ import {
 } from "./helpers";
 import { E2E_TOTP_SECRET } from "./test-credentials";
 
+async function closeCunyTab(tab: Page | undefined): Promise<void> {
+  if (!tab) return;
+  await tab.close().catch(() => {});
+}
+
 /**
  * Walks the onboarding flow to ALLOW_GATE state. Returns the CUNY tab that
  * opened during the flow; it will be at /oaa-totp-factor/ when returned.
@@ -77,15 +82,16 @@ async function setupToAllowGate(
 
 
 test.describe("overlay: dim layer and highlight ring", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(ALLOW_GATE_FIXTURE_URL);
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("dim layer injected on CUNY tab when sidebar reaches ALLOW_GATE", async () => {
@@ -131,15 +137,16 @@ test.describe("overlay: dim layer and highlight ring", () => {
 });
 
 test.describe("overlay: step chip", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(ALLOW_GATE_FIXTURE_URL);
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("step chip is hidden when there is only one step (Allow gate)", async () => {
@@ -154,9 +161,10 @@ test.describe("overlay: step chip", () => {
 });
 
 test.describe("overlay: TARGET_NOT_FOUND fallback", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     // Navigate to a page where the expected target element does NOT exist.
     // The overlay engine should detect missing target and emit a fallback signal.
@@ -164,7 +172,7 @@ test.describe("overlay: TARGET_NOT_FOUND fallback", () => {
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("TARGET_NOT_FOUND causes sidebar to show a recovery message", async ({ page }) => {
@@ -192,21 +200,22 @@ test.describe("guided: allow gate overlay timing", () => {
     await expect(
       cunyTab.locator("button[data-cuny-autologin-highlight='true']")
     ).toContainText("Allow", { timeout: 10_000 });
-    await cunyTab.close();
+    await closeCunyTab(cunyTab);
   });
 });
 
 
 test.describe("guided: allow gate", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(ALLOW_GATE_FIXTURE_URL);
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("ALLOW_GATE screen shows the click-allow body copy", async ({ page }) => {
@@ -244,15 +253,16 @@ test.describe("guided: allow gate", () => {
 
 
 test.describe("guided: oaa-spa-home", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL);
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("Manage button is highlighted on oaa-spa-home fixture", async () => {
@@ -283,15 +293,16 @@ test.describe("guided: oaa-spa-home", () => {
 
 
 test.describe("guided: factors-list and TOTP type selection", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(FACTORS_LIST_FIXTURE_URL);
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("Add Authentication Factor button is highlighted in factors-list fixture", async () => {
@@ -318,15 +329,16 @@ test.describe("guided: factors-list and TOTP type selection", () => {
 
 
 test.describe("guided: secret capture (totp-enroll-secret)", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(TOTP_ENROLL_SECRET_FIXTURE_URL);
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("extension fills name|input with a unique CUNYAutoLogin alias on totp-enroll-secret fixture", async () => {
@@ -357,15 +369,16 @@ test.describe("guided: secret capture (totp-enroll-secret)", () => {
 
 
 test.describe("guided: five-factor limit edge case", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(FACTORS_LIST_FULL_FIXTURE_URL);
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("overlay pauses when ChallengeOMATOTP has oj-disabled class", async () => {
@@ -394,15 +407,16 @@ test.describe("guided: five-factor limit edge case", () => {
 
 
 test.describe("guided: Verify Later saves as Unverified", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(FACTORS_POST_ENROLL_UNVERIFIED_FIXTURE_URL);
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("sidebar detects unverified CUNYAutoLogin factor and shows recovery message", async ({
@@ -421,9 +435,10 @@ test.describe("guided: Verify Later saves as Unverified", () => {
 
 
 test.describe("verify login code: OTP fill", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     // Pin the fixture's enroll secret to the test's known value so the TOTP
     // generated from the scraped secret matches our expected value.
@@ -431,7 +446,7 @@ test.describe("verify login code: OTP fill", () => {
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("otp|input receives correct TOTP code via keystroke simulation", async () => {
@@ -474,10 +489,10 @@ test.describe("verify login code: OTP fill", () => {
 
 
 test.describe("verify login code: failure handling", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("client-side error (empty JET model) does not trigger auto-retry", async ({
@@ -487,6 +502,7 @@ test.describe("verify login code: failure handling", () => {
   }) => {
     // client-side: otp|input value is empty when Verify and Save is clicked.
     // This means keystroke delivery failed — auto-retry would just repeat the failure.
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(TOTP_ENROLL_VERIFY_FIXTURE_URL);
 
@@ -506,6 +522,7 @@ test.describe("verify login code: failure handling", () => {
     context,
     extensionId,
   }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(TOTP_ENROLL_VERIFY_WRONG_CODE_FIXTURE_URL);
 
@@ -526,6 +543,7 @@ test.describe("verify login code: failure handling", () => {
     context,
     extensionId,
   }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(TOTP_ENROLL_VERIFY_WRONG_CODE_FIXTURE_URL);
 
@@ -540,6 +558,7 @@ test.describe("verify login code: failure handling", () => {
     context,
     extensionId,
   }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     await cunyTab.goto(TOTP_ENROLL_VERIFY_WRONG_CODE_FIXTURE_URL);
 
@@ -561,9 +580,10 @@ test.describe("verify login code: failure handling", () => {
 
 
 test.describe("set as default", () => {
-  let cunyTab: Page;
+  let cunyTab!: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
+    await closeCunyTab(cunyTab);
     cunyTab = await setupToAllowGate(page, context, extensionId);
     // Stage a pending TOTP secret so handleFactorsListAfterEnroll sees a secret
     // and advances to SET_DEFAULT (the post-enroll fixture skips the enrollment flow).
@@ -577,7 +597,7 @@ test.describe("set as default", () => {
   });
 
   test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+    await closeCunyTab(cunyTab);
   });
 
   test("kebab menu button on CUNYAutoLogin factor row is highlighted", async () => {

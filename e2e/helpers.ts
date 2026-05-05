@@ -26,10 +26,19 @@ export async function clearVaultIfPossible(page: Page): Promise<void> {
 }
 
 export async function setupVault(page: Page): Promise<void> {
-  await page.locator("#email").fill(E2E_EMAIL);
+  const email = page.locator("#email");
+  // Vault `init()` awaits session + draft restore before fields are stable; without
+  // this, e2e can fill then submit while the draft still overwrites inputs (flake:
+  // status shows "Email must end with @login.cuny.edu" instead of "Saved").
+  await expect(page.locator("#vault-form")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("#mode-hint")).toContainText("First-time setup", {
+    timeout: 15_000,
+  });
+  await email.fill(E2E_EMAIL);
   await page.locator("#password").fill(E2E_PASSWORD);
   await page.locator("#totpSecret").fill(E2E_TOTP_SECRET);
   await page.locator("#masterPassword").fill(E2E_MASTER_PASSWORD);
+  await expect(email).toHaveValue(E2E_EMAIL);
   await page
     .locator("#vault-form")
     .evaluate((form: HTMLFormElement) => form.requestSubmit());
@@ -38,7 +47,11 @@ export async function setupVault(page: Page): Promise<void> {
 
 export async function lockVault(page: Page): Promise<void> {
   await page.locator("#lock-btn").click();
-  await expect(page.locator("#mode-hint")).toContainText("Enter your master password");
+  await expect(page.locator("#vault-locked-header")).toBeVisible();
+  await expect(page.locator("#submit-btn")).toHaveText("Unlock");
+  await expect(page.locator("#vault-greeting-sub")).toContainText(
+    "Type your password to fill your CUNY sign-in."
+  );
 }
 
 export async function waitForAutofillWindow(page: Page, waitMs = 5000): Promise<void> {

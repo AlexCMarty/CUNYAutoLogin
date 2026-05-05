@@ -77,8 +77,8 @@ describe("mountEmailEntryScreen", () => {
     expect(root.textContent).toContain(
       "What email do you sign in to CUNY with?"
     );
-    expect(root.textContent).toContain("firstname.lastname@login.cuny.edu");
-    expect(root.textContent).toContain("@baruchmail.cuny.edu");
+    expect(root.textContent).toContain("firstname.lastname12@login.cuny.edu");
+    expect(root.textContent).toContain("@stu-mail.baruch.cuny.edu");
   });
 
   test("input is seeded with @login.cuny.edu and Continue is disabled initially", () => {

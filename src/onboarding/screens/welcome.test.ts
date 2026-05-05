@@ -52,7 +52,7 @@ describe("mountWelcomeScreen", () => {
     );
     expect(root.querySelector(WELCOME_CTA_SELECTOR)?.textContent).toBe("Let's set it up");
     expect(root.textContent).toContain(
-      "An independent open-source project. Not affiliated with CUNY."
+      "An independent open-source project. Not affiliated with CUNY. Created by Alexander Marty."
     );
   });
 
@@ -63,7 +63,7 @@ describe("mountWelcomeScreen", () => {
     expect(body.includes("!")).toBe(false);
   });
 
-  test("clicking Let's go dispatches NEXT", () => {
+  test("clicking Let's set it up dispatches NEXT", () => {
     const { ctx, dispatch } = buildCtx(root);
     mountWelcomeScreen(ctx);
 

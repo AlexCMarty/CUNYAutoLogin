@@ -270,9 +270,9 @@ test.describe("completion and demo", () => {
     await cunyTab.close().catch(() => {});
   });
 
-  test("COMPLETE_DEMO screen renders 'You're all set!' headline", async ({ page }) => {
+  test(`COMPLETE_DEMO screen renders "You're all set." headline`, async ({ page }) => {
     await expect(page.locator("[data-onboarding-screen='COMPLETE_DEMO']")).toContainText(
-      "You're all set!"
+      "You're all set."
     );
   });
 

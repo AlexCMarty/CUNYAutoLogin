@@ -61,7 +61,7 @@ describe("mountPasswordEntryScreen", () => {
 
     expect(root.textContent).toContain("And your CUNY password.");
     expect(root.textContent).toContain(
-      "The password you use to log in to CUNY."
+      "The password you use to log in to Brightspace or CUNYFirst."
     );
     expect(root.textContent).toContain(
       "We'll save it on this computer and use it now to sign you in so you can watch it work."

@@ -44,10 +44,10 @@ test.describe("onboarding screens 1-3", () => {
     ).toBeVisible();
     await expect(
       page.locator("[data-onboarding-welcome-cta='true']")
-    ).toHaveText("Let's go");
+    ).toHaveText("Let's set it up");
     await expect(
       page.locator("[data-onboarding-welcome-reassurance='true']")
-    ).toContainText("saved only on this device, encrypted");
+    ).toContainText("locked behind a password only you know");
   });
 
   test("forward path Welcome → Email → Password; bead 1 stays active", async ({ page }) => {
@@ -276,7 +276,7 @@ test.describe("CUNY_TOTP state", () => {
     await cunyTab.close();
   });
 
-  test("CUNY_TOTP screen shows the enter-code body copy", async ({
+  test("CUNY_TOTP screen shows the type-code body copy", async ({
     page,
     context,
     extensionId,
@@ -284,7 +284,7 @@ test.describe("CUNY_TOTP state", () => {
     const cunyTab = await walkToCunyTotp(page, context, extensionId);
     await expect(
       page.locator("[data-onboarding-screen='CUNY_TOTP'] .onboarding-body")
-    ).toContainText("Enter your six-digit code");
+    ).toContainText("Type your six-digit code");
     await expect(
       page.locator("[data-onboarding-screen='CUNY_TOTP'] .onboarding-body")
     ).not.toContainText("click Allow");
