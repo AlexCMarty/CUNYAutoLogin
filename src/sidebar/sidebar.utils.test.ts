@@ -114,7 +114,7 @@ describe("validateEmail", () => {
 describe("decryptStatusMessage", () => {
   test("decrypt_failed → wrong password message", () => {
     expect(decryptStatusMessage("decrypt_failed")).toBe(
-      "Wrong master password or corrupted vault."
+      "Wrong extension password or corrupted vault."
     );
   });
 });

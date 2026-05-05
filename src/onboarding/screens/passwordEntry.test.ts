@@ -55,16 +55,16 @@ describe("mountPasswordEntryScreen", () => {
     document.body.appendChild(root);
   });
 
-  test("renders the Brightspace-scoped label, subtext, and reassurance line", () => {
+  test("renders the label, subtext, and reassurance line", () => {
     const { ctx } = buildCtx(root);
     mountPasswordEntryScreen(ctx);
 
-    expect(root.textContent).toContain("What's your Brightspace password?");
+    expect(root.textContent).toContain("And your CUNY password.");
     expect(root.textContent).toContain(
-      "The password you use to log in to Brightspace."
+      "The password you use to log in to CUNY."
     );
     expect(root.textContent).toContain(
-      "We'll save these on your device, encrypted, and use them right now to log you in so you can watch it work."
+      "We'll save it on this computer and use it now to sign you in so you can watch it work."
     );
   });
 

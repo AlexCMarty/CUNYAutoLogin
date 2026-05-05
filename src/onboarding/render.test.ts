@@ -51,7 +51,7 @@ import browser from "webextension-polyfill";
 
 const renderMain = (): HTMLElement => {
   const main = document.createElement("main");
-  main.className = "wrap";
+  main.className = "vault-wrap";
   main.innerHTML = `<form id="vault-form"></form>`;
   document.body.appendChild(main);
   return main;

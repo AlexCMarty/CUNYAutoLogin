@@ -162,6 +162,21 @@ function getEls(): Result<SidebarDom, "missing_dom"> {
 }
 
 
+/** Show/hide the new design-system vault header panels using the `hidden` attribute. */
+const updateVaultHeaders = (mode: Mode): void => {
+  const lockedHeader = document.getElementById("vault-locked-header");
+  const setupHeader = document.getElementById("vault-setup-header");
+  const statusBar = document.getElementById("vault-status-bar");
+  const totpCard = document.getElementById("vault-totp-card");
+  const footer = document.getElementById("vault-footer");
+
+  if (lockedHeader) lockedHeader.hidden = mode !== "locked";
+  if (setupHeader) setupHeader.hidden = mode !== "setup";
+  if (statusBar) statusBar.hidden = mode !== "unlocked";
+  if (totpCard) totpCard.hidden = mode !== "unlocked" || !isSidebarVaultManagement();
+  if (footer) footer.hidden = mode !== "locked";
+};
+
 const renderUnlockedMode = (
   els: SidebarDom,
   isManagement: boolean,
@@ -171,19 +186,20 @@ const renderUnlockedMode = (
   els.masterPasswordField.classList.add("hidden");
   els.changeMasterSection.classList.remove("hidden");
   els.lockBtn.classList.remove("hidden");
-  els.masterLabel.textContent = "Extension master password";
+  els.masterLabel.textContent = "Extension password";
+  els.modeHint.hidden = false;
   if (isManagement) {
     els.modeHint.textContent =
-      "Change your CUNY login email or password below, then save. To change your extension master password, use the optional fields at the bottom.";
-    els.submitBtn.textContent = "Save changes";
-    if (els.emailLabel) els.emailLabel.textContent = "Change email";
-    if (els.passwordLabel) els.passwordLabel.textContent = "Change password";
-  } else {
-    els.modeHint.textContent =
-      "Your credentials are unlocked. Edit any field and save. To change your master password, fill the optional fields below.";
+      "Change your CUNY login email or password below, then save.";
     els.submitBtn.textContent = "Save changes";
     if (els.emailLabel) els.emailLabel.textContent = "CUNY email";
-    if (els.passwordLabel) els.passwordLabel.textContent = "Password";
+    if (els.passwordLabel) els.passwordLabel.textContent = "CUNY password";
+  } else {
+    els.modeHint.textContent =
+      "Edit any field and save. To change your extension password, fill the optional fields below.";
+    els.submitBtn.textContent = "Save changes";
+    if (els.emailLabel) els.emailLabel.textContent = "CUNY email";
+    if (els.passwordLabel) els.passwordLabel.textContent = "CUNY password";
   }
 
   if (payload) {
@@ -196,23 +212,26 @@ const renderUnlockedMode = (
 function renderMode(els: SidebarDom): void {
   const { credentialFields, masterPasswordField, changeMasterSection } = els;
 
+  updateVaultHeaders(currentMode);
+
   if (currentMode === "setup") {
     credentialFields.classList.remove("hidden");
     masterPasswordField.classList.remove("hidden");
     changeMasterSection.classList.add("hidden");
     els.lockBtn.classList.add("hidden");
-    els.masterLabel.textContent = "Extension master password";
+    els.masterLabel.textContent = "Extension password";
+    els.modeHint.hidden = false;
     els.modeHint.textContent =
-      "First-time setup: enter your CUNY login email, password, TOTP secret (Base32), and a strong master password. The master password is never stored.";
-    els.submitBtn.textContent = "Save encrypted vault";
+      "First-time setup: enter your CUNY login email, password, TOTP secret (Base32), and an extension password. The extension password is never stored.";
+    els.submitBtn.textContent = "Save";
   } else if (currentMode === "locked") {
     credentialFields.classList.add("hidden");
     masterPasswordField.classList.remove("hidden");
     changeMasterSection.classList.add("hidden");
     els.lockBtn.classList.add("hidden");
-    els.masterLabel.textContent = "Master password to unlock";
-    els.modeHint.textContent =
-      "Credentials are saved. Enter your master password to unlock and view them.";
+    els.masterLabel.textContent = "Extension password";
+    els.modeHint.hidden = true;
+    els.modeHint.textContent = "";
     els.submitBtn.textContent = "Unlock";
   } else {
     renderUnlockedMode(els, isSidebarVaultManagement(), sessionPayload);
@@ -230,7 +249,7 @@ const validateSetupForm = (els: SidebarDom): string | null => {
   if (!password.length) return "Password is required.";
   if (!totpSecret.length) return "TOTP secret is required.";
   if (masterPassword.length < MIN_MASTER_PASSWORD_LENGTH) {
-    return `Master password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`;
+    return `Extension password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`;
   }
   return null;
 };
@@ -284,7 +303,7 @@ async function handleLocked(els: SidebarDom): Promise<void> {
 
   const masterPassword = els.masterPassword.value;
   if (!masterPassword.length) {
-    setStatus("Enter your master password to unlock.");
+    setStatus("Enter your extension password to unlock.");
     return;
   }
 
@@ -326,14 +345,14 @@ const resolveMasterPasswordForSave = (
   }
 
   if (newMaster.length > 0 && confirmMaster.length > 0) {
-    if (newMaster !== confirmMaster) return err("New master passwords do not match.");
+    if (newMaster !== confirmMaster) return err("New extension passwords do not match.");
     if (newMaster.length < MIN_MASTER_PASSWORD_LENGTH) {
-      return err(`New master password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`);
+      return err(`New extension password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`);
     }
     return ok(newMaster);
   }
 
-  return err("Fill both new master password fields, or leave both empty.");
+  return err("Fill both new extension password fields, or leave both empty.");
 };
 
 async function handleUnlocked(els: SidebarDom): Promise<void> {

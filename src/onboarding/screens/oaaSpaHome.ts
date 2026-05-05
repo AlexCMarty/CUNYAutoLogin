@@ -3,11 +3,12 @@
  */
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
-import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
+import { appendStepProgress, appendTabHint, sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
-const HEADLINE = "Open your login settings on the CUNY tab";
+const HEADLINE = "Open your login settings on the CUNY tab.";
 const BODY =
   "On the CUNY tab, click Manage under My Authentication Factors to continue.";
+const TAB_HINT = "We've highlighted the next control on the CUNY tab.";
 const MANAGE_SELECTOR = "oj-button#createNewCategory";
 
 export const mountOaaSpaHomeScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
@@ -32,7 +33,9 @@ export const mountOaaSpaHomeScreen: ScreenMount = (ctx: OnboardingScreenContext)
 
   container.appendChild(headline);
   container.appendChild(body);
+  appendTabHint(doc, container, TAB_HINT);
   container.appendChild(loading);
+  appendStepProgress(doc, container, 1, 8);
   root.appendChild(container);
 
   sendShowOverlayCommand({

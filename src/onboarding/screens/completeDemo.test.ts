@@ -57,9 +57,9 @@ describe("mountCompleteDemoScreen — DOM structure", () => {
     expect(root.querySelector("[data-onboarding-screen='COMPLETE_DEMO']")).toBeTruthy();
   });
 
-  test("renders \"You're all set!\" headline", () => {
+  test("renders headline", () => {
     const h2 = root.querySelector("h2");
-    expect(h2?.textContent).toBe("You're all set!");
+    expect(h2?.textContent).toBe("You're all set.");
   });
 
   test("renders Show me button", () => {
@@ -111,12 +111,13 @@ describe("mountCompleteDemoScreen — Show me", () => {
     );
   });
 
-  test("Show me makes status element visible", () => {
+  test("status element is hidden until animation completes", () => {
     const { ctx, root } = makeCtx();
     mountCompleteDemoScreen(ctx);
     root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
     const status = root.querySelector<HTMLElement>("[data-onboarding-demo-status='true']")!;
-    expect(status.hidden).toBe(false);
+    // Status is revealed only after all steps animate; immediately after click it stays hidden.
+    expect(status.hidden).toBe(true);
   });
 
   test("Show me dispatches DEMO_REQUESTED", () => {

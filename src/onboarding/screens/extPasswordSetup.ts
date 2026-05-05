@@ -37,101 +37,111 @@ const createExtPasswordContainer = (doc: Document): HTMLElement => {
 
   const h2 = doc.createElement("h2");
   h2.className = "onboarding-headline";
-  h2.textContent = "Create your extension password";
+  h2.textContent = "Pick a password for the extension.";
   container.appendChild(h2);
 
   const body = doc.createElement("p");
   body.className = "onboarding-body";
   body.textContent =
-    "This is separate from your CUNY password — it locks what we just saved on your device. Pick something different from your CUNY password.";
+    "You'll type this each time you sign in. Pick something memorable — it's different from your CUNY password.";
   container.appendChild(body);
 
-  const recovery = doc.createElement("p");
-  recovery.className = "onboarding-subtext";
-  recovery.textContent =
-    "If you forget this password, just run setup again — it takes about 5 minutes.";
-  container.appendChild(recovery);
   return container;
 };
 
-const appendExtPasswordFields = (
+const buildPasswordInput = (
   doc: Document,
   container: HTMLElement
-): Omit<ExtPasswordRefs, "container"> => {
+): { pwInput: HTMLInputElement; pwToggle: HTMLButtonElement; strengthSpan: HTMLSpanElement } => {
   const pwLabel = doc.createElement("label");
   pwLabel.className = "onboarding-field-label";
   pwLabel.textContent = "Choose a password";
   container.appendChild(pwLabel);
-
   const pwWrap = doc.createElement("div");
   pwWrap.className = "onboarding-input-wrap";
-
   const pwInput = doc.createElement("input");
   pwInput.type = "password";
   pwInput.className = "onboarding-input";
   pwInput.dataset.onboardingExtPasswordInput = "true";
   pwInput.autocomplete = "new-password";
-
   const pwToggle = doc.createElement("button");
   pwToggle.type = "button";
   pwToggle.className = "onboarding-input-toggle";
   pwToggle.dataset.onboardingExtPasswordToggle = "true";
   pwToggle.setAttribute("aria-label", "Show password");
   pwToggle.textContent = "\u{1F441}";
-
   pwWrap.appendChild(pwInput);
   pwWrap.appendChild(pwToggle);
   container.appendChild(pwWrap);
-
+  const strengthWrap = doc.createElement("div");
+  strengthWrap.className = "onboarding-ext-password-strength-wrap";
+  const segsEl = doc.createElement("div");
+  segsEl.className = "onboarding-strength-segments";
+  for (let si = 0; si < 4; si++) {
+    const seg = doc.createElement("span");
+    seg.className = "onboarding-strength-seg";
+    seg.dataset.segIndex = String(si);
+    segsEl.appendChild(seg);
+  }
   const strengthSpan = doc.createElement("span");
   strengthSpan.className = "onboarding-ext-password-strength";
   strengthSpan.dataset.onboardingExtPasswordStrength = "true";
-  container.appendChild(strengthSpan);
+  strengthWrap.appendChild(segsEl);
+  strengthWrap.appendChild(strengthSpan);
+  container.appendChild(strengthWrap);
+  return { pwInput, pwToggle, strengthSpan };
+};
 
+const buildConfirmInput = (
+  doc: Document,
+  container: HTMLElement
+): { confirmInput: HTMLInputElement; confirmToggle: HTMLButtonElement; matchIndicator: HTMLSpanElement; errorMsg: HTMLParagraphElement; forwardBtn: HTMLButtonElement } => {
   const confirmLabel = doc.createElement("label");
   confirmLabel.className = "onboarding-field-label";
   confirmLabel.textContent = "Confirm password";
   container.appendChild(confirmLabel);
-
   const confirmWrap = doc.createElement("div");
   confirmWrap.className = "onboarding-input-wrap";
-
   const confirmInput = doc.createElement("input");
   confirmInput.type = "password";
   confirmInput.className = "onboarding-input";
   confirmInput.dataset.onboardingExtPasswordConfirm = "true";
   confirmInput.autocomplete = "new-password";
-
   const confirmToggle = doc.createElement("button");
   confirmToggle.type = "button";
   confirmToggle.className = "onboarding-input-toggle";
   confirmToggle.dataset.onboardingExtPasswordConfirmToggle = "true";
   confirmToggle.setAttribute("aria-label", "Show password");
   confirmToggle.textContent = "\u{1F441}";
-
   confirmWrap.appendChild(confirmInput);
   confirmWrap.appendChild(confirmToggle);
   container.appendChild(confirmWrap);
-
   const matchIndicator = doc.createElement("span");
   matchIndicator.className = "onboarding-ext-password-match";
   matchIndicator.dataset.onboardingExtPasswordMatchIndicator = "true";
   matchIndicator.hidden = true;
   container.appendChild(matchIndicator);
-
   const errorMsg = doc.createElement("p");
   errorMsg.className = "onboarding-error onboarding-ext-password-error";
   errorMsg.hidden = true;
   errorMsg.textContent = "Something went wrong saving your password. Please try again.";
   container.appendChild(errorMsg);
-
   const forwardBtn = doc.createElement("button");
   forwardBtn.type = "button";
   forwardBtn.className = "onboarding-btn onboarding-btn-primary";
   forwardBtn.dataset.onboardingExtPasswordForward = "true";
-  forwardBtn.textContent = "Set my extension password";
+  forwardBtn.textContent = "Lock it in";
   forwardBtn.disabled = true;
   container.appendChild(forwardBtn);
+  return { confirmInput, confirmToggle, matchIndicator, errorMsg, forwardBtn };
+};
+
+const appendExtPasswordFields = (
+  doc: Document,
+  container: HTMLElement
+): Omit<ExtPasswordRefs, "container"> => {
+  const { pwInput, pwToggle, strengthSpan } = buildPasswordInput(doc, container);
+  const { confirmInput, confirmToggle, matchIndicator, errorMsg, forwardBtn } = buildConfirmInput(doc, container);
 
   return {
     pwInput,
@@ -213,6 +223,13 @@ const attachExtPasswordSetupHandlers = (
     const strength = computePasswordStrength(pw);
 
     strengthSpan.textContent = pw.length > 0 ? strength : "";
+    const strengthLevel = pw.length === 0 ? 0 : strength === "Weak" ? 1 : strength === "Fair" ? 2 : 3;
+    const segsEl = strengthSpan.parentElement?.querySelector(".onboarding-strength-segments");
+    if (segsEl) {
+      segsEl.querySelectorAll<HTMLElement>(".onboarding-strength-seg").forEach((seg, i) => {
+        seg.dataset.active = i < strengthLevel ? "true" : "false";
+      });
+    }
 
     if (confirm.length > 0) {
       const matches = pw === confirm;

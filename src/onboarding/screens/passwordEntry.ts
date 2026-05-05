@@ -16,12 +16,12 @@
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
-const SCREEN_LABEL = "What's your Brightspace password?";
-const SCREEN_SUBTEXT = "The password you use to log in to Brightspace.";
+const SCREEN_LABEL = "And your CUNY password.";
+const SCREEN_SUBTEXT = "The password you use to log in to CUNY.";
 const REASSURANCE_COPY =
-  "We'll save these on your device, encrypted, and use them right now to log you in so you can watch it work.";
+  "We'll save it on this computer and use it now to sign you in so you can watch it work.";
 export const CREDENTIAL_ERROR_INLINE_COPY =
-  "That email and password didn't work on CUNY. Double-check and try again.";
+  "That email and password didn't work. Double-check and try again.";
 const CTA_LABEL = "Continue";
 const BACK_LABEL = "Back";
 const SHOW_LABEL = "Show password";

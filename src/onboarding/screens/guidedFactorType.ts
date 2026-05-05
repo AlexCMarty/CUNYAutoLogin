@@ -3,11 +3,12 @@
  */
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
-import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
+import { appendStepProgress, appendTabHint, sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
-const HEADLINE = "Choose Mobile Authenticator";
+const HEADLINE = "Choose Mobile Authenticator.";
 const BODY =
-  "In the menu on the CUNY tab, select **Mobile Authenticator - TOTP**.";
+  "In the menu on the CUNY tab, select Mobile Authenticator — TOTP.";
+const TAB_HINT = "We've highlighted the next control on the CUNY tab.";
 
 /** Exact menuitem label from `.map/pages/factors-list.md`. */
 const TOTP_MENUITEM_TEXT = "Mobile Authenticator - TOTP";
@@ -50,9 +51,11 @@ export const mountGuidedFactorTypeScreen: ScreenMount = (ctx: OnboardingScreenCo
 
   container.appendChild(headline);
   container.appendChild(body);
+  appendTabHint(doc, container, TAB_HINT);
   container.appendChild(fiveLimit);
   container.appendChild(verifyLater);
   container.appendChild(recovery);
+  appendStepProgress(doc, container, 4, 8);
   root.appendChild(container);
 
   sendShowOverlayCommand({

@@ -16,14 +16,14 @@
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
-const SCREEN_HEADLINE =
-  "CUNYAutoLogin fills in your login and generates your verification codes for you.";
-const SCREEN_BODY = "Setup takes about 5 minutes.";
+const SCREEN_HEADLINE = "Stop typing your CUNY password.";
+const SCREEN_BODY =
+  "Sign into CUNY with one click. We fill your email, password, and the six-digit code for you. Setup takes about five minutes.";
 const REASSURANCE_LINE =
-  "Your login info is saved only on this device, encrypted. The extension sends it to CUNY's login page \u2014 the same place you'd type it yourself \u2014 and nowhere else.";
+  "Everything stays on this computer, locked behind a password only you know.";
 const AUTHORSHIP_LINE =
   "An independent open-source project. Not affiliated with CUNY.";
-const CTA_LABEL = "Let's go";
+const CTA_LABEL = "Let's set it up";
 
 export const WELCOME_CTA_SELECTOR = "[data-onboarding-welcome-cta='true']";
 export const WELCOME_REASSURANCE_SELECTOR =
@@ -38,8 +38,14 @@ export const mountWelcomeScreen: ScreenMount = (
   container.dataset.onboardingScreen = "WELCOME";
   container.className = "onboarding-screen onboarding-screen-welcome";
 
+  const placeholder = doc.createElement("div");
+  placeholder.className = "onboarding-placeholder";
+  placeholder.setAttribute("aria-hidden", "true");
+  placeholder.textContent = "// welcome · key + door";
+
   const headline = doc.createElement("h2");
   headline.className = "onboarding-headline";
+  headline.style.fontSize = "26px";
   headline.textContent = SCREEN_HEADLINE;
 
   const body = doc.createElement("p");
@@ -66,6 +72,7 @@ export const mountWelcomeScreen: ScreenMount = (
   };
   cta.addEventListener("click", advanceToEmailEntry);
 
+  container.appendChild(placeholder);
   container.appendChild(headline);
   container.appendChild(body);
   container.appendChild(reassurance);

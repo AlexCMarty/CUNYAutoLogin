@@ -121,7 +121,7 @@ const resolveScreenHost = (doc: Document): {
   const configured = doc.getElementById(ONBOARDING_ROOT_ID);
   if (configured instanceof HTMLElement) {
     const wasHidden = configured.hidden;
-    const legacy = doc.querySelector<HTMLElement>("main.wrap");
+    const legacy = doc.querySelector<HTMLElement>("main.vault-wrap");
     const legacyWasHidden = legacy?.hidden ?? true;
     return {
       host: configured,

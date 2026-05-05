@@ -35,7 +35,7 @@ describe("mountCompleteDoneScreen", () => {
     const { ctx, root } = makeCtx();
     mountCompleteDoneScreen(ctx);
     const h2 = root.querySelector("h2");
-    expect(h2?.textContent).toBe("You're all set!");
+    expect(h2?.textContent).toBe("You're set.");
   });
 
   test("renders body text", () => {

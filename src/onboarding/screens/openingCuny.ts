@@ -44,11 +44,11 @@ import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
 import type { LogoutCunySessionsRequest, StageOnboardingCredentials } from "../messages";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
-const SCREEN_HEADLINE = "Opening CUNY Login\u2026";
+const SCREEN_HEADLINE = "Opening your CUNY portal\u2026";
 const SCREEN_BODY =
-  "We're opening your school's login page in a new tab. We'll fill in your email and password so you can see how the extension works.";
+  "We're opening the CUNY sign-in page in a new tab and filling your email and password so you can see how it works.";
 const DIRECTIONAL_LINE =
-  "Watch the CUNY tab. These instructions update on their own as you go.";
+  "Watch the new tab. These steps update on their own as you go.";
 const REASSURANCE_COPY =
   "This is the same page you'd visit normally. We're not taking you anywhere unexpected.";
 const WAITING_LABEL = "Nothing to do yet \u2014 waiting for the tab to open.";

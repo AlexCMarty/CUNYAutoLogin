@@ -24,15 +24,22 @@ export const mountBiometricOfferScreen: ScreenMount = (ctx: OnboardingScreenCont
       return;
     }
 
+    const placeholder = doc.createElement("div");
+    placeholder.className = "onboarding-placeholder";
+    placeholder.setAttribute("aria-hidden", "true");
+    placeholder.textContent = "// fingerprint · soft halo";
+    placeholder.style.height = "120px";
+    container.appendChild(placeholder);
+
     const h2 = doc.createElement("h2");
     h2.className = "onboarding-headline";
-    h2.textContent = "Unlock faster with Face ID or fingerprint";
+    h2.textContent = "Unlock faster with Face ID or fingerprint.";
     container.appendChild(h2);
 
     const body = doc.createElement("p");
     body.className = "onboarding-body";
     body.textContent =
-      "Use your device's biometrics to unlock the extension instead of typing a password. Both options are equally secure — choose what works for your setup.";
+      "Use your device's biometrics instead of typing your extension password. Both options are equally safe — pick what fits your setup.";
     container.appendChild(body);
 
     const useBtn = doc.createElement("button");

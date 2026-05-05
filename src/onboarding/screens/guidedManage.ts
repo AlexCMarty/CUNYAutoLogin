@@ -4,11 +4,12 @@
 
 import { RUI_ADD_MENU_SELECTOR } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
-import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
+import { appendStepProgress, appendTabHint, sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
-const HEADLINE = "Add a login code on the CUNY tab";
+const HEADLINE = "Add a login code on the CUNY tab.";
 const BODY =
   "On the CUNY tab, click Add Authentication Factor to continue.";
+const TAB_HINT = "We've highlighted the next control on the CUNY tab.";
 
 export const mountGuidedManageScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root } = ctx;
@@ -48,9 +49,11 @@ export const mountGuidedManageScreen: ScreenMount = (ctx: OnboardingScreenContex
 
   container.appendChild(headline);
   container.appendChild(body);
+  appendTabHint(doc, container, TAB_HINT);
   container.appendChild(fiveLimit);
   container.appendChild(verifyLater);
   container.appendChild(recovery);
+  appendStepProgress(doc, container, 2, 8);
   root.appendChild(container);
 
   sendShowOverlayCommand({

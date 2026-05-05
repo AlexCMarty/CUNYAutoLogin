@@ -70,12 +70,12 @@ describe("mountEmailEntryScreen", () => {
     document.body.appendChild(root);
   });
 
-  test("renders the Brightspace-framed label and login suffix reminder", () => {
+  test("renders the label and login suffix reminder", () => {
     const { ctx } = buildCtx(root);
     mountEmailEntryScreen(ctx);
 
     expect(root.textContent).toContain(
-      "What email do you use to log in to Brightspace?"
+      "What email do you sign in to CUNY with?"
     );
     expect(root.textContent).toContain("firstname.lastname@login.cuny.edu");
     expect(root.textContent).toContain("@baruchmail.cuny.edu");

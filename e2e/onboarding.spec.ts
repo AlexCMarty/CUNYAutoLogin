@@ -32,7 +32,7 @@ test.describe("onboarding screens 1-3", () => {
 
   test("mounts bead header + welcome screen when #onboarding=1 is present", async ({ page }) => {
     await expect(page.locator("#onboarding-root")).toBeVisible();
-    await expect(page.locator("main.wrap")).toBeHidden();
+    await expect(page.locator("main.vault-wrap")).toBeHidden();
 
     const beads = page.locator("[data-onboarding-bead='true']");
     await expect(beads).toHaveCount(5);

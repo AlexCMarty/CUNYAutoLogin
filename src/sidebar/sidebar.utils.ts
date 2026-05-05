@@ -38,7 +38,7 @@ export const validateEmail = (email: string): boolean =>
 
 export const decryptStatusMessage = (vaultError: VaultError): string =>
   vaultError === "decrypt_failed"
-    ? "Wrong master password or corrupted vault."
+    ? "Wrong extension password or corrupted vault."
     : "Could not decrypt vault.";
 
 /** Best-effort parse of storage/session JSON into `FormDraft`; non-strings become "" so the UI stays editable. */

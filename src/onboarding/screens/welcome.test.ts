@@ -44,13 +44,13 @@ describe("mountWelcomeScreen", () => {
     mountWelcomeScreen(ctx);
 
     expect(root.querySelector("h2")?.textContent).toBe(
-      "CUNYAutoLogin fills in your login and generates your verification codes for you."
+      "Stop typing your CUNY password."
     );
-    expect(root.textContent).toContain("Setup takes about 5 minutes.");
+    expect(root.textContent).toContain("Setup takes about five minutes.");
     expect(root.querySelector(WELCOME_REASSURANCE_SELECTOR)?.textContent).toContain(
-      "saved only on this device, encrypted"
+      "locked behind a password only you know"
     );
-    expect(root.querySelector(WELCOME_CTA_SELECTOR)?.textContent).toBe("Let's go");
+    expect(root.querySelector(WELCOME_CTA_SELECTOR)?.textContent).toBe("Let's set it up");
     expect(root.textContent).toContain(
       "An independent open-source project. Not affiliated with CUNY."
     );

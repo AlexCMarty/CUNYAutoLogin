@@ -175,9 +175,9 @@ async function main() {
     const url = `chrome-extension://${extensionId}/sidebar.html${fragment}`;
     const page = context.pages()[0] ?? (await context.newPage());
     await page.goto(url, { waitUntil: "load", timeout: 30_000 });
-    // Onboarding mounts hide `main.wrap`; vault / management keeps it visible.
+    // Onboarding mounts hide `main.vault-wrap`; vault / management keeps it visible.
     await page
-      .locator("#onboarding-root:not([hidden]), main.wrap:not([hidden])")
+      .locator("#onboarding-root:not([hidden]), main.vault-wrap:not([hidden])")
       .first()
       .waitFor({ state: "visible", timeout: 15_000 });
     await page.screenshot({ path: outPath, fullPage: opts.fullPage });

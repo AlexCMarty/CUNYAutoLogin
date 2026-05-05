@@ -1,6 +1,8 @@
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
-import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
+import { appendStepProgress, appendTabHint, sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 import { RUI_VERIFY_BTN_LABEL } from "../../cuny/ssoSite";
+
+const TAB_HINT = "We've highlighted the next control on the CUNY tab.";
 
 export const mountVerifyLoginCodeScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root } = ctx;
@@ -10,12 +12,12 @@ export const mountVerifyLoginCodeScreen: ScreenMount = (ctx: OnboardingScreenCon
 
   const headline = doc.createElement("h2");
   headline.className = "onboarding-headline";
-  headline.textContent = "Enter your six-digit code";
+  headline.textContent = "We'll fill the code for you.";
 
   const body = doc.createElement("p");
   body.className = "onboarding-body";
   body.textContent =
-    "We will fill the code on the CUNY tab. If CUNY rejects it twice, pause and wait for a fresh code before trying again.";
+    "The CUNY tab is asking for a six-digit code. We'll type it in. If CUNY rejects two in a row, we'll pause briefly for a fresh code.";
 
   const pause = doc.createElement("p");
   pause.dataset.onboardingVerifyPause = "true";
@@ -31,7 +33,10 @@ export const mountVerifyLoginCodeScreen: ScreenMount = (ctx: OnboardingScreenCon
   recovery.textContent =
     "We could not find the verify controls on the CUNY tab. Enter the code manually and click Verify and Save.";
 
-  container.append(headline, body, pause, recovery);
+  container.append(headline, body);
+  appendTabHint(doc, container, TAB_HINT);
+  container.append(pause, recovery);
+  appendStepProgress(doc, container, 6, 8);
   root.appendChild(container);
 
   sendShowOverlayCommand({

@@ -19,13 +19,13 @@ import { LOGIN_EMAIL_SUFFIX } from "../../cuny/ssoSite";
 import { validateEmail } from "../../sidebar/sidebar.utils";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
-const SCREEN_LABEL = "What email do you use to log in to Brightspace?";
+const SCREEN_LABEL = "What email do you sign in to CUNY with?";
 const SCREEN_SUBTEXT =
-  "This is usually firstname.lastname@login.cuny.edu. It is not your @baruchmail.cuny.edu or other school email.";
+  "Usually firstname.lastname@login.cuny.edu — not your @baruchmail.cuny.edu or other school email.";
 const INLINE_HINT_COPY =
   "CUNY logins end in @login.cuny.edu \u2014 check your CUNYfirst welcome email if you're unsure.";
 export const CREDENTIAL_ERROR_INLINE_COPY =
-  "That email and password didn't work on CUNY. Double-check and try again.";
+  "That email and password didn't work. Double-check and try again.";
 const CTA_LABEL = "Continue";
 const BACK_LABEL = "Back";
 

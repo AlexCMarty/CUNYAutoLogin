@@ -20,8 +20,10 @@ import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 const SCREEN_HEADLINE = "One tap on the CUNY tab, then we keep going.";
 const SCREEN_BODY =
   "Click Allow on the CUNY tab to continue.";
+const DIRECTIONAL_LINE =
+  "We've highlighted the button on the CUNY tab.";
 const WAITING_LABEL =
-  "Waiting for you to finish the CUNY verification step\u2026";
+  "Waiting for you to finish on the CUNY tab\u2026";
 const RECOVERY_COPY =
   "We couldn\u2019t find the Allow button. Please check the CUNY tab and click Allow manually, or go back and try again.";
 const BACK_LABEL = "Back";
@@ -75,6 +77,17 @@ export const mountAllowGateScreen: ScreenMount = (
   body.className = "onboarding-body";
   body.textContent = SCREEN_BODY;
 
+  const directional = doc.createElement("p");
+  directional.className = "onboarding-directional";
+  directional.textContent = DIRECTIONAL_LINE;
+
+  const pulseWrap = doc.createElement("div");
+  pulseWrap.className = "onboarding-pulse-wrap";
+  pulseWrap.setAttribute("aria-hidden", "true");
+  const pulse = doc.createElement("span");
+  pulse.className = "onboarding-pulse";
+  pulseWrap.appendChild(pulse);
+
   const waiting = doc.createElement("p");
   waiting.className = "onboarding-waiting-label";
   waiting.textContent = WAITING_LABEL;
@@ -99,6 +112,8 @@ export const mountAllowGateScreen: ScreenMount = (
 
   container.appendChild(headline);
   container.appendChild(body);
+  container.appendChild(directional);
+  container.appendChild(pulseWrap);
   container.appendChild(waiting);
   container.appendChild(recovery);
   container.appendChild(actions);

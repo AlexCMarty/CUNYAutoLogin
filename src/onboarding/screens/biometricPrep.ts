@@ -42,7 +42,7 @@ export const mountBiometricPrepScreen: ScreenMount = (ctx: OnboardingScreenConte
   const body = doc.createElement("p");
   body.className = "onboarding-body";
   body.textContent =
-    "Your browser is about to ask for permission to use your fingerprint or face. This is handled by your device -- not by us.";
+    "Your browser is about to ask for permission to use your fingerprint or face. This is handled by your device — not by us.";
   container.appendChild(body);
 
   const statusMsg = doc.createElement("p");
@@ -83,7 +83,7 @@ export const mountBiometricPrepScreen: ScreenMount = (ctx: OnboardingScreenConte
     }
 
     statusMsg.hidden = false;
-    statusMsg.textContent = "No problem -- you'll use your extension password to unlock.";
+    statusMsg.textContent = "No problem — you'll use your extension password to unlock.";
     continueBtn.disabled = false;
     continueBtn.textContent = "Continue anyway";
     fallbackMode = true;

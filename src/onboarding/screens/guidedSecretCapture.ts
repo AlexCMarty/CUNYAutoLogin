@@ -7,11 +7,12 @@
 import browser from "webextension-polyfill";
 import { PENDING_TOTP_SECRET_SESSION_KEY, RUI_VERIFY_NOW_BTN_TEXT } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
-import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
+import { appendStepProgress, appendTabHint, sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
-const HEADLINE = "Save this login code in the extension";
+const HEADLINE = "Save this login code in the extension.";
 const BODY =
-  "The CUNY tab shows a secret key. The extension reads it for you. When you are ready, tap **Verify Now** on the CUNY tab to confirm with a one-time code.";
+  "The CUNY tab is showing a secret key. We're reading it for you. When you're ready, tap Verify Now on the CUNY tab.";
+const TAB_HINT = "We've highlighted the next control on the CUNY tab.";
 
 export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root } = ctx;
@@ -57,10 +58,12 @@ export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScree
 
   container.appendChild(headline);
   container.appendChild(body);
+  appendTabHint(doc, container, TAB_HINT);
   container.appendChild(secretOk);
   container.appendChild(fiveLimit);
   container.appendChild(verifyLater);
   container.appendChild(recovery);
+  appendStepProgress(doc, container, 5, 8);
   root.appendChild(container);
 
   sendShowOverlayCommand({

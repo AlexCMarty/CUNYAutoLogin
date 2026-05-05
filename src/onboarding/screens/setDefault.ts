@@ -1,7 +1,9 @@
 import browser from "webextension-polyfill";
 import { ENROLLED_FACTOR_ALIAS_SESSION_KEY, EXTENSION_NAME } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
-import { sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
+import { appendStepProgress, appendTabHint, sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
+
+const TAB_HINT = "We've highlighted the next control on the CUNY tab.";
 
 export const showSetDefaultOptionOverlay = (): void => {
   sendShowOverlayCommand({
@@ -20,7 +22,7 @@ export const mountSetDefaultScreen: ScreenMount = (ctx: OnboardingScreenContext)
 
   const headline = doc.createElement("h2");
   headline.className = "onboarding-headline";
-  headline.textContent = `Make ${EXTENSION_NAME} your default method`;
+  headline.textContent = `Make ${EXTENSION_NAME} your default method.`;
 
   const body = doc.createElement("p");
   body.className = "onboarding-body";
@@ -34,7 +36,10 @@ export const mountSetDefaultScreen: ScreenMount = (ctx: OnboardingScreenContext)
   recovery.textContent =
     `We could not find the Set as Default action. Open the ${EXTENSION_NAME} menu and choose Set as Default manually.`;
 
-  container.append(headline, body, recovery);
+  container.append(headline, body);
+  appendTabHint(doc, container, TAB_HINT);
+  container.append(recovery);
+  appendStepProgress(doc, container, 7, 8);
   root.appendChild(container);
 
   // Read the enrolled alias from session so the overlay and UI text name the
@@ -50,7 +55,7 @@ export const mountSetDefaultScreen: ScreenMount = (ctx: OnboardingScreenContext)
       // storage.session unavailable — keep the generic name
     }
 
-    headline.textContent = `Make ${alias} your default method`;
+    headline.textContent = `Make ${alias} your default method.`;
     body.textContent = `On the CUNY tab, open the ${alias} menu, then select Set as Default.`;
     recovery.textContent =
       `We could not find the Set as Default action. Open the ${alias} menu and choose Set as Default manually.`;

@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CUNYAutoLogin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/sidebar/sidebar.css" />
   </head>
   <body>
@@ -16,90 +19,131 @@
       Hash #vault=1 (dev/e2e only) opens the vault form on a fresh profile for tests.
     -->
     <div id="onboarding-root" hidden></div>
-    <main class="wrap">
-      <h1 class="title">CUNYAutoLogin</h1>
-      <p id="status" class="status" role="status" aria-live="polite"></p>
+    <main class="vault-wrap">
+      <!-- Vault status bar (shown in unlocked mode) -->
+      <div id="vault-status-bar" class="vault-status-bar" hidden>
+        <div class="vault-status-indicator">
+          <span class="vault-status-dot"></span>
+          <span class="vault-status-label">Unlocked</span>
+        </div>
+        <span id="vault-session-timer" class="vault-session-timer"></span>
+      </div>
+
+      <!-- Locked-mode header (shown only in locked mode) -->
+      <div id="vault-locked-header" class="vault-locked-header" hidden>
+        <span class="vault-locked-pill">Locked</span>
+        <h1 id="vault-greeting" class="vault-greeting">Welcome back.</h1>
+        <p id="vault-greeting-sub" class="vault-greeting-sub">Type your password to fill your CUNY sign-in.</p>
+      </div>
+
+      <!-- Setup-mode header (shown only in setup mode) -->
+      <div id="vault-setup-header" class="vault-setup-header" hidden>
+        <h1 class="vault-greeting">CUNYAutoLogin</h1>
+      </div>
+
+      <p id="status" class="vault-status-msg" role="status" aria-live="polite"></p>
 
       <form id="vault-form" autocomplete="off" novalidate>
-        <p id="mode-hint" class="hint"></p>
+        <p id="mode-hint" class="vault-mode-hint" hidden></p>
 
         <div id="credential-fields">
-          <label class="field">
-            <span id="vault-email-label">CUNY email</span>
-            <input
-              id="email"
-              type="email"
-              inputmode="email"
-              autocomplete="username"
-              placeholder="you@login.cuny.edu"
-            />
+          <label class="vault-field">
+            <span id="vault-email-label" class="vault-field-label">CUNY email</span>
+            <div class="vault-input-wrap">
+              <input
+                id="email"
+                type="email"
+                inputmode="email"
+                autocomplete="username"
+                placeholder="you@login.cuny.edu"
+                class="vault-input"
+              />
+              <button type="button" class="toggle-visibility" aria-label="Show email" tabindex="-1"></button>
+            </div>
           </label>
 
-          <label class="field">
-            <span id="vault-password-label">Password</span>
-            <div class="input-wrap">
-              <input id="password" type="password" autocomplete="current-password" />
+          <label class="vault-field">
+            <span id="vault-password-label" class="vault-field-label">CUNY password</span>
+            <div class="vault-input-wrap">
+              <input id="password" type="password" autocomplete="current-password" class="vault-input" />
               <button type="button" class="toggle-visibility" aria-label="Show password" tabindex="-1"></button>
             </div>
           </label>
 
-          <label class="field" id="totp-secret-field">
-            <span>TOTP secret (Base32)</span>
-            <div class="input-wrap">
-              <input id="totpSecret" type="password" autocomplete="off" spellcheck="false" />
+          <label class="vault-field" id="totp-secret-field">
+            <span class="vault-field-label">TOTP secret (Base32)</span>
+            <div class="vault-input-wrap">
+              <input id="totpSecret" type="password" autocomplete="off" spellcheck="false" class="vault-input" />
               <button type="button" class="toggle-visibility" aria-label="Show TOTP secret" tabindex="-1"></button>
             </div>
             <p
               id="totp-secret-source-hint"
-              class="hint totp-source-hint hidden"
+              class="vault-hint totp-source-hint hidden"
               role="note"
             ></p>
           </label>
+
+          <!-- Six-digit code card (unlocked mode) -->
+          <div id="vault-totp-card" class="vault-totp-card" hidden>
+            <div class="vault-totp-card-header">
+              <span class="vault-totp-card-label">Six-digit code</span>
+              <span class="vault-totp-pill">Auto-fills</span>
+            </div>
+            <p class="vault-totp-card-body">We type it into your CUNY sign-in for you when it's needed. No need to look at it.</p>
+          </div>
         </div>
 
         <div id="master-password-field">
-          <label class="field">
-            <span id="master-label">Extension master password</span>
-            <div class="input-wrap">
-              <input id="masterPassword" type="password" autocomplete="off" minlength="8" />
-              <button type="button" class="toggle-visibility" aria-label="Show master password" tabindex="-1"></button>
+          <label class="vault-field">
+            <span id="master-label" class="vault-field-label">Extension password</span>
+            <div class="vault-input-wrap">
+              <input id="masterPassword" type="password" autocomplete="off" minlength="8" class="vault-input" />
+              <button type="button" class="toggle-visibility" aria-label="Show extension password" tabindex="-1"></button>
             </div>
           </label>
         </div>
 
         <div id="change-master-section" class="hidden">
-          <p class="hint change-master-hint">
-            To change your master password, fill both fields below (optional).
+          <p class="vault-hint vault-change-master-hint">
+            To change your extension password, fill both fields below (optional).
           </p>
-          <label class="field">
-            <span>New master password</span>
-            <div class="input-wrap">
+          <label class="vault-field">
+            <span class="vault-field-label">New extension password</span>
+            <div class="vault-input-wrap">
               <input
                 id="newMasterPassword"
                 type="password"
                 autocomplete="new-password"
                 minlength="8"
+                class="vault-input"
               />
-              <button type="button" class="toggle-visibility" aria-label="Show new master password" tabindex="-1"></button>
+              <button type="button" class="toggle-visibility" aria-label="Show new password" tabindex="-1"></button>
             </div>
           </label>
-          <label class="field">
-            <span>Confirm new master password</span>
-            <div class="input-wrap">
+          <label class="vault-field">
+            <span class="vault-field-label">Confirm new password</span>
+            <div class="vault-input-wrap">
               <input
                 id="confirmNewMasterPassword"
                 type="password"
                 autocomplete="new-password"
                 minlength="8"
+                class="vault-input"
               />
               <button type="button" class="toggle-visibility" aria-label="Show confirm password" tabindex="-1"></button>
             </div>
           </label>
         </div>
 
-        <button type="submit" id="submit-btn" class="primary">Save</button>
-        <button type="button" id="lock-btn" class="secondary hidden">Lock vault</button>
+        <div class="vault-actions">
+          <button type="submit" id="submit-btn" class="primary">Save</button>
+          <button type="button" id="lock-btn" class="secondary hidden">Lock vault</button>
+        </div>
       </form>
+
+      <div id="vault-footer" class="vault-footer" hidden>
+        <span class="vault-version"></span>
+      </div>
     </main>
     <script type="module" src="/src/sidebar/sidebar.ts"></script>
   </body>
