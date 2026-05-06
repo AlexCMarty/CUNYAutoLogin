@@ -3,9 +3,10 @@
   "name": "CUNYAutoLogin",
   "version": "0.6.0",
   "description": "CUNYAutoLogin — encrypted credential vault and ssologin.cuny.edu auto-fill.",
-  "permissions": ["storage", "activeTab", "sidePanel"],
+  "permissions": ["storage", "activeTab", "sidePanel", "cookies"],
   "host_permissions": [
-    "https://ssologin.cuny.edu/*"
+    "https://ssologin.cuny.edu/*",
+    "https://brightspace.cuny.edu/*"
   ],
   "action": {
     "default_title": "CUNYAutoLogin"
@@ -32,8 +33,8 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "cunyautologin@local",
-      "strict_min_version": "115.0"
+      "strict_min_version": "128.0"
     }
   },
-  "minimum_chrome_version": "114"
+  "minimum_chrome_version": "141"
 }

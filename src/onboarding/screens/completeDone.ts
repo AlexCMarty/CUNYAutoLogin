@@ -1,5 +1,4 @@
 import browser from "webextension-polyfill";
-import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
 import { showOnboardingIllustrationPlaceholders } from "../illustrationPlaceholders";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
@@ -8,6 +7,31 @@ const FEATURES = [
   ["Locked behind your password", "Only you can open the vault."],
   ["Works on your CUNY sign-in", "And anything that signs you in through it."],
 ] as const;
+
+type BrowserWithSidebarClose = typeof browser & {
+  sidebarAction?: {
+    close?: () => Promise<void>;
+  };
+  sidePanel?: {
+    close?: (options: { windowId: number }) => Promise<void>;
+  };
+};
+
+const dismissSidebarPanel = async (): Promise<void> => {
+  const browserWithSidebarClose = browser as BrowserWithSidebarClose;
+  if (typeof browserWithSidebarClose.sidebarAction?.close === "function") {
+    await browserWithSidebarClose.sidebarAction.close();
+    return;
+  }
+  if (typeof browserWithSidebarClose.sidePanel?.close === "function") {
+    const currentWindow = await browser.windows.getCurrent();
+    if (typeof currentWindow.id === "number") {
+      await browserWithSidebarClose.sidePanel.close({ windowId: currentWindow.id });
+      return;
+    }
+  }
+  window.close();
+};
 
 export const mountCompleteDoneScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root } = ctx;
@@ -45,9 +69,11 @@ export const mountCompleteDoneScreen: ScreenMount = (ctx: OnboardingScreenContex
   const cta = doc.createElement("button");
   cta.type = "button";
   cta.className = "onboarding-btn onboarding-btn-primary";
-  cta.textContent = "Take me to CUNY";
+  cta.textContent = "Get back to studying!";
   cta.addEventListener("click", () => {
-    void browser.tabs.create({ url: CUNY_LOGIN_ENTRY_URL, active: true }).catch(() => undefined);
+    void dismissSidebarPanel().catch(() => {
+      window.close();
+    });
   });
 
   const actions = doc.createElement("div");

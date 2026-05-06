@@ -15,7 +15,7 @@ Hash `#vault=1` (dev/e2e only) forces the vault setup form on an empty profile.
 
 The master password writes to `storage.session` after every successful unlock or save. It clears immediately on **Lock vault**.
 
-`storage.session` writes/reads are wrapped in try/catch and degrade to always-locked on unsupported browsers (Firefox < 115, Chromium below `minimum_chrome_version` in `src/manifest.json`, currently **114**).
+`storage.session` writes/reads are wrapped in try/catch and degrade to always-locked on unsupported browsers (Firefox < 128, Chromium below `minimum_chrome_version` in `src/manifest.json`, currently **141**).
 
 ## Auto-fill flow
 

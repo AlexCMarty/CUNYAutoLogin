@@ -12,7 +12,7 @@ MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storag
 - No `console.log`/`console.debug` outside `if (import.meta.env.DEV)` guards
 - **Lint:** `npm run lint` runs ESLint with `--max-warnings 0` (covers `id-length`, `no-console`, etc.); must pass with zero errors and zero warnings before merge
 - Do NOT assume completion just because unit tests pass. Run full `npm run test`.
-- **Minimum browsers** (see `src/manifest.json`): Firefox **115+** (`strict_min_version`), Chromium **114+** (`minimum_chrome_version`). Do not document or relax below these without updating the manifest and fallbacks.
+- **Minimum browsers** (see `src/manifest.json`): Firefox **128+** (`strict_min_version`), Chromium **141+** (`minimum_chrome_version`). Do not document or relax below these without updating the manifest and fallbacks.
 
 ## Build
 

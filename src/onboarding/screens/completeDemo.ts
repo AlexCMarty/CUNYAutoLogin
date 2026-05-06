@@ -1,6 +1,6 @@
 import browser from "webextension-polyfill";
 import type { OnboardingReopenCunyTab } from "../messages";
-import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
+import { BRIGHTSPACE_HOME_URL } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const DEMO_STEPS = [
@@ -124,7 +124,10 @@ export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContex
   showBtn.addEventListener("click", () => {
     showBtn.disabled = true;
     skipBtn.hidden = true;
-    const msg: OnboardingReopenCunyTab = { type: "ONBOARDING_REOPEN_CUNY_TAB", url: CUNY_LOGIN_ENTRY_URL };
+    const msg: OnboardingReopenCunyTab = {
+      type: "ONBOARDING_REOPEN_CUNY_TAB",
+      url: BRIGHTSPACE_HOME_URL,
+    };
     void browser.runtime.sendMessage(msg).catch(() => undefined);
     dispatch("DEMO_REQUESTED");
     DEMO_STEPS.forEach((_step, stepIdx) => {

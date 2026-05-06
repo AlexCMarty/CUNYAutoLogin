@@ -288,7 +288,7 @@ test.describe("completion and demo", () => {
     expect(context.pages().length).toBe(pagesBefore);
   });
 
-  test("'Show me' opens a new CUNY tab and begins autofill narration", async ({
+  test("'Show me' opens Brightspace and begins autofill narration", async ({
     page,
     context,
   }) => {
@@ -296,6 +296,11 @@ test.describe("completion and demo", () => {
     await page.locator("[data-onboarding-demo-show='true']").click();
     const demoTab = await tabPromise;
     await demoTab.waitForLoadState("domcontentloaded");
+    await expect
+      .poll(() => demoTab.url(), { timeout: 10_000 })
+      .toMatch(
+        /^https:\/\/(?:brightspace\.cuny\.edu\/d2l\/home|ssologin\.cuny\.edu\/oam\/server\/auth_cred_submit)/
+      );
     // Sidebar should show narration status during the demo.
     await expect(
       page.locator("[data-onboarding-demo-status='true']")

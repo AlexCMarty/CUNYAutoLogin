@@ -1,6 +1,6 @@
 # Contributing to CUNYAutoLogin
 
-Manifest V3 extension for **Chromium 114+** and **Firefox 115+** (see `src/manifest.json`). The sidebar stores an encrypted vault (**PBKDF2 + AES-GCM**), keeps the session master in **`browser.storage.session`**, and ships a content script on the CUNY SSO host that auto-fills login and TOTP when the vault is unlocked.
+Manifest V3 extension for **Chromium 141+** and **Firefox 128+** (see `src/manifest.json`). The sidebar stores an encrypted vault (**PBKDF2 + AES-GCM**), keeps the session master in **`browser.storage.session`**, and ships a content script on the CUNY SSO host that auto-fills login and TOTP when the vault is unlocked.
 
 For day-to-day product copy and install steps, see **[README.md](README.md)**. This file is for **developers and maintainers**: build, test, release, and where things live in the tree.
 

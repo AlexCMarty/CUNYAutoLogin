@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { mountCompleteDemoScreen } from "./completeDemo";
 import type { OnboardingScreenContext } from "./screenContext";
+import { BRIGHTSPACE_HOME_URL } from "../../cuny/ssoSite";
 
 vi.mock("webextension-polyfill", () => ({
   default: {
@@ -96,14 +97,14 @@ describe("mountCompleteDemoScreen — Show me", () => {
     vi.clearAllMocks();
   });
 
-  test("Show me sends ONBOARDING_REOPEN_CUNY_TAB to the OAA login entry URL", () => {
+  test("Show me sends ONBOARDING_REOPEN_CUNY_TAB to Brightspace home", () => {
     const { ctx, root } = makeCtx();
     mountCompleteDemoScreen(ctx);
     root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
     expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "ONBOARDING_REOPEN_CUNY_TAB",
-        url: "https://ssologin.cuny.edu/oaa/rui",
+        url: BRIGHTSPACE_HOME_URL,
       })
     );
     expect(vi.mocked(browser.runtime.sendMessage)).not.toHaveBeenCalledWith(

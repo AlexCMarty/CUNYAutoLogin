@@ -6,7 +6,7 @@ How many times a day do you log into CUNYFirst? Probably more than once. CUNY si
 
 **Beta:** You’re helping try this out. If something breaks or feels confusing, please [open an issue](https://github.com/AlexCMarty/CUNYAutoLogin/issues).
 
-**Browsers:** Firefox **115+** or Chrome / Edge **114+** (matches `src/manifest.json`; older builds may not install or may not keep the vault unlocked between restarts).
+**Browsers:** Firefox **128+** or Chrome / Edge **141+** (matches `src/manifest.json`; older builds may not install or may not keep the vault unlocked between restarts).
 
 ---
 

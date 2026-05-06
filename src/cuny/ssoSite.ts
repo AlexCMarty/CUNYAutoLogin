@@ -42,6 +42,10 @@ export const TOTP_PAGE_PATH_MARKER = "/oaa-totp-factor/" as const;
 export const CUNY_LOGIN_ENTRY_URL =
   `${SSO_LOGIN_ORIGIN}/oaa/rui` as const;
 
+/** Post-demo destination: CUNY LMS home after extension-driven logout steps. */
+export const BRIGHTSPACE_HOME_URL =
+  "https://brightspace.cuny.edu/d2l/home" as const;
+
 /**
  * OAA server-side logout endpoint. Navigating here terminates the Oracle Access
  * Manager session on the server so subsequent page loads require re-authentication.

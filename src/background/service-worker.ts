@@ -6,6 +6,7 @@ import {
   isStoredVault,
 } from "../crypto/vault";
 import {
+  BRIGHTSPACE_HOME_URL,
   CUNY_LOGIN_ENTRY_URL,
   ENROLLED_FACTOR_ALIAS_SESSION_KEY,
   OAA_RUI_LOGOUT_URL,
@@ -104,6 +105,30 @@ let stagedOnboardingCredentials: StagedOnboardingCredentials | null = null;
  */
 let stagedOverlayCommand: OnboardingOverlayCommand | null = null;
 
+const BRIGHTSPACE_HOST = "brightspace.cuny.edu" as const;
+
+const clearBrightspaceSessionCookies = async (): Promise<void> => {
+  const cookieNames = ["d2lSessionVal", "d2lSecureSessionVal"] as const;
+  for (const cookieName of cookieNames) {
+    try {
+      await browser.cookies.remove({
+        name: cookieName,
+        url: BRIGHTSPACE_HOME_URL,
+      });
+    } catch {
+      // Keep logout best-effort if one cookie is already missing.
+    }
+  }
+};
+
+const isBrightspaceUrl = (url: string): boolean => {
+  try {
+    return new URL(url).hostname === BRIGHTSPACE_HOST;
+  } catch {
+    return false;
+  }
+};
+
 const logOutOaaRuiInTabs = async (): Promise<void> => {
   const ssoTabs = await browser.tabs.query({ url: [SSO_LOGIN_TABS_QUERY_URL_PATTERN] });
   for (const ssoTab of ssoTabs) {
@@ -168,6 +193,9 @@ const handleOnboardingMessage = async (
   if (isOnboardingReopenCunyTab(message)) {
     const url = message.url ?? CUNY_LOGIN_ENTRY_URL;
     await terminateOaaRuiSessions();
+    if (isBrightspaceUrl(url)) {
+      await clearBrightspaceSessionCookies();
+    }
     try {
       await browser.tabs.create({ url, active: true });
       return { ok: true };

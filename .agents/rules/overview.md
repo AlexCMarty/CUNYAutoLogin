@@ -104,7 +104,7 @@ The two-step Vite build is intentional: `vite.config.ts` bundles sidebar + backg
 
 ## Loading the extension
 
-Minimum versions: Firefox **115+**, Chromium **114+** (`src/manifest.json`).
+Minimum versions: Firefox **128+**, Chromium **141+** (`src/manifest.json`).
 
 **Firefox:** `about:debugging` → Load Temporary Add-on → select `dist/manifest.json`
 **Chrome/Chromium:** `chrome://extensions` → Developer mode → Load unpacked → select `dist/`

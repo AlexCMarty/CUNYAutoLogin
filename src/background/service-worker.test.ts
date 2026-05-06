@@ -26,6 +26,9 @@ vi.mock("webextension-polyfill", () => ({
         get: vi.fn(),
       },
     },
+    cookies: {
+      remove: vi.fn(),
+    },
     tabs: {
       create: vi.fn(),
       query: vi.fn(),
@@ -49,6 +52,7 @@ import browser from "webextension-polyfill";
 import { decryptVault, isStoredVault, VAULT_STORAGE_KEY } from "../crypto/vault";
 import type { VaultPayload } from "../crypto/vault";
 import {
+  BRIGHTSPACE_HOME_URL,
   CUNY_LOGIN_ENTRY_URL,
   OAA_RUI_LOGOUT_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
@@ -104,6 +108,7 @@ beforeEach(async () => {
   if (tabsApi?.query) vi.mocked(tabsApi.query).mockResolvedValue([]);
   if (tabsApi?.sendMessage) vi.mocked(tabsApi.sendMessage).mockResolvedValue(undefined);
   if (tabsApi?.update) vi.mocked(tabsApi.update).mockResolvedValue({} as never);
+  vi.mocked(browser.cookies.remove).mockResolvedValue(null);
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, SENDER);
   await handler({ type: "ONBOARDING_OVERLAY_COMMAND", action: "hide" }, SENDER);
@@ -859,6 +864,22 @@ describe("AUTO_FILL_REQUEST onboarding fallback", () => {
 // ──── ONBOARDING_REOPEN_CUNY_TAB tab creation ────────────────────────────────
 
 describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
+  test("with Brightspace url → clears D2L session cookies before opening tab", async () => {
+    const url = BRIGHTSPACE_HOME_URL;
+    expect(
+      await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB", url }, SENDER)
+    ).toEqual({ ok: true });
+    expect(vi.mocked(browser.cookies.remove)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(browser.cookies.remove)).toHaveBeenNthCalledWith(1, {
+      name: "d2lSessionVal",
+      url: BRIGHTSPACE_HOME_URL,
+    });
+    expect(vi.mocked(browser.cookies.remove)).toHaveBeenNthCalledWith(2, {
+      name: "d2lSecureSessionVal",
+      url: BRIGHTSPACE_HOME_URL,
+    });
+  });
+
   test("with url → terminates OAA session then opens tab at that url", async () => {
     const url = "https://example.test/cuny-fixture";
     const tabsApi = (browser as unknown as {
@@ -871,6 +892,7 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
       url: [SSO_LOGIN_TABS_QUERY_URL_PATTERN],
     });
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
+    expect(vi.mocked(browser.cookies.remove)).not.toHaveBeenCalled();
     expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({ url, active: true });
   });
 
