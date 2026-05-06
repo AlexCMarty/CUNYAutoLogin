@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import browser from "webextension-polyfill";
+import type { OnboardingSnapshot } from "../controller";
 import { computePasswordStrength, mountExtPasswordSetupScreen } from "./extPasswordSetup";
 import type { OnboardingScreenContext } from "./screenContext";
 
@@ -51,7 +52,8 @@ vi.mock("../../crypto/vault", () => ({
 }));
 
 const makeCtx = (
-  root?: HTMLElement
+  root?: HTMLElement,
+  snapshotOverrides?: Partial<Pick<OnboardingSnapshot, "email" | "password">>
 ): { ctx: OnboardingScreenContext; root: HTMLElement; dispatched: string[] } => {
   const el = root ?? document.createElement("div");
   if (!root) document.body.appendChild(el);
@@ -61,8 +63,8 @@ const makeCtx = (
     root: el,
     getSnapshot: () => ({
       state: "EXT_PASSWORD_SETUP",
-      email: "student@login.cuny.edu",
-      password: "cunyPass1!",
+      email: snapshotOverrides?.email ?? "student@login.cuny.edu",
+      password: snapshotOverrides?.password ?? "cunyPass1!",
       credentialError: null,
     }),
     setEmail: vi.fn(),
@@ -197,6 +199,32 @@ describe("mountExtPasswordSetupScreen — validation", () => {
     setInput(pwInput(), "CorrectHorseBatteryStaple42!");
     setInput(confirmInput(), "CorrectHorseBatteryStaple42!");
     expect(forwardBtn().disabled).toBe(false);
+  });
+});
+
+describe("mountExtPasswordSetupScreen — must differ from CUNY password", () => {
+  test("forward button stays disabled when extension password matches CUNY password", () => {
+    const shared = "UniqueSharedPw999!!";
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const { ctx } = makeCtx(root, { password: shared });
+    mountExtPasswordSetupScreen(ctx);
+
+    const fireInput = (el: HTMLInputElement, value: string): void => {
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+
+    const pw = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-input='true']")!;
+    const confirm = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-confirm='true']")!;
+    const btn = root.querySelector<HTMLButtonElement>("[data-onboarding-ext-password-forward='true']")!;
+    const sameAsCuny = root.querySelector<HTMLElement>("[data-onboarding-ext-password-same-as-cuny='true']")!;
+
+    fireInput(pw, shared);
+    fireInput(confirm, shared);
+    expect(btn.disabled).toBe(true);
+    expect(sameAsCuny.hidden).toBe(false);
+    root.remove();
   });
 });
 

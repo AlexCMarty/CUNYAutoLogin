@@ -1,7 +1,10 @@
 import browser from "webextension-polyfill";
 import { PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../../cuny/ssoSite";
 import { VAULT_STORAGE_KEY, encryptVault } from "../../crypto/vault";
-import { MIN_MASTER_PASSWORD_LENGTH } from "../../sidebar/sidebar.utils";
+import {
+  EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG,
+  MIN_MASTER_PASSWORD_LENGTH,
+} from "../../sidebar/sidebar.utils";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 export type PasswordStrength = "Weak" | "Fair" | "Strong";
@@ -26,6 +29,7 @@ type ExtPasswordRefs = {
   readonly confirmToggle: HTMLButtonElement;
   readonly strengthSpan: HTMLSpanElement;
   readonly matchIndicator: HTMLSpanElement;
+  readonly sameAsCunyMsg: HTMLParagraphElement;
   readonly forwardBtn: HTMLButtonElement;
   readonly errorMsg: HTMLParagraphElement;
 };
@@ -95,7 +99,14 @@ const buildPasswordInput = (
 const buildConfirmInput = (
   doc: Document,
   container: HTMLElement
-): { confirmInput: HTMLInputElement; confirmToggle: HTMLButtonElement; matchIndicator: HTMLSpanElement; errorMsg: HTMLParagraphElement; forwardBtn: HTMLButtonElement } => {
+): {
+  confirmInput: HTMLInputElement;
+  confirmToggle: HTMLButtonElement;
+  matchIndicator: HTMLSpanElement;
+  sameAsCunyMsg: HTMLParagraphElement;
+  errorMsg: HTMLParagraphElement;
+  forwardBtn: HTMLButtonElement;
+} => {
   const confirmLabel = doc.createElement("label");
   confirmLabel.className = "onboarding-field-label";
   confirmLabel.textContent = "Confirm password";
@@ -121,6 +132,12 @@ const buildConfirmInput = (
   matchIndicator.dataset.onboardingExtPasswordMatchIndicator = "true";
   matchIndicator.hidden = true;
   container.appendChild(matchIndicator);
+  const sameAsCunyMsg = doc.createElement("p");
+  sameAsCunyMsg.className = "onboarding-error onboarding-ext-password-same-as-cuny";
+  sameAsCunyMsg.hidden = true;
+  sameAsCunyMsg.dataset.onboardingExtPasswordSameAsCuny = "true";
+  sameAsCunyMsg.textContent = EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG;
+  container.appendChild(sameAsCunyMsg);
   const errorMsg = doc.createElement("p");
   errorMsg.className = "onboarding-error onboarding-ext-password-error";
   errorMsg.hidden = true;
@@ -133,7 +150,7 @@ const buildConfirmInput = (
   forwardBtn.textContent = "Lock it in";
   forwardBtn.disabled = true;
   container.appendChild(forwardBtn);
-  return { confirmInput, confirmToggle, matchIndicator, errorMsg, forwardBtn };
+  return { confirmInput, confirmToggle, matchIndicator, sameAsCunyMsg, errorMsg, forwardBtn };
 };
 
 const appendExtPasswordFields = (
@@ -141,7 +158,14 @@ const appendExtPasswordFields = (
   container: HTMLElement
 ): Omit<ExtPasswordRefs, "container"> => {
   const { pwInput, pwToggle, strengthSpan } = buildPasswordInput(doc, container);
-  const { confirmInput, confirmToggle, matchIndicator, errorMsg, forwardBtn } = buildConfirmInput(doc, container);
+  const {
+    confirmInput,
+    confirmToggle,
+    matchIndicator,
+    sameAsCunyMsg,
+    errorMsg,
+    forwardBtn,
+  } = buildConfirmInput(doc, container);
 
   return {
     pwInput,
@@ -150,6 +174,7 @@ const appendExtPasswordFields = (
     confirmToggle,
     strengthSpan,
     matchIndicator,
+    sameAsCunyMsg,
     forwardBtn,
     errorMsg,
   };
@@ -169,11 +194,19 @@ const runExtPasswordVaultSave = async (
 ): Promise<void> => {
   const { pwInput, forwardBtn, errorMsg } = refs;
   const extensionPassword = pwInput.value;
+  const saveFailedText = "Something went wrong saving your password. Please try again.";
   forwardBtn.disabled = true;
+  errorMsg.textContent = saveFailedText;
   errorMsg.hidden = true;
 
   try {
     const { email, password } = getSnapshot();
+    if (extensionPassword === password) {
+      errorMsg.textContent = EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG;
+      errorMsg.hidden = false;
+      syncValidation();
+      return;
+    }
     const sessionResult = await browser.storage.session?.get(
       PENDING_TOTP_SECRET_SESSION_KEY
     );
@@ -182,6 +215,7 @@ const runExtPasswordVaultSave = async (
 
     const encResult = await encryptVault({ email, password, totpSecret }, extensionPassword);
     if (encResult.isErr()) {
+      errorMsg.textContent = saveFailedText;
       errorMsg.hidden = false;
       syncValidation();
       return;
@@ -197,10 +231,60 @@ const runExtPasswordVaultSave = async (
       // eslint-disable-next-line no-console
       console.warn("[CUNYAutoLogin] extPasswordSetup: unexpected vault save error", error);
     }
+    errorMsg.textContent = saveFailedText;
     errorMsg.hidden = false;
     syncValidation();
   }
 };
+
+/** Updates strength UI, match indicator, CUNY-same warning, and primary button enabled state. */
+function syncExtPasswordSetupValidation(
+  refs: Pick<
+    ExtPasswordRefs,
+    | "pwInput"
+    | "confirmInput"
+    | "strengthSpan"
+    | "matchIndicator"
+    | "sameAsCunyMsg"
+    | "forwardBtn"
+  >,
+  getSnapshot: OnboardingScreenContext["getSnapshot"]
+): void {
+  const { pwInput, confirmInput, strengthSpan, matchIndicator, sameAsCunyMsg, forwardBtn } = refs;
+  const pw = pwInput.value;
+  const confirm = confirmInput.value;
+  const cunyPassword = getSnapshot().password;
+  const sameAsCuny = pw.length > 0 && pw === cunyPassword;
+  sameAsCunyMsg.hidden = !sameAsCuny;
+  const strength = computePasswordStrength(pw);
+
+  strengthSpan.textContent = pw.length > 0 ? strength : "";
+  const strengthLevel = pw.length === 0 ? 0 : strength === "Weak" ? 1 : strength === "Fair" ? 2 : 3;
+  const segsEl = strengthSpan.parentElement?.querySelector(".onboarding-strength-segments");
+  if (segsEl) {
+    segsEl.querySelectorAll<HTMLElement>(".onboarding-strength-seg").forEach((seg, i) => {
+      seg.dataset.active = i < strengthLevel ? "true" : "false";
+    });
+  }
+
+  if (confirm.length > 0) {
+    const matches = pw === confirm;
+    matchIndicator.hidden = false;
+    matchIndicator.textContent = matches ? "Passwords match" : "Passwords do not match";
+    matchIndicator.dataset.matchOk = matches ? "true" : "false";
+  } else {
+    matchIndicator.hidden = true;
+    matchIndicator.textContent = "";
+  }
+
+  const canAdvance =
+    strength !== "Weak" &&
+    pw.length > 0 &&
+    confirm.length > 0 &&
+    pw === confirm &&
+    !sameAsCuny;
+  forwardBtn.disabled = !canAdvance;
+}
 
 const attachExtPasswordSetupHandlers = (
   ctx: Pick<OnboardingScreenContext, "dispatch" | "getSnapshot">,
@@ -212,38 +296,11 @@ const attachExtPasswordSetupHandlers = (
     pwToggle,
     confirmInput,
     confirmToggle,
-    strengthSpan,
-    matchIndicator,
     forwardBtn,
   } = refs;
 
   const syncValidation = (): void => {
-    const pw = pwInput.value;
-    const confirm = confirmInput.value;
-    const strength = computePasswordStrength(pw);
-
-    strengthSpan.textContent = pw.length > 0 ? strength : "";
-    const strengthLevel = pw.length === 0 ? 0 : strength === "Weak" ? 1 : strength === "Fair" ? 2 : 3;
-    const segsEl = strengthSpan.parentElement?.querySelector(".onboarding-strength-segments");
-    if (segsEl) {
-      segsEl.querySelectorAll<HTMLElement>(".onboarding-strength-seg").forEach((seg, i) => {
-        seg.dataset.active = i < strengthLevel ? "true" : "false";
-      });
-    }
-
-    if (confirm.length > 0) {
-      const matches = pw === confirm;
-      matchIndicator.hidden = false;
-      matchIndicator.textContent = matches ? "Passwords match" : "Passwords do not match";
-      matchIndicator.dataset.matchOk = matches ? "true" : "false";
-    } else {
-      matchIndicator.hidden = true;
-      matchIndicator.textContent = "";
-    }
-
-    const canAdvance =
-      strength !== "Weak" && pw.length > 0 && confirm.length > 0 && pw === confirm;
-    forwardBtn.disabled = !canAdvance;
+    syncExtPasswordSetupValidation(refs, getSnapshot);
   };
 
   const handlePwToggle = (): void => {

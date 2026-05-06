@@ -7,6 +7,10 @@ export const DRAFT_KEY = "cuny_form_draft";
 /** Minimum character length enforced for the master password in both setup and change-master flows. */
 export const MIN_MASTER_PASSWORD_LENGTH = 12;
 
+/** Shown when the vault/extension password would equal the CUNY login password (sidebar + onboarding). */
+export const EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG =
+  "Choose a different password than your CUNY login password.";
+
 export interface FormDraft {
   email: string;
   password: string;

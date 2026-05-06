@@ -14,6 +14,7 @@ import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 import { LOGIN_EMAIL_SUFFIX, PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../cuny/ssoSite";
 import {
   DRAFT_KEY,
+  EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG,
   MIN_MASTER_PASSWORD_LENGTH,
   type FormDraft,
   type SidebarDom,
@@ -251,6 +252,9 @@ const validateSetupForm = (els: SidebarDom): string | null => {
   if (masterPassword.length < MIN_MASTER_PASSWORD_LENGTH) {
     return `Extension password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`;
   }
+  if (masterPassword === password) {
+    return EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG;
+  }
   return null;
 };
 
@@ -348,6 +352,10 @@ const resolveMasterPasswordForSave = (
     if (newMaster !== confirmMaster) return err("New extension passwords do not match.");
     if (newMaster.length < MIN_MASTER_PASSWORD_LENGTH) {
       return err(`New extension password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`);
+    }
+    const cunyPassword = els.password.value;
+    if (newMaster === cunyPassword) {
+      return err(EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG);
     }
     return ok(newMaster);
   }
