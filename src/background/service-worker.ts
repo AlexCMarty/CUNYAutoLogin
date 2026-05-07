@@ -302,16 +302,27 @@ const resolveAutoFillResponse = async (
   }
 
   if (stagedOnboardingCredentials) {
-    return {
-      success: true,
-      payload: {
-        email: stagedOnboardingCredentials.email,
-        password: stagedOnboardingCredentials.password,
-        // Login challenge (`otpValue|input`) must never consume the
-        // staged enroll secret — only `otp|input` opts in via otpContext.
-        totpSecret: enrollSecretOverride ?? "",
-      },
-    };
+    // Staged credentials are only for the pre-vault onboarding flow. If a vault
+    // already exists the user has locked it — staged creds must not bypass the
+    // lock. Read storage.local here (master was absent, so we skipped it above).
+    let stagedLocalResult: Record<string, unknown>;
+    try {
+      stagedLocalResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
+    } catch {
+      return { success: false, reason: "storage_error" };
+    }
+    if (!isStoredVault(stagedLocalResult[VAULT_STORAGE_KEY])) {
+      return {
+        success: true,
+        payload: {
+          email: stagedOnboardingCredentials.email,
+          password: stagedOnboardingCredentials.password,
+          // Login challenge (`otpValue|input`) must never consume the
+          // staged enroll secret — only `otp|input` opts in via otpContext.
+          totpSecret: enrollSecretOverride ?? "",
+        },
+      };
+    }
   }
 
   if (typeof masterPassword !== "string") {
