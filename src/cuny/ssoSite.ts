@@ -269,3 +269,6 @@ export const WAIT_FOR_TOTP_SECRET_TIMEOUT_MS = 120_000;
 
 /** Display name used as the TOTP factor alias, banner label, and WebAuthn RP name. */
 export const EXTENSION_NAME = "CUNYAutoLogin" as const;
+
+/** RP ID for extension-initiated WebAuthn ceremonies (must remain in host_permissions). */
+export const WEBAUTHN_RP_ID = "ssologin.cuny.edu" as const;

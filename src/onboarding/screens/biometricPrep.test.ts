@@ -1,22 +1,26 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { WEBAUTHN_RP_ID } from "../../cuny/ssoSite";
 import { mountBiometricPrepScreen } from "./biometricPrep";
 import type { OnboardingScreenContext } from "./screenContext";
 
 vi.mock("webextension-polyfill", () => ({ default: {} }));
 
 // jsdom does not provide navigator.credentials; set up a stub before each test.
-const setupCredentialsMock = (result: "resolve" | "reject"): void => {
+const setupCredentialsMock = (result: "resolve" | "reject" | "abort"): ReturnType<typeof vi.fn> => {
   const mock =
     result === "resolve"
       ? vi.fn().mockResolvedValue({} as Credential)
-      : vi.fn().mockRejectedValue(new DOMException("Not allowed", "NotAllowedError"));
+      : result === "abort"
+        ? vi.fn().mockRejectedValue(new DOMException("Timed out", "AbortError"))
+        : vi.fn().mockRejectedValue(new DOMException("Not allowed", "NotAllowedError"));
 
   Object.defineProperty(navigator, "credentials", {
     value: { create: mock },
     configurable: true,
     writable: true,
   });
+  return mock;
 };
 
 const makeCtx = (): { ctx: OnboardingScreenContext; root: HTMLElement; dispatched: string[] } => {
@@ -107,7 +111,7 @@ describe("mountBiometricPrepScreen — WebAuthn success", () => {
   });
 
   test("dispatches BIOMETRIC_PREP_DONE when credentials.create resolves", async () => {
-    setupCredentialsMock("resolve");
+    const createMock = setupCredentialsMock("resolve");
     const { ctx, root, dispatched } = makeCtx();
     mountBiometricPrepScreen(ctx);
 
@@ -116,6 +120,8 @@ describe("mountBiometricPrepScreen — WebAuthn success", () => {
     await vi.waitFor(() => {
       expect(dispatched).toContain("BIOMETRIC_PREP_DONE");
     });
+    const createArg = createMock.mock.calls[0]?.[0] as CredentialCreationOptions;
+    expect(createArg.publicKey?.rp.id).toBe(WEBAUTHN_RP_ID);
   });
 });
 
@@ -152,6 +158,24 @@ describe("mountBiometricPrepScreen — WebAuthn failure fallback", () => {
     });
     continueBtn.click();
     expect(dispatched).toContain("BIOMETRIC_PREP_DONE");
+  });
+
+  test("shows timeout-specific fallback message and restores back button", async () => {
+    setupCredentialsMock("abort");
+    const { ctx, root } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+
+    const continueBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
+    const backBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-back='true']")!;
+    continueBtn.click();
+
+    await vi.waitFor(() => {
+      const statusMsg = root.querySelector<HTMLElement>(".onboarding-subtext");
+      expect(statusMsg?.hidden).toBe(false);
+      expect(statusMsg?.textContent).toContain("couldn't start your device's biometric prompt");
+      expect(backBtn.hidden).toBe(false);
+      expect(continueBtn.textContent).toBe("Continue anyway");
+    });
   });
 });
 
