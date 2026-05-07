@@ -8,10 +8,73 @@ import {
   E2E_TOTP_SECRET,
 } from "./test-credentials";
 
-export async function gotoPrimarySurface(page: Page, extensionId: string): Promise<void> {
-  // `#vault=1` is dev/e2e-only (see sidebar.ts): without it, an empty profile
-  // loads onboarding instead of the first-time vault form.
-  await page.goto(`chrome-extension://${extensionId}/sidebar.html#vault=1`);
+// Storage key literals — source of truth: src/crypto/vault.ts (VAULT_STORAGE_KEY),
+// src/cuny/ssoSite.ts (SESSION_MASTER_KEY, PBKDF2_ITERATIONS).
+const VAULT_STORAGE_KEY = "cunyVault";
+const SESSION_MASTER_KEY = "cunySessionMaster";
+const PBKDF2_ITERATIONS = 310_000;
+
+/**
+ * Provisions a vault programmatically using `window.crypto.subtle` (same algorithm
+ * as src/crypto/vault.ts: PBKDF2-SHA256 / AES-GCM-256).  Navigates to sidebar.html,
+ * injects vault + session master into extension storage, then reloads so the
+ * vault controller sees an unlocked vault.
+ */
+export async function setupVault(page: Page, extensionId: string): Promise<void> {
+  await page.goto(`chrome-extension://${extensionId}/sidebar.html`);
+  await page.evaluate(
+    async ({ email, password, totpSecret, master, vaultKey, sessionKey, iterations }) => {
+      const enc = new TextEncoder();
+
+      function bytesToBase64(bytes: Uint8Array): string {
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+        return btoa(binary);
+      }
+
+      const salt = crypto.getRandomValues(new Uint8Array(32));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const plaintext = enc.encode(JSON.stringify({ email, password, totpSecret }));
+
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(master),
+        "PBKDF2",
+        false,
+        ["deriveKey"]
+      );
+      const aesKey = await crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt"]
+      );
+      const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, plaintext);
+
+      const vault = {
+        version: 1,
+        saltB64: bytesToBase64(salt),
+        ivB64: bytesToBase64(iv),
+        ciphertextB64: bytesToBase64(new Uint8Array(ciphertext)),
+      };
+
+      await chrome.storage.local.set({ [vaultKey]: vault });
+      await chrome.storage.session.set({ [sessionKey]: master });
+    },
+    {
+      email: E2E_EMAIL,
+      password: E2E_PASSWORD,
+      totpSecret: E2E_TOTP_SECRET,
+      master: E2E_MASTER_PASSWORD,
+      vaultKey: VAULT_STORAGE_KEY,
+      sessionKey: SESSION_MASTER_KEY,
+      iterations: PBKDF2_ITERATIONS,
+    }
+  );
+  await page.reload();
+  // After reload the vault controller hydrates from snapshot → unlocked state.
+  await expect(page.locator("#vault-status-bar")).toBeVisible({ timeout: 15_000 });
 }
 
 export async function clearVaultIfPossible(page: Page): Promise<void> {
@@ -21,28 +84,11 @@ export async function clearVaultIfPossible(page: Page): Promise<void> {
       dialog.accept();
     });
     await clearBtn.click();
-    await expect(page.locator("#mode-hint")).toContainText("First-time setup");
+    // After reset the sidebar reloads into onboarding (no vault → WELCOME screen).
+    await expect(page.locator("[data-onboarding-screen='WELCOME']")).toBeVisible({
+      timeout: 15_000,
+    });
   }
-}
-
-export async function setupVault(page: Page): Promise<void> {
-  const email = page.locator("#email");
-  // Vault `init()` awaits session + draft restore before fields are stable; without
-  // this, e2e can fill then submit while the draft still overwrites inputs (flake:
-  // status shows "Email must end with @login.cuny.edu" instead of "Saved").
-  await expect(page.locator("#vault-form")).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator("#mode-hint")).toContainText("First-time setup", {
-    timeout: 15_000,
-  });
-  await email.fill(E2E_EMAIL);
-  await page.locator("#password").fill(E2E_PASSWORD);
-  await page.locator("#totpSecret").fill(E2E_TOTP_SECRET);
-  await page.locator("#masterPassword").fill(E2E_MASTER_PASSWORD);
-  await expect(email).toHaveValue(E2E_EMAIL);
-  await page
-    .locator("#vault-form")
-    .evaluate((form: HTMLFormElement) => form.requestSubmit());
-  await expect(page.locator("#status")).toContainText("Saved", { timeout: 15_000 });
 }
 
 export async function lockVault(page: Page): Promise<void> {

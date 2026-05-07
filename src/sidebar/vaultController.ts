@@ -7,26 +7,19 @@ import {
   type StoredVault,
   type VaultPayload,
 } from "../crypto/vault";
-import { clearOnboardingComplete } from "../onboarding/onboardingComplete";
 import { clearResumeSnapshotSession } from "../onboarding/resumeSession";
 import type { LogoutCunySessionsAck, LogoutCunySessionsRequest } from "../onboarding/messages";
 import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
-import { LOGIN_EMAIL_SUFFIX, PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../cuny/ssoSite";
+import { LOGIN_EMAIL_SUFFIX, SESSION_MASTER_KEY } from "../cuny/ssoSite";
 import {
-  DRAFT_KEY,
   EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG,
   MIN_MASTER_PASSWORD_LENGTH,
-  type FormDraft,
   type SidebarDom,
   validateEmail,
   decryptStatusMessage,
-  coerceDraft,
   setStatus,
   hideTotpSecretSourceHint,
-  saveDraft,
-  clearDraft,
   clearPendingTotpFromSession,
-  applyPendingTotpFromPage,
   effectiveTotpSecretForSave,
 } from "./sidebar.utils";
 export type { SidebarDom } from "./sidebar.utils";
@@ -52,28 +45,6 @@ async function clearSessionMaster(): Promise<void> {
   }
 }
 
-function applyDraft(els: SidebarDom, draft: FormDraft): void {
-  if (draft.email) els.email.value = draft.email;
-  if (draft.password) els.password.value = draft.password;
-  if (draft.totpSecret) els.totpSecret.value = draft.totpSecret;
-}
-
-async function restoreDraft(els: SidebarDom): Promise<void> {
-  try {
-    const result = await browser.storage.session?.get(DRAFT_KEY);
-    const raw = result?.[DRAFT_KEY];
-    if (raw === undefined || raw === null) return;
-    const draft = coerceDraft(raw);
-    if (!draft) {
-      await browser.storage.session?.remove(DRAFT_KEY);
-      return;
-    }
-    applyDraft(els, draft);
-  } catch {
-    // session storage unavailable — proceed without draft
-  }
-}
-
 function setupPasswordToggles(): void {
   document.querySelectorAll<HTMLButtonElement>(".toggle-visibility").forEach((btn) => {
     const input = btn.previousElementSibling;
@@ -91,8 +62,8 @@ function setupPasswordToggles(): void {
 }
 
 // In-memory session state — never written to storage
-type Mode = "setup" | "locked" | "unlocked";
-let currentMode: Mode = "setup";
+type Mode = "locked" | "unlocked";
+let currentMode: Mode = "locked";
 let sessionMasterPassword: string | null = null;
 let sessionPayload: VaultPayload | null = null;
 let storedVault: StoredVault | null = null;
@@ -166,13 +137,11 @@ function getEls(): Result<SidebarDom, "missing_dom"> {
 /** Show/hide the new design-system vault header panels using the `hidden` attribute. */
 const updateVaultHeaders = (mode: Mode): void => {
   const lockedHeader = document.getElementById("vault-locked-header");
-  const setupHeader = document.getElementById("vault-setup-header");
   const statusBar = document.getElementById("vault-status-bar");
   const totpCard = document.getElementById("vault-totp-card");
   const footer = document.getElementById("vault-footer");
 
   if (lockedHeader) lockedHeader.hidden = mode !== "locked";
-  if (setupHeader) setupHeader.hidden = mode !== "setup";
   if (statusBar) statusBar.hidden = mode !== "unlocked";
   if (totpCard) totpCard.hidden = mode !== "unlocked" || !isSidebarVaultManagement();
   if (footer) footer.hidden = mode !== "locked";
@@ -215,17 +184,7 @@ function renderMode(els: SidebarDom): void {
 
   updateVaultHeaders(currentMode);
 
-  if (currentMode === "setup") {
-    credentialFields.classList.remove("hidden");
-    masterPasswordField.classList.remove("hidden");
-    changeMasterSection.classList.add("hidden");
-    els.lockBtn.classList.add("hidden");
-    els.masterLabel.textContent = "Extension password";
-    els.modeHint.hidden = false;
-    els.modeHint.textContent =
-      "First-time setup: enter your CUNY login email, password, TOTP secret (Base32), and an extension password. The extension password is never stored.";
-    els.submitBtn.textContent = "Save";
-  } else if (currentMode === "locked") {
+  if (currentMode === "locked") {
     credentialFields.classList.add("hidden");
     masterPasswordField.classList.remove("hidden");
     changeMasterSection.classList.add("hidden");
@@ -237,69 +196,6 @@ function renderMode(els: SidebarDom): void {
   } else {
     renderUnlockedMode(els, isSidebarVaultManagement(), sessionPayload);
   }
-}
-
-/** Returns a user-visible error string, or null if the setup form is valid. */
-const validateSetupForm = (els: SidebarDom): string | null => {
-  const email = els.email.value.trim();
-  const password = els.password.value;
-  const totpSecret = els.totpSecret.value.trim().replace(/\s+/g, "");
-  const masterPassword = els.masterPassword.value;
-
-  if (!validateEmail(email)) return `Email must end with ${LOGIN_EMAIL_SUFFIX}`;
-  if (!password.length) return "Password is required.";
-  if (!totpSecret.length) return "TOTP secret is required.";
-  if (masterPassword.length < MIN_MASTER_PASSWORD_LENGTH) {
-    return `Extension password must be at least ${MIN_MASTER_PASSWORD_LENGTH} characters.`;
-  }
-  if (masterPassword === password) {
-    return EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG;
-  }
-  return null;
-};
-
-/** First-time save: persist ciphertext, hydrate session, clear draft, leave no master in fields longer than needed. */
-const commitNewVault = async (
-  els: SidebarDom,
-  email: string,
-  password: string,
-  totpSecret: string,
-  master: string
-): Promise<void> => {
-  els.submitBtn.disabled = true;
-  const encResult = await encryptVault({ email, password, totpSecret }, master);
-  if (encResult.isErr()) {
-    setStatus("Save failed. Try again.");
-    els.submitBtn.disabled = false;
-    return;
-  }
-  const newVault = encResult.value;
-  await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
-  storedVault = newVault;
-  sessionPayload = { email, password, totpSecret };
-  sessionMasterPassword = master;
-  await saveSessionMaster(master);
-  await clearDraft();
-  hideTotpSecretSourceHint(els);
-  els.masterPassword.value = "";
-  currentMode = "unlocked";
-  renderMode(els);
-  setStatus("Saved. Secrets are encrypted locally.", true);
-  els.submitBtn.disabled = false;
-};
-
-async function handleSetup(els: SidebarDom): Promise<void> {
-  const validationError = validateSetupForm(els);
-  if (validationError) {
-    setStatus(validationError);
-    return;
-  }
-
-  const email = els.email.value.trim();
-  const password = els.password.value;
-  const totpSecret = els.totpSecret.value.trim().replace(/\s+/g, "");
-  const masterPassword = els.masterPassword.value;
-  await commitNewVault(els, email, password, totpSecret, masterPassword);
 }
 
 async function handleLocked(els: SidebarDom): Promise<void> {
@@ -409,7 +305,6 @@ async function handleUnlocked(els: SidebarDom): Promise<void> {
   const newVault = encResult.value;
   await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
   storedVault = newVault;
-  await clearDraft();
   sessionPayload = { email, password, totpSecret };
   sessionMasterPassword = masterPasswordToUse;
   await saveSessionMaster(masterPasswordToUse);
@@ -430,33 +325,17 @@ async function handleLock(els: SidebarDom): Promise<void> {
   renderMode(els);
 }
 
-async function resetToFreshInstall(els: SidebarDom): Promise<void> {
+async function resetToFreshInstall(): Promise<void> {
   try {
     await browser.storage.local.remove(VAULT_STORAGE_KEY);
   } catch {
     setStatus("Could not remove vault from storage.");
     return;
   }
-  await clearOnboardingComplete();
   await clearResumeSnapshotSession();
-  delete document.body.dataset.vaultUi;
   await clearSessionMaster();
   await clearPendingTotpFromSession();
-  await clearDraft();
-  els.email.value = "";
-  els.password.value = "";
-  els.totpSecret.value = "";
-  els.masterPassword.value = "";
-  els.newMasterPassword.value = "";
-  els.confirmNewMasterPassword.value = "";
-  hideTotpSecretSourceHint(els);
-  storedVault = null;
-  sessionPayload = null;
-  sessionMasterPassword = null;
-  currentMode = "setup";
-  renderMode(els);
-  await applyPendingTotpFromPage(els);
-  setStatus("Vault cleared. State matches a fresh install.", true);
+  window.location.reload();
 }
 
 async function maybeMountDevDebugPanel(els: SidebarDom): Promise<void> {
@@ -468,7 +347,7 @@ async function maybeMountDevDebugPanel(els: SidebarDom): Promise<void> {
     els,
     setStatus,
     getSessionPayload: () => sessionPayload,
-    onClearVault: () => void resetToFreshInstall(els),
+    onClearVault: () => void resetToFreshInstall(),
     onClearLiveSessions: async () => {
       const message: LogoutCunySessionsRequest = { type: "LOGOUT_CUNY_SESSIONS" };
       try {
@@ -497,46 +376,11 @@ async function init(): Promise<void> {
   storedVault = snap.storedVault;
   sessionMasterPassword = snap.sessionMasterPassword;
   sessionPayload = snap.sessionPayload;
-  currentMode = snap.mode;
-
-  if (currentMode === "setup") {
-    delete document.body.dataset.vaultUi;
-  }
+  // vaultController only mounts when a vault exists; snap.mode is never "setup" here.
+  currentMode = snap.mode === "unlocked" ? "unlocked" : "locked";
 
   renderMode(els);
   setupPasswordToggles();
-
-  if (currentMode === "setup") {
-    await restoreDraft(els);
-    await applyPendingTotpFromPage(els);
-  }
-
-  const sessionApi = browser.storage.session;
-  if (sessionApi?.onChanged) {
-    try {
-      sessionApi.onChanged.addListener((changes) => {
-        if (changes[PENDING_TOTP_SECRET_SESSION_KEY] === undefined) {
-          return;
-        }
-        if (currentMode !== "setup") {
-          return;
-        }
-        void applyPendingTotpFromPage(els);
-      });
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.warn("[CUNYAutoLogin] session.onChanged listener not registered", error);
-      }
-    }
-  }
-
-  [els.email, els.password, els.totpSecret].forEach((input) => {
-    input.addEventListener("input", () => {
-      if (currentMode !== "setup") return;
-      void saveDraft(els);
-    });
-  });
 
   els.totpSecret.addEventListener("input", () => hideTotpSecretSourceHint(els));
 
@@ -544,9 +388,7 @@ async function init(): Promise<void> {
     submitEvent.preventDefault();
     setStatus("");
 
-    if (currentMode === "setup") {
-      await handleSetup(els);
-    } else if (currentMode === "locked") {
+    if (currentMode === "locked") {
       await handleLocked(els);
     } else {
       await handleUnlocked(els);

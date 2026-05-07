@@ -32,10 +32,7 @@ import {
 } from "./constants";
 import { expect, test } from "./extension-fixture";
 import {
-  clearVaultIfPossible,
-  gotoPrimarySurface,
   onboardingHashWith,
-  setupVault,
   walkToPasswordEntry,
 } from "./helpers";
 import { E2E_TOTP_SECRET } from "./test-credentials";
@@ -55,9 +52,6 @@ async function setupToAllowGate(
   context: import("@playwright/test").BrowserContext,
   extensionId: string
 ): Promise<Page> {
-  await gotoPrimarySurface(page, extensionId);
-  await clearVaultIfPossible(page);
-  await setupVault(page);
   await page.goto(
     `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_ADVANCE_URL)}`
   );

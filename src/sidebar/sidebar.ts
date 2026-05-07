@@ -15,9 +15,6 @@ import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
  *
  * Dev/e2e `#qa=<STATE>` jumps to a mounted onboarding screen for visual QA
  * (extension-live-testing skill). Session resume is cleared first.
- *
- * Dev/e2e `#vault=1` forces the vault form (e2e uses this for setup on a
- * fresh profile; production builds ignore unknown hash params).
  */
 
 const DEV_MODE_NAMES = ["development", "e2e"] as const;
@@ -36,21 +33,6 @@ const onboardingRequestedByDevHash = (): boolean => {
   }
 };
 
-/** Dev/e2e only: open the vault form even with no stored vault (first-time setup UI). */
-const vaultRequestedByDevHash = (): boolean => {
-  if (!(DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE)) {
-    return false;
-  }
-  try {
-    const params = new URLSearchParams(
-      window.location.hash.replace(/^#/, "")
-    );
-    return params.get("vault") === "1";
-  } catch {
-    return false;
-  }
-};
-
 const bootSidebar = async (): Promise<void> => {
   const qaJump = tryParseDevQaOnboardingJumpFromWindow(import.meta.env.MODE);
   if (qaJump !== null) {
@@ -63,12 +45,6 @@ const bootSidebar = async (): Promise<void> => {
   if (onboardingRequestedByDevHash()) {
     const { mountOnboarding } = await import("../onboarding/render");
     mountOnboarding(document);
-    return;
-  }
-
-  if (vaultRequestedByDevHash()) {
-    document.body.dataset.vaultUi = "sidebar-management";
-    await import("./vaultController");
     return;
   }
 

@@ -4,17 +4,12 @@ import browser from "webextension-polyfill";
 import {
   validateEmail,
   decryptStatusMessage,
-  parseDraft,
-  coerceDraft,
-  saveDraft,
-  clearDraft,
   setStatus,
   hideTotpSecretSourceHint,
   showTotpSecretSourceHint,
   applyPendingTotpFromPage,
   effectiveTotpSecretForSave,
   MIN_MASTER_PASSWORD_LENGTH,
-  DRAFT_KEY,
   type SidebarDom,
 } from "./sidebar.utils";
 import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
@@ -119,12 +114,6 @@ describe("decryptStatusMessage", () => {
   });
 });
 
-describe("parseDraft", () => {
-  test("malformed JSON → null", () => {
-    expect(parseDraft("{not json")).toBeNull();
-  });
-});
-
 describe("setStatus", () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="status"></div>';
@@ -175,57 +164,15 @@ describe("applyPendingTotpFromPage", () => {
   const mockSessionRemove = () =>
     vi.spyOn(browser.storage.session, "remove").mockResolvedValue();
 
-  test("new secret updates totp field and saves draft", async () => {
+  test("new secret updates totp field and shows hint", async () => {
     const els = makeMinimalEls("");
     mockSessionGet("NEWSECRET");
     const removeSpy = mockSessionRemove();
-    const setSpy = vi.spyOn(browser.storage.session, "set").mockResolvedValue();
 
     await applyPendingTotpFromPage(els);
 
     expect(els.totpSecret.value).toBe("NEWSECRET");
     expect(removeSpy).toHaveBeenCalledWith(PENDING_TOTP_SECRET_SESSION_KEY);
-    expect(setSpy).toHaveBeenCalledWith({
-      [DRAFT_KEY]: { email: "", password: "", totpSecret: "NEWSECRET" },
-    });
-  });
-});
-
-describe("coerceDraft", () => {
-  test("plain object with all string fields → FormDraft", () => {
-    expect(coerceDraft({ email: "a@login.cuny.edu", password: "pw", totpSecret: "AB" }))
-      .toEqual({ email: "a@login.cuny.edu", password: "pw", totpSecret: "AB" });
-  });
-});
-
-describe("saveDraft", () => {
-  beforeEach(() => { vi.resetAllMocks(); });
-  afterEach(() => { vi.restoreAllMocks(); });
-
-  test("writes FormDraft object to storage.session under DRAFT_KEY", async () => {
-    const els = makeMinimalEls("");
-    els.email.value = "a@login.cuny.edu";
-    els.password.value = "pw";
-    els.totpSecret.value = "ABCD";
-    const setSpy = vi.spyOn(browser.storage.session, "set").mockResolvedValue();
-
-    await saveDraft(els);
-
-    expect(setSpy).toHaveBeenCalledWith({
-      [DRAFT_KEY]: { email: "a@login.cuny.edu", password: "pw", totpSecret: "ABCD" },
-    });
-  });
-});
-
-describe("clearDraft", () => {
-  beforeEach(() => { vi.resetAllMocks(); });
-  afterEach(() => { vi.restoreAllMocks(); });
-
-  test("calls storage.session.remove with DRAFT_KEY", async () => {
-    const removeSpy = vi.spyOn(browser.storage.session, "remove").mockResolvedValue();
-
-    await clearDraft();
-
-    expect(removeSpy).toHaveBeenCalledWith(DRAFT_KEY);
+    expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(false);
   });
 });

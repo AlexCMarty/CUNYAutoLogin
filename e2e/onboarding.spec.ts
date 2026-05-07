@@ -11,14 +11,11 @@ import {
   CREDENTIAL_FIXTURE_WRONG_REDIRECT_URL,
   FIXTURE_ORIGIN,
   SELF_SERVICE_FIXTURE_URL,
-  SELF_SERVICE_INVALID_SECRET_FIXTURE_URL,
 } from "./constants";
 import { expect, test } from "./extension-fixture";
-import { clearVaultIfPossible, gotoPrimarySurface, onboardingHashWith, setupVault, walkToCunyTotp, walkToPasswordEntry } from "./helpers";
+import { onboardingHashWith, setupVault, walkToCunyTotp, walkToPasswordEntry } from "./helpers";
 import { E2E_PASSWORD, E2E_TOTP_SECRET } from "./test-credentials";
 import { CREDENTIAL_ERROR_BANNER_ID } from "../src/content/banner";
-
-const FIXTURE_SECRET = "UU7UV2G7UCS5LETS";
 
 const ONBOARDING_HASH = "#onboarding=1";
 
@@ -438,19 +435,13 @@ test.describe("onboarding — wrong credentials", () => {
 
 test.describe("not set up (onboarding)", () => {
   test.beforeEach(async ({ page, extensionId }) => {
-    await gotoPrimarySurface(page, extensionId);
-    await clearVaultIfPossible(page);
+    // Fresh context has no vault → sidebar loads onboarding naturally.
+    await page.goto(`chrome-extension://${extensionId}/sidebar.html`);
+    await expect(page.locator("[data-onboarding-screen='WELCOME']")).toBeVisible({ timeout: 15_000 });
   });
 
-  test("pulls delayed TOTP secret from self-service page into side panel", async ({ page, context }) => {
-    const fixturePage = await context.newPage();
-    await fixturePage.goto(SELF_SERVICE_FIXTURE_URL);
-
-    await expect(page.locator("#totpSecret")).toHaveValue(FIXTURE_SECRET, { timeout: 15_000 });
-  });
-
-  test("fills delayed self-service OTP field after setup", async ({ page, context }) => {
-    await setupVault(page);
+  test("fills delayed self-service OTP field after setup", async ({ page, extensionId, context }) => {
+    await setupVault(page, extensionId);
 
     const fixturePage = await context.newPage();
     await fixturePage.goto(SELF_SERVICE_FIXTURE_URL);
@@ -459,14 +450,5 @@ test.describe("not set up (onboarding)", () => {
     await expect(fixturePage.locator(`[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"]`)).toHaveValue(otp, {
       timeout: 15_000,
     });
-  });
-
-  test("ignores invalid self-service secret while onboarding", async ({ page, context }) => {
-    const fixturePage = await context.newPage();
-    await fixturePage.goto(SELF_SERVICE_INVALID_SECRET_FIXTURE_URL);
-
-    await expect(page.locator("#totpSecret")).toHaveValue("");
-    await fixturePage.waitForTimeout(3000);
-    await expect(page.locator("#totpSecret")).toHaveValue("");
   });
 });

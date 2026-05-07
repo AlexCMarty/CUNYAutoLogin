@@ -1,6 +1,6 @@
 <!-- Load when: touching vault, credentials, storage, crypto, SSO session termination, or any sensitive data path -->
 
-> **Security stakes**: This extension stores institutional login credentials for 275,000+ CUNY students. It is subject to CUNY IT security review and Chrome Web Store scrutiny. A credential exposure is institutional-scale — extensions get removed and developers face discipline. **Never suggest `localStorage`, unencrypted `storage.local`, or any on-disk store for sensitive plaintext data.** Secrets belong in `browser.storage.session` (in-memory, cleared on browser close) or in encrypted `browser.storage.local` as the vault blob (`cunyVault` / `StoredVault`). **`storage.local` exception:** the boolean `cunyOnboardingCompleted` (onboarding reached `COMPLETE_DONE`, not a credential) is documented below — do not add other `storage.local` keys without review.
+> **Security stakes**: This extension stores institutional login credentials for 275,000+ CUNY students. It is subject to CUNY IT security review and Chrome Web Store scrutiny. A credential exposure is institutional-scale — extensions get removed and developers face discipline. **Never suggest `localStorage`, unencrypted `storage.local`, or any on-disk store for sensitive plaintext data.** Secrets belong in `browser.storage.session` (in-memory, cleared on browser close) or in encrypted `browser.storage.local` as the vault blob (`cunyVault` / `StoredVault`). `storage.local` is reserved for the encrypted vault — do not add other keys without review.
 
 # Security, crypto, and gotchas
 
@@ -8,7 +8,7 @@ The master password is **never written to `storage.local` or disk**. It lives on
 
 ## Key constraints
 
-- **`browser.storage.local` allowed keys** — (1) **`cunyVault`**: encrypted `StoredVault` only. (2) **`cunyOnboardingCompleted`**: `true` when the student finishes onboarding (`COMPLETE_DONE`); cleared when the vault is wiped (`src/onboarding/onboardingComplete.ts`). Both are non-credential; nothing else may be added to `storage.local` without an explicit security pass.
+- **`browser.storage.local` allowed keys** — only **`cunyVault`** (encrypted `StoredVault`). Nothing else may be added to `storage.local` without an explicit security pass.
 - **Master password never in `storage.local`** — `decryptVault` / `encryptVault` accept it as a parameter. Never write it to `storage.local` or logs.
 - **`browser` import** — always `import browser from "webextension-polyfill"`, never `chrome.*`.
 - **Minimum browser versions** — `storage.session` requires Firefox 128+ and Chrome 141+. Do not lower these without adding a fallback.

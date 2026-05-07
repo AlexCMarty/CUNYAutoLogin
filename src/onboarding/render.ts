@@ -31,7 +31,6 @@ import {
   isOnboardingMessage,
 } from "./messages";
 import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
-import { markOnboardingComplete } from "./onboardingComplete";
 import { SCREEN_MOUNTS } from "./screenMounts";
 import { showSetDefaultOptionOverlay } from "./screens/setDefault";
 import type {
@@ -681,9 +680,6 @@ const subscribeOnboardingController = (
   let lastState: OnboardingState = controller.getSnapshot().state;
   return controller.subscribe((snapshot) => {
     if (!suppressResumeSnapshots) void saveResumeSnapshot(snapshot);
-    if (snapshot.state === "COMPLETE_DONE" && snapshot.state !== lastState) {
-      void markOnboardingComplete();
-    }
     if (snapshot.state === lastState) return;
     lastState = snapshot.state;
     repaint();

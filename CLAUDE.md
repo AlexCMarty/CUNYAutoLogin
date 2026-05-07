@@ -24,8 +24,7 @@ npm run build:e2e   # dev + manifest.e2e.json for Playwright
 npm run test        # unit + e2e
 npm run test:unit   # vitest run (no build step needed)
 npm run test:e2e    # build:e2e + playwright
-npm run capture-sidebar -- '#vault=1'      # PNG of sidebar.html + hash → path on stdout (after build:e2e); 380×800 viewport by default; --width / --height optional
-npm run capture-sidebar -- '#qa=WELCOME'  # jump to any onboarding screen by state name (dev/e2e only)
+npm run capture-sidebar -- '#qa=WELCOME'  # PNG of sidebar.html + hash → path on stdout (after build:e2e); 380×800 viewport by default; --width / --height optional; jump to any onboarding screen by state name (dev/e2e only)
 npm run typecheck   # tsc --noEmit
 ```
 

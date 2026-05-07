@@ -16,7 +16,6 @@
       The shell mounts when there is no vault yet, when a session resume snapshot
       exists, or when the dev/e2e URL hash contains #onboarding=1 (sidebar.ts).
       Hash #qa=ONBOARDING_STATE (dev/e2e only) jumps to that onboarding screen for visual QA.
-      Hash #vault=1 (dev/e2e only) opens the vault form on a fresh profile for tests.
     -->
     <div id="onboarding-root" hidden></div>
     <main class="vault-wrap">
@@ -34,11 +33,6 @@
         <span class="vault-locked-pill">Locked</span>
         <h1 id="vault-greeting" class="vault-greeting">Welcome back.</h1>
         <p id="vault-greeting-sub" class="vault-greeting-sub">Type your password to fill your CUNY sign-in.</p>
-      </div>
-
-      <!-- Setup-mode header (shown only in setup mode) -->
-      <div id="vault-setup-header" class="vault-setup-header" hidden>
-        <h1 class="vault-greeting">CUNYAutoLogin</h1>
       </div>
 
       <p id="status" class="vault-status-msg" role="status" aria-live="polite"></p>
@@ -97,7 +91,7 @@
           <label class="vault-field">
             <span id="master-label" class="vault-field-label">Extension password</span>
             <div class="vault-input-wrap">
-              <input id="masterPassword" type="password" autocomplete="off" minlength="8" class="vault-input" />
+              <input id="masterPassword" type="password" autocomplete="off" class="vault-input" />
               <button type="button" class="toggle-visibility" aria-label="Show extension password" tabindex="-1"></button>
             </div>
           </label>
@@ -114,7 +108,6 @@
                 id="newMasterPassword"
                 type="password"
                 autocomplete="new-password"
-                minlength="8"
                 class="vault-input"
               />
               <button type="button" class="toggle-visibility" aria-label="Show new password" tabindex="-1"></button>
@@ -127,7 +120,6 @@
                 id="confirmNewMasterPassword"
                 type="password"
                 autocomplete="new-password"
-                minlength="8"
                 class="vault-input"
               />
               <button type="button" class="toggle-visibility" aria-label="Show confirm password" tabindex="-1"></button>

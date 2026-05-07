@@ -5,10 +5,10 @@
  * Requires a built extension: `npm run build:e2e` (writes to dist/).
  *
  * Usage:
- *   node scripts/capture-sidebar.mjs '#vault=1'
+ *   node scripts/capture-sidebar.mjs '#qa=WELCOME'
  *   node scripts/capture-sidebar.mjs --hash '#qa=SOME_STATE'
- *   node scripts/capture-sidebar.mjs --out-dir /tmp/caps '#vault=1'
- *   node scripts/capture-sidebar.mjs --width 400 --height 900 '#vault=1'
+ *   node scripts/capture-sidebar.mjs --out-dir /tmp/caps '#qa=EMAIL_ENTRY'
+ *   node scripts/capture-sidebar.mjs --width 400 --height 900 '#qa=WELCOME'
  *
  * On success, prints a single absolute path to stdout (the PNG file).
  * Logs and errors go to stderr.
@@ -32,7 +32,7 @@ function usage() {
   process.stderr.write(`Usage: capture-sidebar.mjs [options] [<hash-fragment>]
 
 Options:
-  --hash <string>     URL hash (e.g. #vault=1). Overrides positional fragment.
+  --hash <string>     URL hash (e.g. #qa=WELCOME). Overrides positional fragment.
   --out-dir <path>    Directory for PNG (default: agent_screenshots under repo root)
   --extension-dir     Unpacked extension directory (default: dist)
   --width <px>        Browser viewport width (default: ${defaultViewportWidth})
@@ -40,7 +40,7 @@ Options:
   --full-page         Use full-page screenshot (default: true)
   --no-full-page      Viewport-only screenshot
 
-Positional <hash-fragment> may be "#vault=1" or "vault=1" (leading # optional).
+Positional <hash-fragment> may be "#qa=WELCOME" or "qa=WELCOME" (leading # optional).
 
 Requires: npm run build:e2e (or equivalent) so dist/ exists.
 `);

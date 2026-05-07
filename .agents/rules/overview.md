@@ -120,4 +120,3 @@ Rebuild and reload after any source change.
 ## Dev/E2E escape hatches
 
 - `#onboarding=1` URL hash — forces onboarding in sidebar (dev/e2e only)
-- `#vault=1` URL hash — forces vault setup form even with no stored vault (e2e only)

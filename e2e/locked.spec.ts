@@ -10,18 +10,14 @@ import {
 } from "./constants";
 import { expect, test } from "./extension-fixture";
 import {
-  clearVaultIfPossible,
   expectInputRemainsEmpty,
-  gotoPrimarySurface,
   lockVault,
   setupVault,
 } from "./helpers";
 
 test.describe("vault locked", () => {
   test.beforeEach(async ({ page, extensionId }) => {
-    await gotoPrimarySurface(page, extensionId);
-    await clearVaultIfPossible(page);
-    await setupVault(page);
+    await setupVault(page, extensionId);
     await lockVault(page);
   });
 

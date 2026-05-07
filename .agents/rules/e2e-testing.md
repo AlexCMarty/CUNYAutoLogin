@@ -28,7 +28,7 @@ Extends Playwright `test` with a `context` fixture that launches Chromium via `c
 
 ## Sidebar screenshot CLI (`scripts/capture-sidebar.mjs`)
 
-For agents or humans who need a **single PNG** of `sidebar.html` with a URL hash (no fixture server, no full Playwright suite): `npm run build:e2e` then `npm run capture-sidebar -- '#vault=1'` (or `--hash '…'`). Viewport defaults to **380×800**; use `--width` / `--height` for other sizes. Writes under `agent_screenshots/` by default; stdout is the absolute path. See `CONTRIBUTING.md` → **Sidebar screenshots (CLI)**.
+For agents or humans who need a **single PNG** of `sidebar.html` with a URL hash (no fixture server, no full Playwright suite): `npm run build:e2e` then `npm run capture-sidebar -- '#qa=WELCOME'` (or `--hash '…'`). Viewport defaults to **380×800**; use `--width` / `--height` for other sizes. Writes under `agent_screenshots/` by default; stdout is the absolute path. See `CONTRIBUTING.md` → **Sidebar screenshots (CLI)**.
 
 ## Test isolation and concurrency
 
@@ -37,10 +37,11 @@ For agents or humans who need a **single PNG** of `sidebar.html` with a URL hash
 Many flows use `clearVaultIfPossible` (debug panel `#clear-vault-debug-btn`) — only rendered in dev builds.
 
 Prefer shared helpers from `e2e/helpers.ts`:
-- `gotoPrimarySurface`, `clearVaultIfPossible`, `setupVault`, `lockVault` — vault lifecycle
+- `setupVault(page, extensionId)` — programmatically seeds vault + session master via `window.crypto.subtle`, then reloads sidebar to unlocked state
+- `clearVaultIfPossible(page)` — clicks dev-panel `#clear-vault-debug-btn` if present; post-clear asserts WELCOME screen
+- `lockVault(page)` — clicks lock button, asserts locked header
 - `walkToPasswordEntry` — Welcome → Email → Password
 - `onboardingHashWith(cunyUrl)` — builds `#onboarding=1&cuny=<encoded>` hash
-- `gotoPrimarySurface` — loads `sidebar.html#vault=1`
 
 ## Adding fixture pages
 

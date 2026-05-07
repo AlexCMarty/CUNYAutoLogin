@@ -77,10 +77,10 @@ End-to-end fixtures and the fixture server (`e2e/fixtures-server.mjs`) mirror th
 
 ## Sidebar screenshot CLI
 
-For **sidebar-only** visual QA (layout, `#vault=1`, `#qa=<STATE>`, etc.) without hitting live CUNY:
+For **sidebar-only** visual QA (layout, `#qa=<STATE>`, etc.) without hitting live CUNY:
 
 1. `npm run build:e2e`
-2. `npm run capture-sidebar -- '#vault=1'` — default viewport **380×800**; override with `--width` / `--height` after `--`.
+2. `npm run capture-sidebar -- '#qa=WELCOME'` — default viewport **380×800**; override with `--width` / `--height` after `--`.
 
 Writes under `agent_screenshots/` (gitignored); prints the **absolute PNG path** on stdout. See `node scripts/capture-sidebar.mjs --help` and [`e2e/extension-fixture.ts`](e2e/extension-fixture.ts) for the same Chromium load-extension approach.
 
@@ -111,10 +111,9 @@ Rebuild and reload after source changes.
 
 ---
 
-## Storage (non-secrets in `storage.local`)
+## Storage (`storage.local`)
 
-- **`cunyVault`** — encrypted `StoredVault`.
-- **`cunyOnboardingCompleted`** — boolean when onboarding reaches `COMPLETE_DONE`; cleared when the vault is wiped.
+- **`cunyVault`** — encrypted `StoredVault`. Only key in `storage.local`.
 
 Do not add new `storage.local` keys without a security review (see `.agents/rules/security.md`).
 

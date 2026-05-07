@@ -152,13 +152,6 @@ body {
   color: var(--clr-text-muted);
 }
 
-/* Setup-mode header */
-.vault-setup-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .vault-greeting {
   margin: 0;
   font-family: var(--font-heading);
@@ -332,7 +325,7 @@ body[data-vault-ui="sidebar-management"] #totp-secret-field {
   display: none;
 }
 
-/* ── Legacy vault selectors (kept for vaultController compat) ── */
+/* Dev debug panel separator (mounted only when MODE === "development"; see src/sidebar/debugPanel.ts). */
 .dev-test {
   margin-top: 16px;
   padding-top: 12px;

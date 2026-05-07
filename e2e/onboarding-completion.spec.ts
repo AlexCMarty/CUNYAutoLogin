@@ -12,10 +12,7 @@ import {
 } from "./constants";
 import { expect, test } from "./extension-fixture";
 import {
-  clearVaultIfPossible,
-  gotoPrimarySurface,
   onboardingHashWith,
-  setupVault,
   walkToPasswordEntry,
 } from "./helpers";
 
@@ -533,9 +530,6 @@ test.describe("smoke: full happy path Screen 1 → Screen 13", () => {
     extensionId,
   }) => {
     // ── Setup ─────────────────────────────────────────────────────────────────
-    await gotoPrimarySurface(page, extensionId);
-    await clearVaultIfPossible(page);
-    await setupVault(page);
     await page.goto(
       `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_ADVANCE_URL)}`
     );
