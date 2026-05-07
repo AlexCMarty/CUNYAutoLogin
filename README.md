@@ -75,3 +75,9 @@ If you **already** use an authenticator app with CUNY, you still go through the 
 ## For developers
 
 Build instructions, release process, and project layout are in [CONTRIBUTING.md](CONTRIBUTING.md). That doc also describes **`npm run capture-sidebar`** — a small CLI that saves a PNG of the extension sidebar for a given URL hash (for example `#vault=1` or `#qa=…`) and prints the image path, without visiting live CUNY sites. The browser viewport defaults to **380×800** (side-panel proportions); pass **`--width`** and **`--height`** after `npm run capture-sidebar --` to change it.
+
+---
+
+## Licensing
+
+Code licensed under [MIT License](LICENSE). Icons in `icons/` derived from [Wikimedia](https://commons.wikimedia.org/wiki/File:Hutkachel.svg): © Mabit1, CC BY-SA 4.0; modifications © Alexander Marty, same license.

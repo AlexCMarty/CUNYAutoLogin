@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 const manifestSrc =
   process.env.E2E_MANIFEST === "1" ? "src/manifest.e2e.json" : "src/manifest.json";
@@ -44,6 +45,9 @@ export default defineConfig(({ mode }) => {
       sourcemap: isDev,
     },
     plugins: [
+      viteStaticCopy({
+        targets: [{ src: "icons/*", dest: "icons" }],
+      }),
       emitMergedManifestPlugin(),
     ],
   };
