@@ -136,6 +136,7 @@ export const enrollBiometric = (masterPassword: string): ResultAsync<void, Biome
       // Step 2 — derive PRF secret via get() using the just-registered credential
       const rawAssertion = await navigator.credentials.get({
         publicKey: {
+          rpId: WEBAUTHN_RP_ID,
           challenge: crypto.getRandomValues(new Uint8Array(32)),
           allowCredentials: [{ id: credentialId, type: "public-key" as const }],
           userVerification: "required",
@@ -202,6 +203,7 @@ export const unlockWithBiometric = (): ResultAsync<string, BiometricError> =>
 
       const rawAssertion = await navigator.credentials.get({
         publicKey: {
+          rpId: WEBAUTHN_RP_ID,
           challenge: crypto.getRandomValues(new Uint8Array(32)),
           allowCredentials: [{ id: credentialId, type: "public-key" as const }],
           userVerification: "required",
