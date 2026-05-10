@@ -83,10 +83,6 @@ describe("forward chain", () => {
     expect(isAtTerminal(state)).toBe(true);
   });
 
-  test("skipping biometrics from BIOMETRIC_OFFER lands directly on COMPLETE_DEMO", () => {
-    expect(advance("BIOMETRIC_OFFER", "BIOMETRIC_DECLINED")).toBe("COMPLETE_DEMO");
-  });
-
   test("every non-terminal state has at least one forward target", () => {
     for (const state of ONBOARDING_STATES) {
       if (state === "COMPLETE_DONE") continue;
@@ -136,16 +132,11 @@ describe("back-button contract", () => {
       "VERIFY_LOGIN_CODE",
       "SET_DEFAULT",
       "EXT_PASSWORD_SETUP",
-      "BIOMETRIC_OFFER",
       "COMPLETE_DEMO",
       "COMPLETE_DONE",
     ] as const) {
       expect(backStateFor(state)).toBeNull();
     }
-  });
-
-  test("BIOMETRIC_PREP → BIOMETRIC_OFFER is the only guided back allowed after commit", () => {
-    expect(backStateFor("BIOMETRIC_PREP")).toBe("BIOMETRIC_OFFER");
   });
 });
 

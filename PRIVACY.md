@@ -34,10 +34,6 @@ This policy describes how the **CUNYAutoLogin** browser extension (“the extens
 
 If you **uninstall** the extension or **clear** extension data, locally stored vault and flags are removed according to your browser’s behavior.
 
-### Biometrics (optional)
-
-If you choose to use **fingerprint or face unlock**, the extension uses the browser’s **Web Authentication (WebAuthn)** APIs with a **platform** authenticator. Verification is handled by **your device and browser**, not by servers operated by this project. The extension does not receive your raw biometric data.
-
 ### Information we do not collect as a product feature
 
 The extension does **not** collect:

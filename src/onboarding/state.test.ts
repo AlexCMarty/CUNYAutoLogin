@@ -76,10 +76,8 @@ describe("STATE_TO_BEAD", () => {
     expect(beadForState("SET_DEFAULT")).toBe(3);
   });
 
-  test("bead 4 covers extension password + biometric screens", () => {
+  test("bead 4 covers extension password screen", () => {
     expect(beadForState("EXT_PASSWORD_SETUP")).toBe(4);
-    expect(beadForState("BIOMETRIC_OFFER")).toBe(4);
-    expect(beadForState("BIOMETRIC_PREP")).toBe(4);
   });
 
   test("bead 5 covers the final demo + done screens", () => {
@@ -140,10 +138,8 @@ describe("resume policy", () => {
     expect(safeResumeStateFor("CREDENTIAL_ERROR")).toBe("PASSWORD_ENTRY");
   });
 
-  test("extension password setup and terminal done are non-resumable; biometrics resume in-place", () => {
+  test("extension password setup and terminal done are non-resumable", () => {
     expect(safeResumeStateFor("EXT_PASSWORD_SETUP")).toBeNull();
-    expect(safeResumeStateFor("BIOMETRIC_OFFER")).toBe("BIOMETRIC_OFFER");
-    expect(safeResumeStateFor("BIOMETRIC_PREP")).toBe("BIOMETRIC_PREP");
     expect(safeResumeStateFor("COMPLETE_DEMO")).toBe("COMPLETE_DEMO");
     expect(safeResumeStateFor("COMPLETE_DONE")).toBeNull();
   });

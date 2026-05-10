@@ -49,7 +49,8 @@ src/
   onboarding/screens/           welcome, emailEntry, passwordEntry, cunyTotp, openingCuny, allowGate,
                                 oaaSpaHome, guidedManage, guidedAddFactor, guidedFactorType,
                                 guidedSecretCapture, verifyLoginCode, setDefault, extPasswordSetup,
-                                biometricOffer, biometricPrep, completeDemo, completeDone.
+                                completeDemo, completeDone.
+                                biometricOffer, biometricPrep — dev build only (not wired in prod).
                                 CREDENTIAL_ERROR is an onboarding state (not a separate file): inline UX
                                 lives in emailEntry.ts / passwordEntry.ts.
                                 guidedCommon.ts — shared guided-flow helpers
@@ -79,7 +80,7 @@ vite.content.config.ts          Builds content.ts as single IIFE (inlineDynamicI
 e2e/
   onboarding.spec.ts            First-run, screens 1–4, credential-error regressions
   onboarding-guided.spec.ts     Overlay, guided CUNY steps, verify / set-default flows
-  onboarding-completion.spec.ts Extension password, biometrics, completion, interruptions
+  onboarding-completion.spec.ts Extension password, completion, interruptions
   locked.spec.ts                Vault locked behavior
   unlocked.spec.ts              Unlocked vault + autofill
   helpers.ts                    gotoPrimarySurface, clearVaultIfPossible, setupVault, lockVault,

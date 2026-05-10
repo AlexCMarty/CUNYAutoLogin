@@ -2,7 +2,7 @@
 
 How many times a day do you log into CUNYFirst? Probably more than once. CUNY signs you out often. This browser extension fills in your CUNY login and authenticator code on the official sign-in page so you spend less time typing and more time studying.
 
-**Privacy:** Your email, password, and authenticator secret are **encrypted** on your computer. You choose an **extension password** that unlocks the vault. During setup, the extension may ask your device for a one-time Face ID / fingerprint confirmation to configure biometric support.
+**Privacy:** Your email, password, and authenticator secret are **encrypted** on your computer. You choose an **extension password** that unlocks the vault.
 
 If something breaks or feels confusing, please [open an issue](https://github.com/AlexCMarty/CUNYAutoLogin/issues).
 
@@ -43,8 +43,7 @@ The first time you use the extension, the **sidebar** walks you through setup in
 3. **Autofill (partially)** — then the extension opens **CUNY Login** in a new tab and can fill your email and password for that first sign-in. You need to type a six digit code, but this is the **last time** you'll have to do that.
 4. **Set up login codes** — the flow guides you through **CUNY MFA Self-Service** so you can add a **Mobile Authenticator (TOTP)**. **Do not share the secret** with anyone; it is equivalent to your authenticator for sign-in.
 5. **Extension password** — this is your **vault master password**. It encrypts everything stored locally. It is kept in the browser session while unlocked, not shipped to a server.
-6. **Optional: biometrics setup check** — if your device supports it, you may be offered a **Face ID / fingerprint** prompt during onboarding (you can skip this and continue with your extension password).
-7. **Log in!** You will be redirected to Brightspace to watch the automatic login. **It fills the six digit code for you**.
+6. **Log in!** You will be redirected to Brightspace to watch the automatic login. **It fills the six digit code for you**.
 
 If you close the sidebar mid-setup, **open it again in the same browser session**; the flow can often resume from a safe point. If something goes wrong on the CUNY page, the sidebar usually explains the next step.
 
@@ -52,7 +51,7 @@ If you close the sidebar mid-setup, **open it again in the same browser session*
 
 ## Everyday use
 
-- Open your browser and **unlock** the extension if it asks for your extension password (or use biometrics if you turned that on).
+- Open your browser and **unlock** the extension if it asks for your extension password.
 - Go to CUNYFirst, Brightspace, DegreeWorks, or any site that sends you through **CUNY Login**. It will fill automatically while the vault is unlocked.
 
 ---
