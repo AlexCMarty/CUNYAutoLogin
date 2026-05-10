@@ -206,13 +206,29 @@ export const enrollBiometric = (masterPassword: string): ResultAsync<void, Biome
           ? attestationResponse.getTransports()
           : ["internal"];
 
-      // Step 2 — derive PRF output, preferring the create() result (one prompt)
+      // Step 2 — check whether the platform supports PRF at all
       const createExtResults = rawCredential.getClientExtensionResults() as {
-        prf?: { results?: { first?: ArrayBuffer } };
+        prf?: { enabled?: boolean; results?: { first?: ArrayBuffer } };
       };
+
+      if (import.meta.env.MODE !== "production") {
+        // eslint-disable-next-line no-console
+        console.debug("[CUNYAutoLogin] biometric create ext results", JSON.stringify({
+          prfEnabled: createExtResults.prf?.enabled,
+          prfHasResults: !!createExtResults.prf?.results?.first,
+          transports,
+        }));
+      }
+
+      // prf.enabled === false means the platform (e.g. Windows Hello pre-25H2,
+      // Chrome GPM) does not support HMAC-secret. Calling get() with PRF would
+      // cause Windows to show "Something went wrong". Bail immediately so the
+      // prep screen shows the graceful fallback instead.
+      if (createExtResults.prf?.enabled === false) throw new PrfUnavailableError();
+
       const prfFromCreate = createExtResults.prf?.results?.first;
 
-      // Prefer PRF from create() (one prompt); fall back to get() if not returned.
+      // Prefer PRF from create() (one prompt); fall back to get() if enabled but deferred.
       const prfOutput: ArrayBuffer =
         prfFromCreate ?? await prfViaGet(credentialId, transports, prfSalt);
 
