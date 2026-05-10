@@ -1,49 +1,16 @@
-import { EXTENSION_NAME, WEBAUTHN_RP_ID } from "../../cuny/ssoSite";
+import browser from "webextension-polyfill";
+import { SESSION_MASTER_KEY } from "../../cuny/ssoSite";
+import { enrollBiometric, type BiometricError } from "../../crypto/biometric";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
-const WEBAUTHN_UI_TIMEOUT_MS = 20_000;
-const WEBAUTHN_CEREMONY_TIMEOUT_MS = 60_000;
-
-const triggerPlatformAuthenticator = async (): Promise<"success" | "failed" | "timed_out"> => {
-  const abortController = new AbortController();
-  const timeoutHandle = window.setTimeout(() => abortController.abort(), WEBAUTHN_UI_TIMEOUT_MS);
-
-  try {
-    const challenge = crypto.getRandomValues(new Uint8Array(32));
-    const userId = crypto.getRandomValues(new Uint8Array(16));
-    const createOptions: CredentialCreationOptions = {
-      publicKey: {
-        challenge,
-        rp: { name: EXTENSION_NAME, id: WEBAUTHN_RP_ID },
-        user: { id: userId, name: "cuny-user", displayName: "CUNY User" },
-        pubKeyCredParams: [
-          { type: "public-key", alg: -7 },   // COSE ES256 (ECDSA P-256)
-          { type: "public-key", alg: -257 }, // COSE RS256 (RSA PKCS#1 v1.5)
-        ],
-        authenticatorSelection: {
-          authenticatorAttachment: "platform",
-          residentKey: "preferred",
-          userVerification: "required",
-        },
-        attestation: "none",
-        timeout: WEBAUTHN_CEREMONY_TIMEOUT_MS,
-      },
-      signal: abortController.signal,
-    };
-    await navigator.credentials.create(createOptions);
-    return "success";
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      return "timed_out";
-    }
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error("[CUNYAutoLogin] WebAuthn create failed", error);
-    }
-    return "failed";
-  } finally {
-    window.clearTimeout(timeoutHandle);
+const fallbackMessage = (error: BiometricError): string => {
+  if (error === "user_cancelled") {
+    return "Didn't catch that — tap Continue to try again, or go back.";
   }
+  if (error === "prf_unavailable" || error === "unsupported_browser") {
+    return "Your browser or device doesn’t support biometric unlock. You’ll use your extension password instead.";
+  }
+  return "Something went wrong. You’ll use your extension password instead.";
 };
 
 export const mountBiometricPrepScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
@@ -55,13 +22,13 @@ export const mountBiometricPrepScreen: ScreenMount = (ctx: OnboardingScreenConte
 
   const h2 = doc.createElement("h2");
   h2.className = "onboarding-headline";
-  h2.textContent = "One more thing";
+  h2.textContent = "Set up biometric unlock";
   container.appendChild(h2);
 
   const body = doc.createElement("p");
   body.className = "onboarding-body";
   body.textContent =
-    "Your browser is about to ask for permission to use your fingerprint or face. This is handled by your device — not by us.";
+    "Your browser will prompt you twice — once to register, once to confirm. Both gestures stay on your device.";
   container.appendChild(body);
 
   const statusMsg = doc.createElement("p");
@@ -94,20 +61,45 @@ export const mountBiometricPrepScreen: ScreenMount = (ctx: OnboardingScreenConte
 
     continueBtn.disabled = true;
     backBtn.hidden = true;
+    statusMsg.hidden = true;
 
-    const result = await triggerPlatformAuthenticator();
-    if (result === "success") {
+    // Master password is written to session storage by extPasswordSetup.ts
+    // immediately before this state is entered.
+    const sessionData = await browser.storage.session?.get(SESSION_MASTER_KEY).catch(() => null);
+    const masterPassword =
+      typeof sessionData?.[SESSION_MASTER_KEY] === "string"
+        ? (sessionData[SESSION_MASTER_KEY] as string)
+        : null;
+
+    if (!masterPassword) {
+      statusMsg.hidden = false;
+      statusMsg.textContent =
+        "Could not read your extension password from the session. Go back and re-enter it.";
+      backBtn.hidden = false;
+      continueBtn.disabled = false;
+      continueBtn.textContent = "Continue anyway";
+      fallbackMode = true;
+      return;
+    }
+
+    const result = await enrollBiometric(masterPassword);
+
+    if (result.isOk()) {
       dispatch("BIOMETRIC_PREP_DONE");
       return;
     }
 
+    const message = fallbackMessage(result.error);
     statusMsg.hidden = false;
-    statusMsg.textContent =
-      result === "timed_out"
-        ? "We couldn't start your device's biometric prompt from this panel. You can continue with your extension password."
-        : "No problem — you'll use your extension password to unlock.";
+    statusMsg.textContent = message;
     backBtn.hidden = false;
     continueBtn.disabled = false;
+
+    if (result.error === "user_cancelled") {
+      // Let the user retry without entering fallback mode
+      return;
+    }
+
     continueBtn.textContent = "Continue anyway";
     fallbackMode = true;
   });

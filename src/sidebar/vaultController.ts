@@ -308,6 +308,14 @@ async function handleUnlocked(els: SidebarDom): Promise<void> {
   sessionPayload = { email, password, totpSecret };
   sessionMasterPassword = masterPasswordToUse;
   await saveSessionMaster(masterPasswordToUse);
+  if (import.meta.env.DEV && sessionMasterPassword !== null && masterPasswordToUse !== sessionMasterPassword) {
+    // Stale biometric credential would decrypt to old password — clear it so
+    // the unlock button disappears until the user re-enrolls.
+    const { clearBiometricCredential } = await import("../crypto/biometric");
+    await clearBiometricCredential();
+    const bioBtn = document.getElementById("biometric-unlock-btn");
+    if (bioBtn) bioBtn.hidden = true;
+  }
   els.newMasterPassword.value = "";
   els.confirmNewMasterPassword.value = "";
   setStatus("Changes saved. Secrets are encrypted locally.", true);
@@ -336,6 +344,47 @@ async function resetToFreshInstall(): Promise<void> {
   await clearSessionMaster();
   await clearPendingTotpFromSession();
   window.location.reload();
+}
+
+async function maybeWireBiometricUnlock(els: SidebarDom): Promise<void> {
+  const bioBtn = document.getElementById("biometric-unlock-btn") as HTMLButtonElement | null;
+  if (!bioBtn) return;
+
+  const { isBiometricEnrolled, unlockWithBiometric } = await import("../crypto/biometric");
+  if (!(await isBiometricEnrolled())) return;
+
+  bioBtn.hidden = false;
+  bioBtn.addEventListener("click", async () => {
+    if (currentMode !== "locked" || !storedVault) return;
+    bioBtn.disabled = true;
+    setStatus("");
+
+    const masterResult = await unlockWithBiometric();
+    if (masterResult.isErr()) {
+      const msg =
+        masterResult.error === "user_cancelled"
+          ? "Cancelled — enter your extension password."
+          : "Biometric failed — enter your extension password.";
+      setStatus(msg);
+      bioBtn.disabled = false;
+      return;
+    }
+
+    const decResult = await decryptVault(storedVault, masterResult.value);
+    if (decResult.isErr()) {
+      setStatus("Biometric out of sync — enter your extension password.");
+      bioBtn.disabled = false;
+      return;
+    }
+
+    sessionPayload = decResult.value;
+    sessionMasterPassword = masterResult.value;
+    await saveSessionMaster(masterResult.value);
+    currentMode = "unlocked";
+    setStatus("");
+    renderMode(els);
+    bioBtn.disabled = false;
+  });
 }
 
 async function maybeMountDevDebugPanel(els: SidebarDom): Promise<void> {
@@ -396,6 +445,10 @@ async function init(): Promise<void> {
   });
 
   els.lockBtn.addEventListener("click", () => void handleLock(els));
+
+  if (import.meta.env.DEV) {
+    await maybeWireBiometricUnlock(els);
+  }
 
   await maybeMountDevDebugPanel(els);
 }
