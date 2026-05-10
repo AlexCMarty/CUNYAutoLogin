@@ -1,17 +1,17 @@
 /**
  * WebAuthn PRF-based biometric vault unlock.
  *
- * Enrollment: credentials.create() registers a platform credential, then
- * credentials.get() with the PRF extension derives a 32-byte secret that
- * AES-GCM-encrypts the master password. The wrapped blob is stored in
- * storage.local["cunyBiometricCredential"] — no plaintext secrets on disk.
+ * Enrollment: credentials.create() registers a platform credential and
+ * requests the PRF extension. If the platform authenticator returns the PRF
+ * output during create() (Windows Hello / Chrome does), enrollment completes
+ * in one prompt. Otherwise a second credentials.get() prompt derives it.
  *
- * Unlock: credentials.get() re-derives the same PRF secret, decrypts the
- * wrapped master password, and returns it for the normal decryptVault() path.
+ * Unlock: credentials.get() re-derives the same PRF secret (one prompt),
+ * decrypts the wrapped master password, and returns it for decryptVault().
  *
  * Requires Chrome 122+ or Firefox 150+ (host_permissions over ssologin.cuny.edu
  * allows rp.id to be set from an extension page). On Firefox 128–149 the
- * credentials call throws SecurityError, which maps to "unsupported_browser".
+ * credentials call throws SecurityError → "unsupported_browser".
  */
 
 import browser from "webextension-polyfill";
@@ -34,12 +34,13 @@ export type BiometricError =
 interface StoredBiometricCredential {
   version: 1;
   credentialIdB64: string;
+  /** Transports from getTransports() — used in allowCredentials so Chrome routes to platform authenticator. */
+  transports: string[];
   prfSaltB64: string;
   ivB64: string;
   wrappedMasterB64: string;
 }
 
-// Sentinel errors used to thread distinct failure modes through ResultAsync.fromPromise
 class PrfUnavailableError extends Error {}
 class NotEnrolledError extends Error {}
 
@@ -84,6 +85,7 @@ const isStoredBiometricCredential = (value: unknown): value is StoredBiometricCr
   return (
     candidate.version === 1 &&
     typeof candidate.credentialIdB64 === "string" &&
+    Array.isArray(candidate.transports) &&
     typeof candidate.prfSaltB64 === "string" &&
     typeof candidate.ivB64 === "string" &&
     typeof candidate.wrappedMasterB64 === "string"
@@ -96,24 +98,83 @@ const readStoredCredential = async (): Promise<StoredBiometricCredential | null>
   return isStoredBiometricCredential(value) ? value : null;
 };
 
+async function prfViaGet(
+  credentialId: Uint8Array<ArrayBuffer>,
+  transports: string[],
+  prfSalt: Uint8Array<ArrayBuffer>
+): Promise<ArrayBuffer> {
+  const rawAssertion = await navigator.credentials.get({
+    publicKey: {
+      rpId: WEBAUTHN_RP_ID,
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials: [{
+        id: credentialId,
+        type: "public-key" as const,
+        transports: transports as AuthenticatorTransport[],
+      }],
+      userVerification: "required",
+      timeout: WEBAUTHN_TIMEOUT_MS,
+      extensions: { prf: { eval: { first: prfSalt } } } as AuthenticationExtensionsClientInputs,
+    },
+  });
+  if (!(rawAssertion instanceof PublicKeyCredential)) {
+    throw new TypeError("unexpected assertion type");
+  }
+  const extResults = rawAssertion.getClientExtensionResults() as {
+    prf?: { results?: { first?: ArrayBuffer } };
+  };
+  const prfOutput = extResults.prf?.results?.first;
+  if (!prfOutput) throw new PrfUnavailableError();
+  return prfOutput;
+}
+
+async function wrapMasterPassword(
+  prfOutput: ArrayBuffer,
+  masterPassword: string
+): Promise<{ iv: Uint8Array; wrappedMaster: Uint8Array }> {
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    prfOutput,
+    "AES-GCM",
+    false,
+    ["encrypt", "decrypt"]
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+  const wrappedMaster = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv as BufferSource },
+      aesKey,
+      new TextEncoder().encode(masterPassword)
+    )
+  );
+  return { iv, wrappedMaster };
+}
+
 /**
- * Two-step enrollment: create() registers the platform credential, get() with
- * PRF derives the 32-byte secret used to AES-GCM-wrap the master password.
- * Triggers two biometric prompts on most platforms.
+ * Enrollment:
+ * - Requests PRF during create() — on Windows Hello / Chrome the PRF output
+ *   is returned immediately (one prompt total).
+ * - If the platform doesn't return PRF from create(), falls back to a second
+ *   get() call (two prompts).
+ * - Transports from getTransports() are stored so future get() calls can
+ *   specify them in allowCredentials, routing Chrome to the platform
+ *   authenticator instead of the security-key fallback.
  */
 export const enrollBiometric = (masterPassword: string): ResultAsync<void, BiometricError> =>
   ResultAsync.fromPromise(
     (async () => {
-      const challenge = crypto.getRandomValues(new Uint8Array(32));
-      const userId = crypto.getRandomValues(new Uint8Array(16));
       const prfSalt = crypto.getRandomValues(new Uint8Array(32));
 
-      // Step 1 — register the platform credential
+      // Step 1 — register the platform credential, requesting PRF eval in one shot
       const rawCredential = await navigator.credentials.create({
         publicKey: {
-          challenge,
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
           rp: { name: EXTENSION_NAME, id: WEBAUTHN_RP_ID },
-          user: { id: userId, name: "cuny-user", displayName: "CUNY User" },
+          user: {
+            id: crypto.getRandomValues(new Uint8Array(16)),
+            name: "cuny-user",
+            displayName: "CUNY User",
+          },
           pubKeyCredParams: [
             { type: "public-key" as const, alg: -7 },   // COSE ES256
             { type: "public-key" as const, alg: -257 }, // COSE RS256
@@ -125,58 +186,44 @@ export const enrollBiometric = (masterPassword: string): ResultAsync<void, Biome
           },
           attestation: "none" as const,
           timeout: WEBAUTHN_TIMEOUT_MS,
+          // Request PRF during create — platform authenticators (Windows Hello,
+          // Touch ID) return the output here, saving a second get() prompt.
+          extensions: { prf: { eval: { first: prfSalt } } } as AuthenticationExtensionsClientInputs,
         },
       });
 
       if (!(rawCredential instanceof PublicKeyCredential)) {
         throw new TypeError("unexpected credential type");
       }
+
       const credentialId = new Uint8Array(rawCredential.rawId);
 
-      // Step 2 — derive PRF secret via get() using the just-registered credential
-      const rawAssertion = await navigator.credentials.get({
-        publicKey: {
-          rpId: WEBAUTHN_RP_ID,
-          challenge: crypto.getRandomValues(new Uint8Array(32)),
-          allowCredentials: [{ id: credentialId, type: "public-key" as const }],
-          userVerification: "required",
-          timeout: WEBAUTHN_TIMEOUT_MS,
-          // prf not in standard TS DOM types yet — cast is intentional
-          extensions: { prf: { eval: { first: prfSalt } } } as AuthenticationExtensionsClientInputs,
-        },
-      });
+      // Capture transports so allowCredentials in future get() calls can route
+      // directly to the platform authenticator, avoiding the security-key dialog.
+      const attestationResponse = rawCredential.response as AuthenticatorAttestationResponse;
+      const transports: string[] =
+        typeof attestationResponse.getTransports === "function"
+          ? attestationResponse.getTransports()
+          : ["internal"];
 
-      if (!(rawAssertion instanceof PublicKeyCredential)) {
-        throw new TypeError("unexpected assertion type");
-      }
-
-      const extResults = rawAssertion.getClientExtensionResults() as {
+      // Step 2 — derive PRF output, preferring the create() result (one prompt)
+      const createExtResults = rawCredential.getClientExtensionResults() as {
         prf?: { results?: { first?: ArrayBuffer } };
       };
-      const prfOutput = extResults.prf?.results?.first;
-      if (!prfOutput) throw new PrfUnavailableError();
+      const prfFromCreate = createExtResults.prf?.results?.first;
 
-      // Step 3 — wrap master password with AES-GCM key derived from PRF output
-      const aesKey = await crypto.subtle.importKey(
-        "raw",
-        prfOutput,
-        "AES-GCM",
-        false,
-        ["encrypt", "decrypt"]
-      );
-      const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-      const wrappedMaster = new Uint8Array(
-        await crypto.subtle.encrypt(
-          { name: "AES-GCM", iv: iv as BufferSource },
-          aesKey,
-          new TextEncoder().encode(masterPassword)
-        )
-      );
+      // Prefer PRF from create() (one prompt); fall back to get() if not returned.
+      const prfOutput: ArrayBuffer =
+        prfFromCreate ?? await prfViaGet(credentialId, transports, prfSalt);
+
+      // Step 3 — AES-GCM-wrap the master password with a key derived from PRF output
+      const { iv, wrappedMaster } = await wrapMasterPassword(prfOutput, masterPassword);
 
       // Step 4 — persist (no plaintext secrets in this blob)
       const stored: StoredBiometricCredential = {
         version: 1,
         credentialIdB64: bytesToBase64(credentialId),
+        transports,
         prfSaltB64: bytesToBase64(prfSalt),
         ivB64: bytesToBase64(iv),
         wrappedMasterB64: bytesToBase64(wrappedMaster),
@@ -187,8 +234,8 @@ export const enrollBiometric = (masterPassword: string): ResultAsync<void, Biome
   );
 
 /**
- * Single-step unlock: get() re-derives the PRF secret, decrypts the wrapped
- * master password, and returns it for the normal decryptVault() path.
+ * Single get() prompt: re-derives the PRF secret, decrypts the wrapped master
+ * password, and returns it for the normal decryptVault() path.
  */
 export const unlockWithBiometric = (): ResultAsync<string, BiometricError> =>
   ResultAsync.fromPromise(
@@ -205,7 +252,11 @@ export const unlockWithBiometric = (): ResultAsync<string, BiometricError> =>
         publicKey: {
           rpId: WEBAUTHN_RP_ID,
           challenge: crypto.getRandomValues(new Uint8Array(32)),
-          allowCredentials: [{ id: credentialId, type: "public-key" as const }],
+          allowCredentials: [{
+            id: credentialId,
+            type: "public-key" as const,
+            transports: stored.transports as AuthenticatorTransport[],
+          }],
           userVerification: "required",
           timeout: WEBAUTHN_TIMEOUT_MS,
           extensions: { prf: { eval: { first: prfSalt } } } as AuthenticationExtensionsClientInputs,
