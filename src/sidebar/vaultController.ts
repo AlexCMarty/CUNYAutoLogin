@@ -308,7 +308,7 @@ async function handleUnlocked(els: SidebarDom): Promise<void> {
   sessionPayload = { email, password, totpSecret };
   sessionMasterPassword = masterPasswordToUse;
   await saveSessionMaster(masterPasswordToUse);
-  if (import.meta.env.DEV && sessionMasterPassword !== null && masterPasswordToUse !== sessionMasterPassword) {
+  if (import.meta.env.MODE !== "production" && sessionMasterPassword !== null && masterPasswordToUse !== sessionMasterPassword) {
     // Stale biometric credential would decrypt to old password — clear it so
     // the unlock button disappears until the user re-enrolls.
     const { clearBiometricCredential } = await import("../crypto/biometric");
@@ -446,7 +446,7 @@ async function init(): Promise<void> {
 
   els.lockBtn.addEventListener("click", () => void handleLock(els));
 
-  if (import.meta.env.DEV) {
+  if (import.meta.env.MODE !== "production") {
     await maybeWireBiometricUnlock(els);
   }
 

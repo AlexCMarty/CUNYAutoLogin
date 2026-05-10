@@ -39,7 +39,7 @@ export const SCREEN_MOUNTS: Partial<Record<OnboardingState, ScreenMount>> = {
   VERIFY_LOGIN_CODE: mountVerifyLoginCodeScreen,
   SET_DEFAULT: mountSetDefaultScreen,
   EXT_PASSWORD_SETUP: mountExtPasswordSetupScreen,
-  ...(import.meta.env.DEV
+  ...(import.meta.env.MODE !== "production"
     ? { BIOMETRIC_OFFER: mountBiometricOfferScreen, BIOMETRIC_PREP: mountBiometricPrepScreen }
     : {}),
   COMPLETE_DEMO: mountCompleteDemoScreen,
