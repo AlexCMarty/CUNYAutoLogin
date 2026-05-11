@@ -85,6 +85,10 @@ Options:
   --full-page           Use full-page screenshot (default: true)
   --no-full-page        Viewport-only screenshot
   --qa-vault-locked     Inject a dummy vault so the sidebar renders in locked-vault mode
+                        (biometric unlock button force-shown for QA)
+  --qa-vault-locked-no-biometric
+                        Same as --qa-vault-locked but without the biometric button —
+                        reflects the locked state for users who have not enrolled biometrics
   --qa-vault-unlocked   Inject a real encrypted vault + session master so the sidebar
                         renders in unlocked-vault / management mode
   --capture-all         Capture all 22 visual states, one PNG each; prints one path per
@@ -117,6 +121,7 @@ function parseArgs(argv) {
     viewportWidth: defaultViewportWidth,
     viewportHeight: defaultViewportHeight,
     qaVaultLocked: false,
+    qaVaultLockedNoBiometric: false,
     qaVaultUnlocked: false,
     captureAll: false,
   };
@@ -156,6 +161,10 @@ function parseArgs(argv) {
     }
     if (a === "--qa-vault-locked") {
       opts.qaVaultLocked = true;
+      continue;
+    }
+    if (a === "--qa-vault-locked-no-biometric") {
+      opts.qaVaultLockedNoBiometric = true;
       continue;
     }
     if (a === "--qa-vault-unlocked") {
@@ -266,8 +275,10 @@ async function encryptQaVault(masterPassword, payload) {
  * @param {string} url  Base sidebar URL (no fragment)
  * @param {{ fullPage: boolean }} opts
  * @param {string} outPath
+ * @param {boolean} [showBiometric=true]  Force-show the biometric unlock button for QA.
+ *   Pass false to capture the locked state as it appears with no biometric enrolled.
  */
-async function captureVaultLocked(page, url, opts, outPath) {
+async function captureVaultLocked(page, url, opts, outPath, showBiometric = true) {
   await page.goto(url, { waitUntil: "load", timeout: 30_000 });
   await page.evaluate(() => {
     return chrome.storage.local.set({
@@ -285,11 +296,12 @@ async function captureVaultLocked(page, url, opts, outPath) {
   await page
     .locator("#vault-locked-header:not([hidden])")
     .waitFor({ state: "visible", timeout: 15_000 });
-  // Show biometric button for visual QA even without real enrollment.
-  await page.evaluate(() => {
-    const btn = document.getElementById("biometric-unlock-btn");
-    if (btn) btn.hidden = false;
-  });
+  if (showBiometric) {
+    await page.evaluate(() => {
+      const btn = document.getElementById("biometric-unlock-btn");
+      if (btn) btn.hidden = false;
+    });
+  }
   await page.screenshot({ path: outPath, fullPage: opts.fullPage });
 }
 
@@ -440,6 +452,11 @@ async function main() {
 
         process.stdout.write(`${path.resolve(outPath)}\n`);
       }
+    } else if (opts.qaVaultLockedNoBiometric) {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const outPath = path.join(opts.outDir, `sidebar-vault-locked-no-biometric-${stamp}.png`);
+      await captureVaultLocked(page, baseUrl, opts, outPath, false);
+      process.stdout.write(`${path.resolve(outPath)}\n`);
     } else if (opts.qaVaultLocked) {
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const outPath = path.join(opts.outDir, `sidebar-vault-locked-${stamp}.png`);
