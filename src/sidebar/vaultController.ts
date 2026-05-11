@@ -67,6 +67,7 @@ let currentMode: Mode = "locked";
 let sessionMasterPassword: string | null = null;
 let sessionPayload: VaultPayload | null = null;
 let storedVault: StoredVault | null = null;
+let biometricAvailable = false;
 
 const isSidebarVaultManagement = (): boolean =>
   document.body.dataset.vaultUi === "sidebar-management";
@@ -181,6 +182,7 @@ const renderUnlockedMode = (
 
 function renderMode(els: SidebarDom): void {
   const { credentialFields, masterPasswordField, changeMasterSection } = els;
+  const bioBtn = document.getElementById("biometric-unlock-btn") as HTMLButtonElement | null;
 
   updateVaultHeaders(currentMode);
 
@@ -193,7 +195,9 @@ function renderMode(els: SidebarDom): void {
     els.modeHint.hidden = true;
     els.modeHint.textContent = "";
     els.submitBtn.textContent = "Unlock";
+    if (bioBtn) bioBtn.hidden = !biometricAvailable;
   } else {
+    if (bioBtn) bioBtn.hidden = true;
     renderUnlockedMode(els, isSidebarVaultManagement(), sessionPayload);
   }
 }
@@ -353,7 +357,9 @@ async function maybeWireBiometricUnlock(els: SidebarDom): Promise<void> {
   const { isBiometricEnrolled, unlockWithBiometric } = await import("../crypto/biometric");
   if (!(await isBiometricEnrolled())) return;
 
-  bioBtn.hidden = false;
+  biometricAvailable = true;
+  // renderMode already ran at init — show the button now if still in locked mode.
+  if (currentMode === "locked") bioBtn.hidden = false;
   bioBtn.addEventListener("click", async () => {
     if (currentMode !== "locked" || !storedVault) return;
     bioBtn.disabled = true;

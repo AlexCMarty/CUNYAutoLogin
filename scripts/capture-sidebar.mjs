@@ -47,7 +47,7 @@ Requires: npm run build:e2e (or equivalent) so dist/ exists.
 }
 
 function parseArgs(argv) {
-  /** @type {{ hash: string; outDir: string; extensionDir: string; fullPage: boolean; viewportWidth: number; viewportHeight: number }} */
+  /** @type {{ hash: string; outDir: string; extensionDir: string; fullPage: boolean; viewportWidth: number; viewportHeight: number; qaVaultLocked: boolean }} */
   const opts = {
     hash: "",
     outDir: defaultOutDir,
@@ -55,6 +55,7 @@ function parseArgs(argv) {
     fullPage: true,
     viewportWidth: defaultViewportWidth,
     viewportHeight: defaultViewportHeight,
+    qaVaultLocked: false,
   };
   const positionals = [];
   for (let i = 2; i < argv.length; i++) {
@@ -88,6 +89,10 @@ function parseArgs(argv) {
     }
     if (a === "--no-full-page") {
       opts.fullPage = false;
+      continue;
+    }
+    if (a === "--qa-vault-locked") {
+      opts.qaVaultLocked = true;
       continue;
     }
     if (a.startsWith("-")) {
@@ -174,12 +179,40 @@ async function main() {
     const extensionId = await getExtensionId(context);
     const url = `chrome-extension://${extensionId}/sidebar.html${fragment}`;
     const page = context.pages()[0] ?? (await context.newPage());
-    await page.goto(url, { waitUntil: "load", timeout: 30_000 });
-    // Onboarding mounts hide `main.vault-wrap`; vault / management keeps it visible.
-    await page
-      .locator("#onboarding-root:not([hidden]), main.vault-wrap:not([hidden])")
-      .first()
-      .waitFor({ state: "visible", timeout: 15_000 });
+
+    if (opts.qaVaultLocked) {
+      // Inject a dummy StoredVault so sidebar.ts routes to the vault controller
+      // instead of onboarding. Navigates twice: once to get extension storage
+      // access, then again so sidebar.ts reads the injected vault on boot.
+      await page.goto(url, { waitUntil: "load", timeout: 30_000 });
+      await page.evaluate(() => {
+        return chrome.storage.local.set({
+          cunyVault: {
+            version: 1,
+            saltB64: "AAAAAAAAAAAAAAAAAAAAAA==",
+            ivB64: "AAAAAAAAAAAAAAAA",
+            ciphertextB64: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          },
+        });
+      });
+      await page.goto(url, { waitUntil: "load", timeout: 30_000 });
+      await page
+        .locator("main.vault-wrap:not([hidden])")
+        .waitFor({ state: "visible", timeout: 15_000 });
+      // Show the biometric button for visual QA even without real enrollment.
+      await page.evaluate(() => {
+        const btn = document.getElementById("biometric-unlock-btn");
+        if (btn) btn.hidden = false;
+      });
+    } else {
+      await page.goto(url, { waitUntil: "load", timeout: 30_000 });
+      // Onboarding mounts hide `main.vault-wrap`; vault / management keeps it visible.
+      await page
+        .locator("#onboarding-root:not([hidden]), main.vault-wrap:not([hidden])")
+        .first()
+        .waitFor({ state: "visible", timeout: 15_000 });
+    }
+
     await page.screenshot({ path: outPath, fullPage: opts.fullPage });
   } finally {
     await context.close();
