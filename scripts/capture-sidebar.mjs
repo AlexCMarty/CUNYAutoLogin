@@ -102,10 +102,6 @@ Hash-fragment shortcuts:
     #qa=PASSWORD_ENTRY&qaCred=password  password field error
   (*) Only present in e2e / non-production builds (build:e2e).
   CREDENTIAL_ERROR has no screen mount — use the qaCred variants above instead.
-  NOTE: BIOMETRIC_OFFER cannot be captured without a virtual PRF authenticator — the
-  screen's capability check fires immediately and auto-transitions to COMPLETE_DEMO in
-  headless Chromium (no biometric hardware). CDP WebAuthn.addVirtualAuthenticator with
-  hasPrf:true would fix this but is not yet wired up.
 
 Requires: npm run build:e2e (or equivalent) so dist/ exists.
 `);
@@ -331,6 +327,49 @@ async function captureVaultUnlocked(page, url, opts, outPath) {
 }
 
 /**
+ * Capture the BIOMETRIC_OFFER screen. Uses a CDP virtual internal authenticator so
+ * PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable() returns true,
+ * preventing the screen from immediately dispatching BIOMETRIC_DECLINED and
+ * transitioning to COMPLETE_DEMO (its behaviour in headless Chromium without hardware).
+ *
+ * Chrome stores the virtual authenticator environment at the WebContents (tab) level,
+ * so it survives the page.goto() navigation below.
+ *
+ * @param {import("@playwright/test").Page} page
+ * @param {string} url  Base sidebar URL (no fragment)
+ * @param {{ fullPage: boolean }} opts
+ * @param {string} outPath
+ */
+async function captureBiometricOffer(page, url, opts, outPath) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable", { enableUI: false });
+  const { authenticatorId } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: {
+      protocol: "ctap2",
+      transport: "internal",
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      hasPrf: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+  try {
+    await page.goto(`${url}#qa=BIOMETRIC_OFFER`, { waitUntil: "load", timeout: 30_000 });
+    // This button is only appended inside the `if (available)` branch of biometricOffer.ts.
+    // Waiting for it proves the offer rendered — not just that the container existed
+    // briefly before the auto-transition to COMPLETE_DEMO replaced it.
+    await page
+      .locator("[data-onboarding-biometric-use='true']")
+      .waitFor({ state: "visible", timeout: 15_000 });
+    await page.screenshot({ path: outPath, fullPage: opts.fullPage });
+  } finally {
+    await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId }).catch(() => {});
+    await cdp.detach().catch(() => {});
+  }
+}
+
+/**
  * Capture an onboarding state via a hash fragment (the common path).
  *
  * @param {import("@playwright/test").Page} page
@@ -392,6 +431,8 @@ async function main() {
           await captureVaultLocked(page, baseUrl, opts, outPath);
         } else if (state === "--qa-vault-unlocked") {
           await captureVaultUnlocked(page, baseUrl, opts, outPath);
+        } else if (state === "#qa=BIOMETRIC_OFFER") {
+          await captureBiometricOffer(page, baseUrl, opts, outPath);
         } else {
           const fragment = normalizeHash(state);
           await captureHash(page, `${baseUrl}${fragment}`, opts, outPath);
@@ -413,7 +454,11 @@ async function main() {
       const fragment = normalizeHash(opts.hash);
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const outPath = path.join(opts.outDir, `sidebar-${fileSlug(fragment)}-${stamp}.png`);
-      await captureHash(page, `${baseUrl}${fragment}`, opts, outPath);
+      if (fragment === "#qa=BIOMETRIC_OFFER") {
+        await captureBiometricOffer(page, baseUrl, opts, outPath);
+      } else {
+        await captureHash(page, `${baseUrl}${fragment}`, opts, outPath);
+      }
       process.stdout.write(`${path.resolve(outPath)}\n`);
     }
   } finally {
