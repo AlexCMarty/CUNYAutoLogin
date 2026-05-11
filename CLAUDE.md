@@ -47,4 +47,5 @@ Commit format: `<type>(<scope>): short summary (≤50 chars)` — body explains 
 - Writing or running unit tests (`src/**/*.test.ts`) → `.agents/rules/unit-testing.md`
 - Writing or running E2E tests (`e2e/`) → `.agents/rules/e2e-testing.md`
 - Prime directives, pre-merge quality checklist → `.agents/rules/code-quality.md`
+- WebAuthn PRF enrollment/unlock, OS/browser minimums, fallback rules, known pitfalls → `.agents/rules/biometrics.md`
 
