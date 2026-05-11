@@ -28,7 +28,20 @@ Extends Playwright `test` with a `context` fixture that launches Chromium via `c
 
 ## Sidebar screenshot CLI (`scripts/capture-sidebar.mjs`)
 
-For agents or humans who need a **single PNG** of `sidebar.html` with a URL hash (no fixture server, no full Playwright suite): `npm run build:e2e` then `npm run capture-sidebar -- '#qa=WELCOME'` (or `--hash '…'`). Viewport defaults to **380×800**; use `--width` / `--height` for other sizes. Writes under `agent_screenshots/` by default; stdout is the absolute path. See `CONTRIBUTING.md` → **Sidebar screenshots (CLI)**.
+For agents or humans who need one or more PNGs of `sidebar.html` without a full Playwright suite: `npm run build:e2e` then one of:
+
+```bash
+npm run capture-sidebar -- '#qa=WELCOME'        # any jumpable onboarding state
+npm run capture-sidebar -- '#qa=EMAIL_ENTRY&qaCred=email'     # credential error on email field
+npm run capture-sidebar -- '#qa=PASSWORD_ENTRY&qaCred=password' # credential error on password field
+npm run capture-sidebar -- --qa-vault-locked    # vault locked UI
+npm run capture-sidebar -- --qa-vault-unlocked  # vault unlocked / management UI (generates real crypto vault)
+npm run capture-sidebar -- --capture-all        # all 22 visual states, one PNG each; prints one path per line
+```
+
+All 18 jumpable onboarding states are valid hash targets. `BIOMETRIC_OFFER` and `BIOMETRIC_PREP` only exist in e2e (non-production) builds. `CREDENTIAL_ERROR` has no screen mount — use the `qaCred` variants above instead.
+
+Viewport defaults to **380×800**; use `--width` / `--height` to override. Writes under `agent_screenshots/` by default; stdout is one absolute path per PNG. Full state table: `CONTRIBUTING.md` → **Sidebar screenshots (CLI)**.
 
 ## Test isolation and concurrency
 

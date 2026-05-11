@@ -77,12 +77,47 @@ End-to-end fixtures and the fixture server (`e2e/fixtures-server.mjs`) mirror th
 
 ## Sidebar screenshot CLI
 
-For **sidebar-only** visual QA (layout, `#qa=<STATE>`, etc.) without hitting live CUNY:
+For **sidebar-only** visual QA (layout, `#qa=<STATE>`, vault modes, etc.) without hitting live CUNY:
 
 1. `npm run build:e2e`
-2. `npm run capture-sidebar -- '#qa=WELCOME'` — default viewport **380×800**; override with `--width` / `--height` after `--`.
+2. Pick a capture command (see below).
 
-Writes under `agent_screenshots/` (gitignored); prints the **absolute PNG path** on stdout. See `node scripts/capture-sidebar.mjs --help` and [`e2e/extension-fixture.ts`](e2e/extension-fixture.ts) for the same Chromium load-extension approach.
+Writes under `agent_screenshots/` (gitignored); prints one **absolute PNG path** per line on stdout. Default viewport **380×800**; override with `--width` / `--height`. See `node scripts/capture-sidebar.mjs --help` and [`e2e/extension-fixture.ts`](e2e/extension-fixture.ts) for the same Chromium load-extension approach.
+
+### All 22 visual states
+
+| # | Command | Notes |
+|---|---|---|
+| 1 | `npm run capture-sidebar -- '#qa=WELCOME'` | |
+| 2 | `npm run capture-sidebar -- '#qa=EMAIL_ENTRY'` | |
+| 3 | `npm run capture-sidebar -- '#qa=EMAIL_ENTRY&qaCred=email'` | credential error on email field |
+| 4 | `npm run capture-sidebar -- '#qa=PASSWORD_ENTRY'` | |
+| 5 | `npm run capture-sidebar -- '#qa=PASSWORD_ENTRY&qaCred=password'` | credential error on password field |
+| 6 | `npm run capture-sidebar -- '#qa=OPENING_CUNY'` | |
+| 7 | `npm run capture-sidebar -- '#qa=CUNY_TOTP'` | |
+| 8 | `npm run capture-sidebar -- '#qa=ALLOW_GATE'` | |
+| 9 | `npm run capture-sidebar -- '#qa=OAA_SPA_HOME'` | |
+| 10 | `npm run capture-sidebar -- '#qa=GUIDED_MANAGE'` | |
+| 11 | `npm run capture-sidebar -- '#qa=GUIDED_ADD_FACTOR'` | |
+| 12 | `npm run capture-sidebar -- '#qa=GUIDED_FACTOR_TYPE'` | |
+| 13 | `npm run capture-sidebar -- '#qa=GUIDED_SECRET_CAPTURE'` | |
+| 14 | `npm run capture-sidebar -- '#qa=VERIFY_LOGIN_CODE'` | |
+| 15 | `npm run capture-sidebar -- '#qa=SET_DEFAULT'` | |
+| 16 | `npm run capture-sidebar -- '#qa=EXT_PASSWORD_SETUP'` | |
+| 17 | `npm run capture-sidebar -- '#qa=BIOMETRIC_OFFER'` | e2e build only |
+| 18 | `npm run capture-sidebar -- '#qa=BIOMETRIC_PREP'` | e2e build only |
+| 19 | `npm run capture-sidebar -- '#qa=COMPLETE_DEMO'` | |
+| 20 | `npm run capture-sidebar -- '#qa=COMPLETE_DONE'` | |
+| 21 | `npm run capture-sidebar -- --qa-vault-locked` | vault locked UI |
+| 22 | `npm run capture-sidebar -- --qa-vault-unlocked` | vault unlocked / management UI |
+
+`CREDENTIAL_ERROR` has no screen mount by design; use `qaCred=email` / `qaCred=password` variants (rows 3 and 5) to capture its visual representation.
+
+To capture all 22 states in one command:
+
+```bash
+npm run capture-sidebar -- --capture-all
+```
 
 ---
 

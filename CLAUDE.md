@@ -24,7 +24,12 @@ npm run build:e2e   # dev + manifest.e2e.json for Playwright
 npm run test        # unit + e2e
 npm run test:unit   # vitest run (no build step needed)
 npm run test:e2e    # build:e2e + playwright
-npm run capture-sidebar -- '#qa=WELCOME'  # PNG of sidebar.html + hash → path on stdout (after build:e2e); 380×800 viewport by default; --width / --height optional; jump to any onboarding screen by state name (dev/e2e only)
+npm run capture-sidebar -- '#qa=WELCOME'       # onboarding state → PNG path on stdout (after build:e2e); 380×800 default; --width/--height optional
+npm run capture-sidebar -- --qa-vault-locked   # vault locked UI
+npm run capture-sidebar -- --qa-vault-unlocked # vault unlocked / management UI
+npm run capture-sidebar -- --capture-all       # all 22 visual states, one PNG each
+# Credential-error variants: &qaCred=email on EMAIL_ENTRY, &qaCred=password on PASSWORD_ENTRY
+# BIOMETRIC_OFFER / BIOMETRIC_PREP only present in e2e builds; full state list → CONTRIBUTING.md § "Sidebar screenshot CLI"
 npm run typecheck   # tsc --noEmit
 ```
 
