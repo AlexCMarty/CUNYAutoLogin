@@ -56,6 +56,10 @@ Prefer shared helpers from `e2e/helpers.ts`:
 - `walkToPasswordEntry` — Welcome → Email → Password
 - `onboardingHashWith(cunyUrl)` — builds `#onboarding=1&cuny=<encoded>` hash
 
+## WebAuthn / biometric tests
+
+Biometric flows (`BIOMETRIC_OFFER`, `BIOMETRIC_PREP`, vault biometric unlock) require a CDP virtual platform authenticator on the sidebar tab. Use `addVirtualPlatformAuthenticator(page)` from `e2e/webauthnVirtualAuthenticator.ts` and call `.remove()` in `afterEach` — without it `isUserVerifyingPlatformAuthenticatorAvailable()` returns false and the offer screen auto-dispatches `BIOMETRIC_DECLINED`. Toggle `hasPrf: false` or call `setUserVerified(false)` to drive the prep-screen fallback paths.
+
 ## Adding fixture pages
 
 Add HTML to `e2e/fixtures/` and export the URL as a named constant in `e2e/constants.ts`. Never construct fixture URLs inline in specs.

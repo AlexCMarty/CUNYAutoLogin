@@ -12,9 +12,14 @@ import {
 } from "./constants";
 import { expect, test } from "./extension-fixture";
 import {
+  lockVault,
   onboardingHashWith,
   walkToPasswordEntry,
 } from "./helpers";
+import {
+  addVirtualPlatformAuthenticator,
+  type VirtualPlatformAuthenticator,
+} from "./webauthnVirtualAuthenticator";
 
 async function setupToAllowGate(
   page: Page,
@@ -204,12 +209,207 @@ test.describe("extension password: screen renders", () => {
 });
 
 
+// eslint-disable-next-line max-lines-per-function
 test.describe("biometrics offer", () => {
+  let cunyTab: Page;
+  let authenticator: VirtualPlatformAuthenticator;
+
+  test.beforeEach(async ({ page, context, extensionId }) => {
+    // Install the virtual platform authenticator before any WebAuthn capability
+    // check fires — biometricOffer.ts auto-declines on
+    // isUserVerifyingPlatformAuthenticatorAvailable() === false. The
+    // authenticator is bound to the sidebar page WebContents and survives
+    // subsequent goto() calls inside setupToExtPasswordSetup.
+    authenticator = await addVirtualPlatformAuthenticator(page);
+    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+    // Advance past extension password setup.
+    const pw = "Passw0rd!";
+    await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-forward='true']").click();
+  });
+
+  test.afterEach(async () => {
+    await authenticator?.remove();
+    await cunyTab.close().catch(() => {});
+  });
+
+  test("BIOMETRIC_OFFER renders the use and skip buttons when a platform authenticator is available", async ({
+    page,
+  }) => {
+    await expect(page.locator("[data-onboarding-screen='BIOMETRIC_OFFER']")).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.locator("[data-onboarding-biometric-use='true']")).toBeVisible();
+    await expect(page.locator("[data-onboarding-biometric-skip='true']")).toBeVisible();
+  });
+
+  test("'Type my password each time' advances directly to COMPLETE_DEMO", async ({ page }) => {
+    await page.locator("[data-onboarding-biometric-skip='true']").click();
+    await expect(
+      page.locator("[data-onboarding-screen='COMPLETE_DEMO']")
+    ).toBeVisible({ timeout: 5_000 });
+  });
+
+  test("biometric prep screen shown before system dialog triggers", async ({ page }) => {
+    await page.locator("[data-onboarding-biometric-use='true']").click();
+    await expect(
+      page.locator("[data-onboarding-screen='BIOMETRIC_PREP']")
+    ).toBeVisible({ timeout: 3_000 });
+  });
+
+  test("'Go back' on BIOMETRIC_PREP returns to BIOMETRIC_OFFER", async ({ page }) => {
+    await page.locator("[data-onboarding-biometric-use='true']").click();
+    await expect(page.locator("[data-onboarding-screen='BIOMETRIC_PREP']")).toBeVisible({
+      timeout: 3_000,
+    });
+    await page.locator("[data-onboarding-screen='BIOMETRIC_PREP'] [data-onboarding-back='true']")
+      .click();
+    await expect(page.locator("[data-onboarding-screen='BIOMETRIC_OFFER']")).toBeVisible({
+      timeout: 3_000,
+    });
+    await expect(page.locator("[data-onboarding-biometric-use='true']")).toBeVisible();
+  });
+
+  test("enrollment success persists cunyBiometricCredential and advances to COMPLETE_DEMO", async ({
+    page,
+  }) => {
+    await page.locator("[data-onboarding-biometric-use='true']").click();
+    await expect(page.locator("[data-onboarding-screen='BIOMETRIC_PREP']")).toBeVisible({
+      timeout: 3_000,
+    });
+    // The CUNY tab opens during onboarding setup and steals focus; WebAuthn
+    // refuses ceremonies on an unfocused page ("The operation is not allowed
+    // at this time because the page does not have focus.").
+    await page.bringToFront();
+    await page
+      .locator("[data-onboarding-screen='BIOMETRIC_PREP'] [data-onboarding-biometric-prep-continue='true']")
+      .click();
+    await expect(page.locator("[data-onboarding-screen='COMPLETE_DEMO']")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    const stored = await page.evaluate(
+      () =>
+        new Promise<unknown>((resolve) => {
+          chrome.storage.local.get("cunyBiometricCredential", (items) => {
+            resolve(items.cunyBiometricCredential);
+          });
+        })
+    );
+    expect(stored).toMatchObject({
+      version: 1,
+      credentialIdB64: expect.any(String),
+      prfSaltB64: expect.any(String),
+      ivB64: expect.any(String),
+      wrappedMasterB64: expect.any(String),
+    });
+    const credentials = await authenticator.getCredentials();
+    expect(credentials.length).toBe(1);
+    expect(credentials[0]?.rpId).toBe("ssologin.cuny.edu");
+  });
+});
+
+test.describe("biometrics prep: failure paths", () => {
+  let cunyTab: Page;
+  let authenticator: VirtualPlatformAuthenticator;
+
+  test.afterEach(async () => {
+    await authenticator?.remove();
+    await cunyTab?.close().catch(() => {});
+  });
+
+  test("PRF-less authenticator surfaces the unsupported message and 'Continue anyway' completes onboarding", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    authenticator = await addVirtualPlatformAuthenticator(page, { hasPrf: false });
+    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+    const pw = "Passw0rd!";
+    await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-forward='true']").click();
+
+    await page.locator("[data-onboarding-biometric-use='true']").click();
+    const prep = page.locator("[data-onboarding-screen='BIOMETRIC_PREP']");
+    await expect(prep).toBeVisible({ timeout: 3_000 });
+
+    // WebAuthn ceremonies require the sidebar tab to be focused; the CUNY
+    // fixture tab opened during setup steals focus otherwise.
+    await page.bringToFront();
+    const continueBtn = prep.locator("[data-onboarding-biometric-prep-continue='true']");
+    await continueBtn.click();
+
+    // With hasPrf: false, enrollBiometric maps the missing PRF result to
+    // 'prf_unavailable' (no PRF in create() ext results, then a second get()
+    // also returns no PRF — see src/crypto/biometric.ts prfViaGet). The prep
+    // screen surfaces the unsupported copy and switches the CTA to fallback.
+    await expect(prep.locator(".onboarding-subtext")).toContainText(
+      "doesn’t support biometric unlock",
+      { timeout: 15_000 }
+    );
+    await expect(continueBtn).toHaveText("Continue anyway");
+
+    const stored = await page.evaluate(
+      () =>
+        new Promise<unknown>((resolve) => {
+          chrome.storage.local.get("cunyBiometricCredential", (items) => {
+            resolve(items.cunyBiometricCredential);
+          });
+        })
+    );
+    expect(stored).toBeUndefined();
+
+    await continueBtn.click();
+    await expect(page.locator("[data-onboarding-screen='COMPLETE_DEMO']")).toBeVisible({
+      timeout: 5_000,
+    });
+  });
+
+  test("user-verification failure shows the retry message and leaves Continue enabled", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    authenticator = await addVirtualPlatformAuthenticator(page);
+    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+    const pw = "Passw0rd!";
+    await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-forward='true']").click();
+
+    await page.locator("[data-onboarding-biometric-use='true']").click();
+    const prep = page.locator("[data-onboarding-screen='BIOMETRIC_PREP']");
+    await expect(prep).toBeVisible({ timeout: 3_000 });
+
+    // Force the next create() ceremony to fail user verification, which the
+    // platform surfaces as NotAllowedError → mapped to 'user_cancelled' in
+    // src/crypto/biometric.ts.
+    await authenticator.setUserVerified(false);
+
+    await page.bringToFront();
+    const continueBtn = prep.locator("[data-onboarding-biometric-prep-continue='true']");
+    await continueBtn.click();
+
+    // biometricPrep distinguishes user_cancelled from prf_unavailable: the
+    // CTA keeps its original label and stays clickable so the user can retry.
+    await expect(prep.locator(".onboarding-subtext")).toContainText(
+      "Didn't catch that",
+      { timeout: 15_000 }
+    );
+    await expect(continueBtn).toHaveText("Continue");
+    await expect(continueBtn).toBeEnabled();
+    const creds = await authenticator.getCredentials();
+    expect(creds.length).toBe(0);
+  });
+});
+
+test.describe("biometrics offer without virtual authenticator", () => {
   let cunyTab: Page;
 
   test.beforeEach(async ({ page, context, extensionId }) => {
     cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
-    // Advance past extension password setup.
     const pw = "Passw0rd!";
     await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
@@ -220,27 +420,16 @@ test.describe("biometrics offer", () => {
     await cunyTab.close().catch(() => {});
   });
 
-  test("'Type my password each time' advances directly to COMPLETE_DEMO", async ({ page }) => {
-    // Skip biometrics (or land directly at COMPLETE_DEMO if platform auth unavailable).
-    const skipBtn = page.locator("[data-onboarding-biometric-skip='true']");
-    if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await skipBtn.click();
-    }
-    await expect(
-      page.locator("[data-onboarding-screen='COMPLETE_DEMO']")
-    ).toBeVisible({ timeout: 5_000 });
-  });
-
-  test("biometric prep screen shown before system dialog triggers", async ({ page }) => {
-    const useBtn = page.locator("[data-onboarding-biometric-use='true']");
-    if (!(await useBtn.isVisible({ timeout: 2_000 }).catch(() => false))) {
-      test.skip(); // No platform authenticator available in this environment.
-      return;
-    }
-    await useBtn.click();
-    await expect(
-      page.locator("[data-onboarding-screen='BIOMETRIC_PREP']")
-    ).toBeVisible({ timeout: 3_000 });
+  test("offer auto-declines to COMPLETE_DEMO when no platform authenticator is available", async ({
+    page,
+  }) => {
+    // No virtual authenticator attached — headless Chromium reports
+    // isUserVerifyingPlatformAuthenticatorAvailable() === false, so the offer
+    // screen dispatches BIOMETRIC_DECLINED before the buttons render.
+    await expect(page.locator("[data-onboarding-screen='COMPLETE_DEMO']")).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.locator("[data-onboarding-biometric-use='true']")).toHaveCount(0);
   });
 });
 
@@ -596,5 +785,130 @@ test.describe("smoke: full happy path Screen 1 → Screen 13", () => {
     });
 
     await cunyTab.close();
+  });
+});
+
+// eslint-disable-next-line max-lines-per-function
+test.describe("biometric unlock after enrollment", () => {
+  let cunyTab: Page;
+  let authenticator: VirtualPlatformAuthenticator;
+
+  test.afterEach(async () => {
+    await authenticator?.remove();
+    await cunyTab?.close().catch(() => {});
+  });
+
+  test("locked vault unlocks via the biometric button without typing the master password", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    // Install the virtual platform authenticator on the sidebar tab; it
+    // survives the goto() inside setupToExtPasswordSetup and the eventual
+    // reload that mounts the vault management UI.
+    authenticator = await addVirtualPlatformAuthenticator(page);
+    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+
+    const pw = "Passw0rd!";
+    await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-forward='true']").click();
+
+    // Enroll biometric so cunyBiometricCredential lands in storage.local.
+    await page.locator("[data-onboarding-biometric-use='true']").click();
+    await expect(page.locator("[data-onboarding-screen='BIOMETRIC_PREP']")).toBeVisible({
+      timeout: 3_000,
+    });
+    await page.bringToFront();
+    await page
+      .locator(
+        "[data-onboarding-screen='BIOMETRIC_PREP'] [data-onboarding-biometric-prep-continue='true']"
+      )
+      .click();
+    await expect(page.locator("[data-onboarding-screen='COMPLETE_DEMO']")).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.locator("[data-onboarding-demo-skip='true']").click();
+    await expect(page.locator("[data-onboarding-screen='COMPLETE_DONE']")).toBeVisible({
+      timeout: 5_000,
+    });
+
+    // Reload sidebar without the onboarding resume snapshot so the vault
+    // controller mounts in management mode. Same pattern the post-onboarding
+    // describe block uses above.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const extensionChrome = (globalThis as { chrome?: unknown }).chrome as
+            | { storage?: { session?: { remove: (keys: string, cb?: () => void) => void } } }
+            | undefined;
+          const sessionArea = extensionChrome?.storage?.session;
+          if (sessionArea?.remove) {
+            sessionArea.remove("cunyOnboardingResumeSnapshot", () => resolve());
+          } else {
+            resolve();
+          }
+        })
+    );
+    await page.goto(`chrome-extension://${extensionId}/sidebar.html`);
+    await expect(page.locator("#vault-status-bar")).toBeVisible({ timeout: 10_000 });
+
+    await lockVault(page);
+    const bioBtn = page.locator("#biometric-unlock-btn");
+    await expect(bioBtn).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator("#masterPassword")).toHaveValue("");
+
+    await bioBtn.click();
+
+    // Successful unlock re-renders the status bar and hides the locked header.
+    await expect(page.locator("#vault-status-bar")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#vault-locked-header")).toBeHidden();
+    await expect(page.locator("#masterPassword")).toHaveValue("");
+  });
+
+  test("biometric button stays hidden when no credential is enrolled", async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    // Same flow but skip the enrollment step — no cunyBiometricCredential is
+    // written, so isBiometricEnrolled() returns false and the unlock button
+    // must remain hidden after lock.
+    authenticator = await addVirtualPlatformAuthenticator(page);
+    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+
+    const pw = "Passw0rd!";
+    await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
+    await page.locator("[data-onboarding-ext-password-forward='true']").click();
+
+    await page.locator("[data-onboarding-biometric-skip='true']").click();
+    await expect(page.locator("[data-onboarding-screen='COMPLETE_DEMO']")).toBeVisible({
+      timeout: 5_000,
+    });
+    await page.locator("[data-onboarding-demo-skip='true']").click();
+    await expect(page.locator("[data-onboarding-screen='COMPLETE_DONE']")).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const extensionChrome = (globalThis as { chrome?: unknown }).chrome as
+            | { storage?: { session?: { remove: (keys: string, cb?: () => void) => void } } }
+            | undefined;
+          const sessionArea = extensionChrome?.storage?.session;
+          if (sessionArea?.remove) {
+            sessionArea.remove("cunyOnboardingResumeSnapshot", () => resolve());
+          } else {
+            resolve();
+          }
+        })
+    );
+    await page.goto(`chrome-extension://${extensionId}/sidebar.html`);
+    await expect(page.locator("#vault-status-bar")).toBeVisible({ timeout: 10_000 });
+
+    await lockVault(page);
+    await expect(page.locator("#biometric-unlock-btn")).toBeHidden();
   });
 });
