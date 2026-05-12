@@ -44,7 +44,7 @@ Check:
 
 - `browser.storage.local.set(...)` / `.remove(...)` callsites — keys must stay within the allowed set above unless explicitly approved.
 - `localStorage.setItem(...)` — **any use of `localStorage` for sensitive data is a critical finding**. Extension `localStorage` persists to disk as LevelDB files readable by anyone with filesystem access.
-- `browser.storage.session.set(...)` callsites — master password, setup draft (`cuny_form_draft` in setup mode only), pending TOTP secret key, onboarding resume snapshot, etc. The onboarding `stagedOnboardingCredentials` buffer in `service-worker.ts` must **not** appear in session storage — it is a module-level JS variable only.
+- `browser.storage.session.set(...)` callsites — master password (`cunySessionMaster`), pending TOTP secret (`cunyPendingTotpSecretFromSso`), enrolled-factor alias (`cunyEnrolledFactorAlias`), onboarding resume snapshot (`cunyOnboardingResumeSnapshot`), etc. The onboarding `stagedOnboardingCredentials` buffer in `service-worker.ts` must **not** appear in session storage — it is a module-level JS variable only.
 
 ### 3. Credential logging — do secrets appear in the console?
 
@@ -101,9 +101,9 @@ End with a **"What is NOT a problem"** table covering things that look suspiciou
 These are the security properties that should be true after the hardening in this repo. If any are violated, that is a finding:
 
 - `browser.storage.local` contains only **`cunyVault`** (encrypted blob) and optionally **`cunyBiometricCredential`** (wrapped biometric unlock material per security.md) — no new undeclared keys
-- Draft autosave uses `browser.storage.session`, not `localStorage`; draft saving is gated to `setup` mode only where applicable
+- Sensitive session material uses `browser.storage.session` (see `.agents/rules/security.md` for key names such as `cunySessionMaster`, `cunyOnboardingResumeSnapshot`, etc.), never `localStorage`
 - `FILL_CREDENTIALS` / dev-only content handlers are stripped or unreachable in production builds
-- `content_scripts.matches` in both `manifest.json` and `manifest.e2e.json` uses `https://` only
+- `content_scripts.matches` in `manifest.json` uses `https://` only for SSO; `manifest.e2e.json` additionally matches the documented local Playwright fixture over `http://127.0.0.1:4173/*` — that manifest must never ship as the store build
 - `MIN_MASTER_PASSWORD_LENGTH` is ≥ 12
 - No production `console.*` of credential values; new dev logging uses `MODE !== "production"` when it must run in dev/e2e bundles (see `CLAUDE.md`)
 - No `externally_connectable` in `manifest.json`

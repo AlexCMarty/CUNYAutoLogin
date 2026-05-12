@@ -44,8 +44,23 @@ import {
 } from "./screens/passwordEntry";
 import { WELCOME_CTA_SELECTOR } from "./screens/welcome";
 import { ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY } from "./resumeSession";
-import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
+import {
+  PENDING_TOTP_SECRET_SESSION_KEY,
+  SSO_LOGIN_ORIGIN,
+} from "../cuny/ssoSite";
+import type { Runtime } from "webextension-polyfill";
 import browser from "webextension-polyfill";
+
+const TRUSTED_SSO_TAB_URL = `${SSO_LOGIN_ORIGIN}/oam/server/obrareq.cgi` as const;
+
+const trustedOnboardingBridgeSender = (
+  tabId: number
+): Runtime.MessageSender =>
+  ({
+    id: "test-ext-id",
+    url: TRUSTED_SSO_TAB_URL,
+    tab: { id: tabId, url: TRUSTED_SSO_TAB_URL },
+  }) as Runtime.MessageSender;
 
 const renderMain = (): HTMLElement => {
   const main = document.createElement("main");
@@ -211,7 +226,7 @@ describe("mountOnboarding", () => {
     passwordForward.click();
     bridgeListener(
       { type: "ONBOARDING_STAGE_DETECTED", stage: "allow_gate" },
-      { id: "test-ext-id", tab: { id: 123 } } as never,
+      trustedOnboardingBridgeSender(123),
       () => undefined
     );
     const onRemovedListener = vi.mocked(browser.tabs.onRemoved.addListener).mock.calls[0]?.[0];
@@ -241,10 +256,27 @@ describe("mountOnboarding", () => {
         type: "ONBOARDING_VERIFY_STATUS",
         status: "second_failure",
       },
-      { id: "test-ext-id" } as never,
+      trustedOnboardingBridgeSender(1),
       () => undefined
     );
     expect(paused.hidden).toBe(false);
+  });
+
+  test("runtime bridge drops ONBOARDING messages from non-trusted web origins", () => {
+    renderOnboardingRoot();
+    mountOnboarding(document);
+    const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls[0]?.[0];
+    if (typeof listener !== "function") throw new Error("bridge listener missing");
+    listener(
+      { type: "ONBOARDING_STAGE_DETECTED", stage: "allow_gate" },
+      {
+        id: "test-ext-id",
+        url: "https://evil.example/oam",
+        tab: { id: 9, url: "https://evil.example/oam" },
+      } as Runtime.MessageSender,
+      () => undefined
+    );
+    expect(document.querySelector<HTMLElement>(WELCOME_CTA_SELECTOR)).not.toBeNull();
   });
 
   test.each([
@@ -271,7 +303,7 @@ describe("mountOnboarding", () => {
           type: "ONBOARDING_STAGE_DETECTED",
           stage,
         },
-        { id: "test-ext-id" } as never,
+        trustedOnboardingBridgeSender(2),
         () => undefined
       );
       expect(markerElement.hidden).toBe(false);

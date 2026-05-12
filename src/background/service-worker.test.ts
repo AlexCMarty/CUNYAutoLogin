@@ -74,7 +74,10 @@ const PAYLOAD: VaultPayload = {
 
 // ──── setup ───────────────────────────────────────────────────────────────────
 
-type MessageHandler = (msg: unknown, sender: { id: string; tab?: { id: number; url?: string } }) => unknown;
+type MessageHandler = (
+  msg: unknown,
+  sender: { id: string; url?: string; tab?: { id: number; url?: string } }
+) => unknown;
 const EXT_SENDER = { id: "test-ext-id" };
 const CS_SENDER = {
   id: "test-ext-id",
@@ -197,6 +200,24 @@ describe("privileged message sender rules", () => {
     expect(
       await handler({ type: "TOTP_SECRET_FROM_PAGE", secret: "ABCDEFGHIJ" }, EXT_SENDER)
     ).toEqual({ ok: false });
+  });
+
+  test("TOTP_SECRET_FROM_PAGE with trusted URL but missing tab → { ok: false }", async () => {
+    expect(
+      await handler(
+        { type: "TOTP_SECRET_FROM_PAGE", secret: "ABCDEFGHIJ" },
+        { id: "test-ext-id", url: `${SSO_LOGIN_ORIGIN}/oam` }
+      )
+    ).toEqual({ ok: false });
+  });
+
+  test("AUTO_FILL_REQUEST without sender.tab → invalid_sender", async () => {
+    expect(
+      await handler(
+        { type: "AUTO_FILL_REQUEST" },
+        { id: "test-ext-id", url: `${SSO_LOGIN_ORIGIN}/oam` }
+      )
+    ).toEqual({ success: false, reason: "invalid_sender" });
   });
 
   test("ONBOARDING_REOPEN_CUNY_TAB from a content script tab → { ok: false, invalid_payload }", async () => {

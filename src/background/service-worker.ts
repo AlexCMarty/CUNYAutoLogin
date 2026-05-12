@@ -72,7 +72,7 @@ maybeEnableSidebarActionOnToolbarClick();
 
 
 browser.runtime.onInstalled.addListener((details: Runtime.OnInstalledDetailsType) => {
-  if (import.meta.env.DEV) {
+  if (import.meta.env.MODE !== "production") {
     // eslint-disable-next-line no-console
     console.log("[CUNYAutoLogin] installed/updated:", details.reason);
   }
@@ -212,6 +212,14 @@ const senderIsTrustedContentScript = (sender: browser.Runtime.MessageSender): bo
 };
 
 /**
+ * Trusted web content script path: must be tied to a real tab (defense in depth
+ * vs extension-only `sender.url` shapes) and resolve to an allowed hostname.
+ */
+const senderIsTrustedContentScriptWithTab = (
+  sender: browser.Runtime.MessageSender
+): boolean => sender.tab !== undefined && senderIsTrustedContentScript(sender);
+
+/**
  * Narrowed onboarding handler. Validates every onboarding message against
  * the shared guards in `src/onboarding/messages.ts` before acknowledging.
  *
@@ -242,7 +250,7 @@ const handleOnboardingMessage = async (
     if (!senderIsPrivilegedExtensionUi(sender)) {
       return { ok: false, reason: "invalid_payload" };
     }
-  } else if (!senderIsTrustedContentScript(sender)) {
+  } else if (!senderIsTrustedContentScriptWithTab(sender)) {
     return { ok: false, reason: "invalid_payload" };
   }
   if (isOnboardingReopenCunyTab(message)) {
@@ -399,7 +407,7 @@ const handleTotpSecretFromPageMessage = async (
   sender: browser.Runtime.MessageSender,
   typedMessage: Record<string, unknown>
 ): Promise<{ ok: boolean }> => {
-  if (!senderIsTrustedContentScript(sender)) {
+  if (!senderIsTrustedContentScriptWithTab(sender)) {
     return { ok: false };
   }
   const secret = typedMessage.secret;
@@ -424,7 +432,7 @@ const handleEnrolledAliasFromPageMessage = async (
   sender: browser.Runtime.MessageSender,
   typedMessage: EnrolledAliasFromPage
 ): Promise<{ ok: boolean }> => {
-  if (!senderIsTrustedContentScript(sender)) {
+  if (!senderIsTrustedContentScriptWithTab(sender)) {
     return { ok: false };
   }
   const alias = typedMessage.alias;
@@ -452,7 +460,7 @@ const coreMessageRoutes = (
   ONBOARDING_CONTENT_SCRIPT_READY: () =>
     Promise.resolve({
       overlayCommand:
-        senderIsTrustedContentScript(sender) && stagedOverlayCommand !== null
+        senderIsTrustedContentScriptWithTab(sender) && stagedOverlayCommand !== null
           ? stagedOverlayCommand
           : null,
     }),
@@ -490,7 +498,7 @@ const coreMessageRoutes = (
       return { ok: true as const };
     })(),
   AUTO_FILL_REQUEST: (typedMessage) =>
-    senderIsTrustedContentScript(sender)
+    senderIsTrustedContentScriptWithTab(sender)
       ? resolveAutoFillResponse(normalizeAutoFillOtpContext(typedMessage.otpContext))
       : Promise.resolve({ success: false, reason: "invalid_sender" } as const),
 });

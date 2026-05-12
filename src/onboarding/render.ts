@@ -12,11 +12,14 @@
  *   - `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advance from
  *     CUNY_TOTP to ALLOW_GATE (mfaConsent.jsp loaded).
  *
- * Security: this module holds the email/password drafts only via the
- * controller closure. Nothing written to `browser.storage.*`. The sidebar
- * unmount path fires `CLEAR_ONBOARDING_CREDENTIALS` so the service worker
- * also drops its in-memory copy. The runtime bridge ignores messages whose
- * `sender.id` is not this extension (cross-extension `sendMessage` noise).
+ * Security: email/password drafts live in the controller closure only (never
+ * `storage.local`). Resumable onboarding states mirror email/password to
+ * `browser.storage.session` under `cunyOnboardingResumeSnapshot` (see
+ * `resumeSession.ts`), debounced — not `storage.local`. The sidebar unmount
+ * path fires `CLEAR_ONBOARDING_CREDENTIALS` so the service worker drops its
+ * in-memory staging buffer. The runtime bridge ignores messages from other
+ * extensions (`sender.id`) and rejects web frames that are not on the trusted
+ * SSO / local E2E fixture host set.
  */
 
 import browser from "webextension-polyfill";
@@ -32,7 +35,10 @@ import {
   type OnboardingPageStage,
   isOnboardingMessage,
 } from "./messages";
-import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
+import {
+  PENDING_TOTP_SECRET_SESSION_KEY,
+  isTrustedContentScriptMessageHostname,
+} from "../cuny/ssoSite";
 import { SCREEN_MOUNTS } from "./screenMounts";
 import { showSetDefaultOptionOverlay } from "./screens/setDefault";
 import type {
@@ -91,6 +97,38 @@ type PendingResumeSnapshot = {
 
 const isDevMode = (): boolean =>
   (DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE);
+
+/** Trailing debounce for resume snapshot writes (keystrokes coalesce). */
+const RESUME_SNAPSHOT_DEBOUNCE_MS = 500;
+
+const onboardingRuntimeBridgeSenderTrusted = (
+  sender: Runtime.MessageSender
+): boolean => {
+  const frameUrl =
+    typeof sender.url === "string" && sender.url.length > 0
+      ? sender.url
+      : typeof sender.tab?.url === "string" && sender.tab.url.length > 0
+        ? sender.tab.url
+        : null;
+  if (frameUrl === null) {
+    return false;
+  }
+  if (
+    frameUrl.startsWith("chrome-extension://") ||
+    frameUrl.startsWith("moz-extension://") ||
+    frameUrl.startsWith("safari-web-extension://")
+  ) {
+    return true;
+  }
+  if (sender.tab === undefined) {
+    return false;
+  }
+  try {
+    return isTrustedContentScriptMessageHostname(new URL(frameUrl).hostname);
+  } catch {
+    return false;
+  }
+};
 
 const reportOnboardingFailure = (where: string, error: unknown): void => {
   if (!isDevMode()) return;
@@ -441,6 +479,7 @@ const installRuntimeMessageBridge = (
     sender: Runtime.MessageSender
   ): void => {
     if (sender.id !== browser.runtime.id) return;
+    if (!onboardingRuntimeBridgeSenderTrusted(sender)) return;
     if (!isOnboardingMessage(message)) return;
     if (isDevMode()) {
       // eslint-disable-next-line no-console
@@ -490,13 +529,30 @@ const installRuntimeMessageBridge = (
   };
 };
 
+/** Best-effort retries — transient SW wake failures should not leave staging live. */
+const CLEAR_STAGING_RETRY_BACKOFF_MS = [0, 75, 200] as const;
+
 const clearStagedOnboardingCredentials = (): void => {
   const message: ClearOnboardingCredentials = {
     type: "CLEAR_ONBOARDING_CREDENTIALS",
   };
-  void browser.runtime.sendMessage(message).catch((error) =>
-    reportOnboardingFailure("runtime.sendMessage(CLEAR_ONBOARDING_CREDENTIALS)", error)
-  );
+  void (async () => {
+    let lastError: unknown;
+    for (const delayMs of CLEAR_STAGING_RETRY_BACKOFF_MS) {
+      if (delayMs > 0) {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+      }
+      try {
+        await browser.runtime.sendMessage(message);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    reportOnboardingFailure("runtime.sendMessage(CLEAR_ONBOARDING_CREDENTIALS)", lastError);
+  })();
 };
 
 const saveResumeSnapshot = async (
@@ -681,12 +737,29 @@ const subscribeOnboardingController = (
   suppressResumeSnapshots: boolean
 ): (() => void) => {
   let lastState: OnboardingState = controller.getSnapshot().state;
-  return controller.subscribe((snapshot) => {
-    if (!suppressResumeSnapshots) void saveResumeSnapshot(snapshot);
+  let resumeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const clearResumeDebounceTimer = (): void => {
+    if (resumeDebounceTimer !== null) {
+      clearTimeout(resumeDebounceTimer);
+      resumeDebounceTimer = null;
+    }
+  };
+  const innerUnsubscribe = controller.subscribe((snapshot) => {
+    if (!suppressResumeSnapshots) {
+      clearResumeDebounceTimer();
+      resumeDebounceTimer = setTimeout(() => {
+        resumeDebounceTimer = null;
+        void saveResumeSnapshot(controller.getSnapshot());
+      }, RESUME_SNAPSHOT_DEBOUNCE_MS);
+    }
     if (snapshot.state === lastState) return;
     lastState = snapshot.state;
     repaint();
   });
+  return () => {
+    clearResumeDebounceTimer();
+    innerUnsubscribe();
+  };
 };
 
 type SidebarResumeLatch = { snapshot: PendingResumeSnapshot | null };

@@ -15,6 +15,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Guard — release workflow must not build e2e artifacts
+        run: |
+          set -euo pipefail
+          if grep -RInE '(^|\\s)npm run build:e2e(\\s|$)|E2E_MANIFEST=1' .github/workflows; then
+            echo "ERROR: Store release workflows must not invoke build:e2e or E2E_MANIFEST=1."
+            exit 1
+          fi
+          if grep -F 'http://127.0.0.1:4173' src/manifest.json; then
+            echo "ERROR: Production manifest must not include the Playwright HTTP fixture host."
+            exit 1
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
