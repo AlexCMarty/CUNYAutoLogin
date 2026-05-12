@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CUNYAutoLogin",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "CUNYAutoLogin — encrypted credential vault and ssologin.cuny.edu auto-fill.",
   "permissions": ["storage", "activeTab", "sidePanel", "cookies"],
   "host_permissions": [
