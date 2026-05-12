@@ -25,6 +25,7 @@ import {
   isOnboardingMessage,
   isOnboardingOverlayCommand,
   isOnboardingReopenCunyTab,
+  isPersistOnboardingResumeSnapshot,
   isStageOnboardingCredentials,
   normalizeAutoFillOtpContext,
   type AutoFillResponse,
@@ -33,6 +34,7 @@ import {
   type OnboardingCredentialsAck,
   type OnboardingOverlayCommand,
 } from "../onboarding/messages";
+import { persistOnboardingResumeSnapshot } from "../onboarding/resumeSession";
 import { guardedRoute, routeByType, type RouteTable } from "../runtime/messageRouter";
 
 type SidePanelApi = {
@@ -486,6 +488,24 @@ const coreMessageRoutes = (
             () => ({ ok: false as const })
           )
     ),
+  PERSIST_ONBOARDING_RESUME_SNAPSHOT: () => {
+    if (!senderIsPrivilegedExtensionUi(sender)) {
+      return Promise.resolve({ ok: false as const } satisfies OnboardingCredentialsAck);
+    }
+    return guardedRoute(
+      message,
+      isPersistOnboardingResumeSnapshot,
+      async (validMessage) => {
+        await persistOnboardingResumeSnapshot({
+          state: validMessage.state,
+          email: validMessage.email,
+          password: validMessage.password,
+        });
+        return { ok: true as const };
+      },
+      () => Promise.resolve({ ok: false as const } satisfies OnboardingCredentialsAck)
+    );
+  },
   LOGOUT_CUNY_SESSIONS: () =>
     (async () => {
       if (!senderIsPrivilegedExtensionUi(sender)) {

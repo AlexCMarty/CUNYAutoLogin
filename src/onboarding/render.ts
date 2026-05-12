@@ -15,8 +15,10 @@
  * Security: email/password drafts live in the controller closure only (never
  * `storage.local`). Resumable onboarding states mirror email/password to
  * `browser.storage.session` under `cunyOnboardingResumeSnapshot` (see
- * `resumeSession.ts`), debounced — not `storage.local`. The sidebar unmount
- * path fires `CLEAR_ONBOARDING_CREDENTIALS` so the service worker drops its
+ * `resumeSession.ts`), debounced — not `storage.local`. On sidebar unmount the
+ * snapshot is flushed via the service worker so the write survives immediate
+ * navigation away from the extension page. The unmount path also fires
+ * `CLEAR_ONBOARDING_CREDENTIALS` so the service worker drops its
  * in-memory staging buffer. The runtime bridge ignores messages from other
  * extensions (`sender.id`) and rejects web frames that are not on the trusted
  * SSO / local E2E fixture host set.
@@ -33,6 +35,7 @@ import {
   type ClearOnboardingCredentials,
   type OnboardingMessage,
   type OnboardingPageStage,
+  type PersistOnboardingResumeSnapshot,
   isOnboardingMessage,
 } from "./messages";
 import {
@@ -47,14 +50,12 @@ import type {
 } from "./screens/screenContext";
 import type { DevQaJumpParseResult } from "./devQaJump";
 import {
-  clearResumeSnapshotSession,
   loadResumeSnapshotFromSession,
-  saveResumeSnapshotSession,
+  persistOnboardingResumeSnapshot,
 } from "./resumeSession";
 import {
   type BeadStage,
   type OnboardingState,
-  safeResumeStateFor,
 } from "./state";
 import { type OnboardingEvent } from "./transitions";
 import { routeByType } from "../runtime/messageRouter";
@@ -555,25 +556,6 @@ const clearStagedOnboardingCredentials = (): void => {
   })();
 };
 
-const saveResumeSnapshot = async (
-  snapshot: {
-    readonly state: OnboardingState;
-    readonly email: string;
-    readonly password: string;
-  }
-): Promise<void> => {
-  const safeState = safeResumeStateFor(snapshot.state);
-  if (!safeState) {
-    await clearResumeSnapshotSession();
-    return;
-  }
-  await saveResumeSnapshotSession({
-    state: safeState,
-    email: snapshot.email,
-    password: snapshot.password,
-  });
-};
-
 const mountDevQaBanner = (
   doc: Document,
   state: OnboardingState
@@ -723,7 +705,18 @@ const runOnboardingUnmount = (bag: OnboardingUnmountBag): void => {
   bag.unwireTabClose();
   bag.resumeButton.removeEventListener("click", bag.handleResume);
   bag.reopenCunyButton.removeEventListener("click", bag.handleReopenCuny);
-  if (!bag.suppressResumeSnapshots) void saveResumeSnapshot(bag.controller.getSnapshot());
+  if (!bag.suppressResumeSnapshots) {
+    const snap = bag.controller.getSnapshot();
+    const message: PersistOnboardingResumeSnapshot = {
+      type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+      state: snap.state,
+      email: snap.email,
+      password: snap.password,
+    };
+    void browser.runtime
+      .sendMessage(message)
+      .catch(() => persistOnboardingResumeSnapshot(snap));
+  }
   clearStagedOnboardingCredentials();
   bag.screenHandleRef.current?.unmount();
   bag.header.unmount();
@@ -747,9 +740,12 @@ const subscribeOnboardingController = (
   const innerUnsubscribe = controller.subscribe((snapshot) => {
     if (!suppressResumeSnapshots) {
       clearResumeDebounceTimer();
+      if (snapshot.state !== lastState) {
+        void persistOnboardingResumeSnapshot(snapshot);
+      }
       resumeDebounceTimer = setTimeout(() => {
         resumeDebounceTimer = null;
-        void saveResumeSnapshot(controller.getSnapshot());
+        void persistOnboardingResumeSnapshot(controller.getSnapshot());
       }, RESUME_SNAPSHOT_DEBOUNCE_MS);
     }
     if (snapshot.state === lastState) return;

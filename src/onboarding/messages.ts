@@ -21,9 +21,13 @@
  * - No credential payload is ever embedded in an *onboarding* message. Stage
  *   detection, culprit hints, overlay commands, verify status, and tab
  *   reattachment signals are metadata-only.
+ * - Core messages that carry credentials (`STAGE_ONBOARDING_CREDENTIALS`,
+ *   `PERSIST_ONBOARDING_RESUME_SNAPSHOT`) are sidebar → service-worker only,
+ *   validated with the same privileged-sender gate as staging.
  */
 
 import type { VaultPayload } from "../crypto/vault";
+import { isOnboardingState, type OnboardingState } from "./state";
 
 // ──── core messages (existing, now named) ────────────────────────────────────
 
@@ -97,6 +101,17 @@ export type ClearOnboardingCredentials = {
   readonly type: "CLEAR_ONBOARDING_CREDENTIALS";
 };
 
+/**
+ * Sidebar → service-worker: flush the onboarding resume snapshot to
+ * `storage.session` before the sidebar document unloads (see `resumeSession.ts`).
+ */
+export type PersistOnboardingResumeSnapshot = {
+  readonly type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT";
+  readonly state: OnboardingState;
+  readonly email: string;
+  readonly password: string;
+};
+
 export type OnboardingCredentialsAck = { readonly ok: boolean };
 
 export type LogoutCunySessionsRequest = {
@@ -132,6 +147,20 @@ export const isClearOnboardingCredentials = (
 ): value is ClearOnboardingCredentials => {
   if (typeof value !== "object" || value === null) return false;
   return (value as Record<string, unknown>).type === "CLEAR_ONBOARDING_CREDENTIALS";
+};
+
+export const isPersistOnboardingResumeSnapshot = (
+  value: unknown
+): value is PersistOnboardingResumeSnapshot => {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    record.type === "PERSIST_ONBOARDING_RESUME_SNAPSHOT" &&
+    typeof record.email === "string" &&
+    typeof record.password === "string" &&
+    typeof record.state === "string" &&
+    isOnboardingState(record.state)
+  );
 };
 
 // ──── target spec types (shared with content/overlay.ts) ────────────────────

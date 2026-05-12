@@ -7,6 +7,7 @@ import browser from "webextension-polyfill";
 import {
   type OnboardingState,
   isResumableState,
+  safeResumeStateFor,
 } from "./state";
 
 export const ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY =
@@ -68,4 +69,28 @@ export async function saveResumeSnapshotSession(
   } catch {
     // Ignore when session storage is unavailable.
   }
+}
+
+/**
+ * Writes the controller snapshot to `storage.session` using the same
+ * safe-state policy as the sidebar debounce path. Used from the sidebar while
+ * it is alive and from the service worker when flushing during sidebar unload
+ * (the extension page can be destroyed before an in-flight `storage.session`
+ * write from that document finishes).
+ */
+export async function persistOnboardingResumeSnapshot(snapshot: {
+  readonly state: OnboardingState;
+  readonly email: string;
+  readonly password: string;
+}): Promise<void> {
+  const safeState = safeResumeStateFor(snapshot.state);
+  if (!safeState) {
+    await clearResumeSnapshotSession();
+    return;
+  }
+  await saveResumeSnapshotSession({
+    state: safeState,
+    email: snapshot.email,
+    password: snapshot.password,
+  });
 }

@@ -21,6 +21,7 @@ vi.mock("webextension-polyfill", () => ({
       session: {
         get: vi.fn(),
         set: vi.fn(),
+        remove: vi.fn(),
       },
       local: {
         get: vi.fn(),
@@ -61,6 +62,7 @@ import {
   SSO_LOGIN_TABS_QUERY_URL_PATTERN,
 } from "../cuny/ssoSite";
 import type { OnboardingOverlayCommand } from "../onboarding/messages";
+import { ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY } from "../onboarding/resumeSession";
 
 // ──── shared fixtures ─────────────────────────────────────────────────────────
 
@@ -771,6 +773,60 @@ describe("STAGE_ONBOARDING_CREDENTIALS", () => {
     expect(
       await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER)
     ).toEqual({ ok: true });
+  });
+});
+
+describe("PERSIST_ONBOARDING_RESUME_SNAPSHOT", () => {
+  test("from extension UI persists snapshot", async () => {
+    vi.mocked(browser.storage.session!.set).mockResolvedValue(undefined);
+    expect(
+      await handler(
+        {
+          type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+          state: "VERIFY_LOGIN_CODE",
+          email: "a@login.cuny.edu",
+          password: "pw",
+        },
+        EXT_SENDER
+      )
+    ).toEqual({ ok: true });
+    expect(browser.storage.session!.set).toHaveBeenCalledWith({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: "VERIFY_LOGIN_CODE",
+        email: "a@login.cuny.edu",
+        password: "pw",
+      },
+    });
+  });
+
+  test("clears session for non-resumable state", async () => {
+    vi.mocked(browser.storage.session!.remove).mockResolvedValue(undefined);
+    expect(
+      await handler(
+        {
+          type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+          state: "EXT_PASSWORD_SETUP",
+          email: "a@login.cuny.edu",
+          password: "pw",
+        },
+        EXT_SENDER
+      )
+    ).toEqual({ ok: true });
+    expect(browser.storage.session!.remove).toHaveBeenCalled();
+  });
+
+  test("from content script → { ok: false }", async () => {
+    expect(
+      await handler(
+        {
+          type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+          state: "ALLOW_GATE",
+          email: "a@login.cuny.edu",
+          password: "pw",
+        },
+        CS_SENDER
+      )
+    ).toEqual({ ok: false });
   });
 });
 

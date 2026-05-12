@@ -12,8 +12,11 @@ vi.mock("webextension-polyfill", () => ({
   },
 }));
 
+import browser from "webextension-polyfill";
 import {
   isResumeSnapshot,
+  ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY,
+  persistOnboardingResumeSnapshot,
   type OnboardingResumeSnapshot,
 } from "./resumeSession";
 
@@ -30,5 +33,33 @@ describe("isResumeSnapshot", () => {
   test("rejects non-objects", () => {
     expect(isResumeSnapshot(null)).toBe(false);
     expect(isResumeSnapshot("x")).toBe(false);
+  });
+});
+
+describe("persistOnboardingResumeSnapshot", () => {
+  test("writes safe state to session storage", async () => {
+    vi.mocked(browser.storage.session!.set).mockResolvedValue(undefined);
+    await persistOnboardingResumeSnapshot({
+      state: "ALLOW_GATE",
+      email: "e@login.cuny.edu",
+      password: "p",
+    });
+    expect(browser.storage.session!.set).toHaveBeenCalledWith({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: "ALLOW_GATE",
+        email: "e@login.cuny.edu",
+        password: "p",
+      },
+    });
+  });
+
+  test("non-resumable state clears session key", async () => {
+    vi.mocked(browser.storage.session!.remove).mockResolvedValue(undefined);
+    await persistOnboardingResumeSnapshot({
+      state: "EXT_PASSWORD_SETUP",
+      email: "e@login.cuny.edu",
+      password: "p",
+    });
+    expect(browser.storage.session!.remove).toHaveBeenCalled();
   });
 });
