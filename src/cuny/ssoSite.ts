@@ -42,9 +42,48 @@ export const TOTP_PAGE_PATH_MARKER = "/oaa-totp-factor/" as const;
 export const CUNY_LOGIN_ENTRY_URL =
   `${SSO_LOGIN_ORIGIN}/oaa/rui` as const;
 
+/** Host for CUNY Brightspace (must match manifest `host_permissions`). */
+export const BRIGHTSPACE_HOST = "brightspace.cuny.edu" as const;
+
 /** Post-demo destination: CUNY LMS home after extension-driven logout steps. */
 export const BRIGHTSPACE_HOME_URL =
-  "https://brightspace.cuny.edu/d2l/home" as const;
+  `https://${BRIGHTSPACE_HOST}/d2l/home` as const;
+
+/** True when `url` is an https URL on the configured Brightspace host. */
+export const isBrightspaceUrl = (url: string): boolean => {
+  try {
+    return new URL(url).hostname === BRIGHTSPACE_HOST;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Hostnames from which content-script → service-worker messages are accepted
+ * (matches `content_scripts.matches` in manifest, including local E2E fixtures).
+ */
+export const isTrustedContentScriptMessageHostname = (hostname: string): boolean =>
+  hostname === SSO_LOGIN_HOST ||
+  hostname === "127.0.0.1" ||
+  hostname === "localhost";
+
+/**
+ * URLs the service worker may open in response to `ONBOARDING_REOPEN_CUNY_TAB`.
+ * Rejects arbitrary schemes, userinfo, and non-CUNY hosts (including XSS-driven
+ * `runtime.sendMessage` from the SSO tab).
+ */
+export const isAllowedReopenCunyTabUrl = (urlString: string): boolean => {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  if (parsed.username !== "" || parsed.password !== "") return false;
+  const host = parsed.hostname;
+  return host === SSO_LOGIN_HOST || host === BRIGHTSPACE_HOST;
+};
 
 /**
  * OAA server-side logout endpoint. Navigating here terminates the Oracle Access

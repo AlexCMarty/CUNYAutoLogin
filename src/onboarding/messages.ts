@@ -45,7 +45,8 @@ export type AutoFillResponse =
         | "no_session_master"
         | "no_vault"
         | "decrypt_error"
-        | "storage_error";
+        | "storage_error"
+        | "invalid_sender";
     };
 
 /** Narrow `otpContext` from an untyped message record; invalid values become `undefined`. */
@@ -331,7 +332,9 @@ export const isOnboardingReopenCunyTab = (
 ): value is OnboardingReopenCunyTab => {
   if (!isRecord(value)) return false;
   if (value.type !== "ONBOARDING_REOPEN_CUNY_TAB") return false;
-  return isOptionalString(value.url);
+  if (value.url === undefined) return true;
+  if (typeof value.url !== "string") return false;
+  return value.url.trim().length > 0;
 };
 
 export const isOnboardingTabReattached = (

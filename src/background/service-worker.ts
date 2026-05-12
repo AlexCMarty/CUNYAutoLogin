@@ -13,6 +13,9 @@ import {
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
   SSO_LOGIN_TABS_QUERY_URL_PATTERN,
+  isAllowedReopenCunyTabUrl,
+  isBrightspaceUrl,
+  isTrustedContentScriptMessageHostname,
   normalizeTotpSecretCandidate,
 } from "../cuny/ssoSite";
 import {
@@ -30,7 +33,7 @@ import {
   type OnboardingCredentialsAck,
   type OnboardingOverlayCommand,
 } from "../onboarding/messages";
-import { guardedRoute, routeByType } from "../runtime/messageRouter";
+import { guardedRoute, routeByType, type RouteTable } from "../runtime/messageRouter";
 
 type SidePanelApi = {
   setPanelBehavior: (options: { openPanelOnActionClick: boolean }) => Promise<void>;
@@ -105,8 +108,6 @@ let stagedOnboardingCredentials: StagedOnboardingCredentials | null = null;
  */
 let stagedOverlayCommand: OnboardingOverlayCommand | null = null;
 
-const BRIGHTSPACE_HOST = "brightspace.cuny.edu" as const;
-
 const clearBrightspaceSessionCookies = async (): Promise<void> => {
   const cookieNames = ["d2lSessionVal", "d2lSecureSessionVal"] as const;
   for (const cookieName of cookieNames) {
@@ -118,14 +119,6 @@ const clearBrightspaceSessionCookies = async (): Promise<void> => {
     } catch {
       // Keep logout best-effort if one cookie is already missing.
     }
-  }
-};
-
-const isBrightspaceUrl = (url: string): boolean => {
-  try {
-    return new URL(url).hostname === BRIGHTSPACE_HOST;
-  } catch {
-    return false;
   }
 };
 
@@ -170,6 +163,55 @@ export const __test_getStagedOnboardingCredentials = ():
   | null => stagedOnboardingCredentials;
 
 /**
+ * Frame URL for the message sender: extension pages set `sender.url` to a
+ * `chrome-extension:` (or `moz-extension:`) URL; content scripts set it to the
+ * page URL. When `sender.url` is missing, fall back to `sender.tab.url` — the
+ * sidebar can still have a `tab` handle even though it is not a web-page script.
+ */
+const resolvedSenderFrameUrl = (sender: browser.Runtime.MessageSender): string | null => {
+  if (typeof sender.url === "string" && sender.url.length > 0) {
+    return sender.url;
+  }
+  const tabUrl = sender.tab?.url;
+  if (typeof tabUrl === "string" && tabUrl.length > 0) {
+    return tabUrl;
+  }
+  return null;
+};
+
+const senderIsPrivilegedExtensionUi = (sender: browser.Runtime.MessageSender): boolean => {
+  const resolved = resolvedSenderFrameUrl(sender);
+  if (resolved === null) {
+    return sender.tab === undefined;
+  }
+  return (
+    resolved.startsWith("chrome-extension://") ||
+    resolved.startsWith("moz-extension://") ||
+    resolved.startsWith("safari-web-extension://")
+  );
+};
+
+/** Content scripts on SSO or local E2E fixture origins (never extension pages). */
+const senderIsTrustedContentScript = (sender: browser.Runtime.MessageSender): boolean => {
+  const resolved = resolvedSenderFrameUrl(sender);
+  if (resolved === null) {
+    return false;
+  }
+  if (
+    resolved.startsWith("chrome-extension://") ||
+    resolved.startsWith("moz-extension://") ||
+    resolved.startsWith("safari-web-extension://")
+  ) {
+    return false;
+  }
+  try {
+    return isTrustedContentScriptMessageHostname(new URL(resolved).hostname);
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Narrowed onboarding handler. Validates every onboarding message against
  * the shared guards in `src/onboarding/messages.ts` before acknowledging.
  *
@@ -180,24 +222,46 @@ export const __test_getStagedOnboardingCredentials = ():
  * - Unknown types are handled by the outer listener, which falls through to
  *   `undefined` (default-reject).
  *
- * Handles onboarding messages from the sidebar and content script. The
- * ONBOARDING_REOPEN_CUNY_TAB branch opens a tab at the provided URL (or the
- * default CUNY entry URL). Other onboarding messages are acknowledged only.
+ * Sender rules: overlay + reopen tab are accepted only from extension UI
+ * (`chrome-extension:` / `moz-extension:` / `safari-web-extension:` frame URLs,
+ * including when `sender.tab` is present). All other onboarding signals are
+ * accepted only from trusted web origins on the content-script path.
+ * `ONBOARDING_REOPEN_CUNY_TAB` URLs are allow-listed to CUNY HTTPS hosts before `tabs.create`.
  */
 const handleOnboardingMessage = async (
-  message: unknown
+  message: unknown,
+  sender: browser.Runtime.MessageSender
 ): Promise<OnboardingAck> => {
   if (!isOnboardingMessage(message)) {
     return { ok: false, reason: "invalid_payload" };
   }
+  const extensionOnlyOnboarding =
+    message.type === "ONBOARDING_OVERLAY_COMMAND" ||
+    message.type === "ONBOARDING_REOPEN_CUNY_TAB";
+  if (extensionOnlyOnboarding) {
+    if (!senderIsPrivilegedExtensionUi(sender)) {
+      return { ok: false, reason: "invalid_payload" };
+    }
+  } else if (!senderIsTrustedContentScript(sender)) {
+    return { ok: false, reason: "invalid_payload" };
+  }
   if (isOnboardingReopenCunyTab(message)) {
-    const url = message.url ?? CUNY_LOGIN_ENTRY_URL;
+    const raw = message.url?.trim();
+    const resolvedUrl =
+      raw && raw.length > 0
+        ? isAllowedReopenCunyTabUrl(raw)
+          ? raw
+          : null
+        : CUNY_LOGIN_ENTRY_URL;
+    if (resolvedUrl === null) {
+      return { ok: false, reason: "invalid_payload" };
+    }
     await terminateOaaRuiSessions();
-    if (isBrightspaceUrl(url)) {
+    if (isBrightspaceUrl(resolvedUrl)) {
       await clearBrightspaceSessionCookies();
     }
     try {
-      await browser.tabs.create({ url, active: true });
+      await browser.tabs.create({ url: resolvedUrl, active: true });
       return { ok: true };
     } catch {
       return { ok: false, reason: "forward_failed" };
@@ -331,85 +395,119 @@ const resolveAutoFillResponse = async (
   return { success: false, reason: "no_vault" };
 };
 
+const handleTotpSecretFromPageMessage = async (
+  sender: browser.Runtime.MessageSender,
+  typedMessage: Record<string, unknown>
+): Promise<{ ok: boolean }> => {
+  if (!senderIsTrustedContentScript(sender)) {
+    return { ok: false };
+  }
+  const secret = typedMessage.secret;
+  if (typeof secret !== "string" || !secret.length) {
+    return { ok: false };
+  }
+  const normalized = normalizeTotpSecretCandidate(secret);
+  if (!normalized) {
+    return { ok: false };
+  }
+  try {
+    await browser.storage.session?.set({
+      [PENDING_TOTP_SECRET_SESSION_KEY]: normalized,
+    });
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+};
+
+const handleEnrolledAliasFromPageMessage = async (
+  sender: browser.Runtime.MessageSender,
+  typedMessage: EnrolledAliasFromPage
+): Promise<{ ok: boolean }> => {
+  if (!senderIsTrustedContentScript(sender)) {
+    return { ok: false };
+  }
+  const alias = typedMessage.alias;
+  if (typeof alias !== "string" || !alias.length) {
+    return { ok: false };
+  }
+  try {
+    await browser.storage.session?.set({
+      [ENROLLED_FACTOR_ALIAS_SESSION_KEY]: alias,
+    });
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+};
+
+const coreMessageRoutes = (
+  sender: browser.Runtime.MessageSender,
+  message: unknown
+): RouteTable => ({
+  TOTP_SECRET_FROM_PAGE: (typedMessage) =>
+    handleTotpSecretFromPageMessage(sender, typedMessage),
+  ENROLLED_ALIAS_FROM_PAGE: (typedMessage) =>
+    handleEnrolledAliasFromPageMessage(sender, typedMessage as EnrolledAliasFromPage),
+  ONBOARDING_CONTENT_SCRIPT_READY: () =>
+    Promise.resolve({
+      overlayCommand:
+        senderIsTrustedContentScript(sender) && stagedOverlayCommand !== null
+          ? stagedOverlayCommand
+          : null,
+    }),
+  STAGE_ONBOARDING_CREDENTIALS: () =>
+    Promise.resolve(
+      !senderIsPrivilegedExtensionUi(sender)
+        ? ({ ok: false as const } satisfies OnboardingCredentialsAck)
+        : guardedRoute(
+            message,
+            isStageOnboardingCredentials,
+            (validMessage) => handleStageOnboardingCredentials(validMessage),
+            () => ({ ok: false as const })
+          )
+    ),
+  CLEAR_ONBOARDING_CREDENTIALS: () =>
+    Promise.resolve(
+      !senderIsPrivilegedExtensionUi(sender)
+        ? ({ ok: false as const } satisfies OnboardingCredentialsAck)
+        : guardedRoute(
+            message,
+            isClearOnboardingCredentials,
+            (validMessage) => handleClearOnboardingCredentials(validMessage),
+            () => ({ ok: false as const })
+          )
+    ),
+  LOGOUT_CUNY_SESSIONS: () =>
+    (async () => {
+      if (!senderIsPrivilegedExtensionUi(sender)) {
+        return { ok: false as const };
+      }
+      if (!isLogoutCunySessionsRequest(message)) {
+        return { ok: false as const };
+      }
+      await terminateOaaRuiSessions();
+      return { ok: true as const };
+    })(),
+  AUTO_FILL_REQUEST: (typedMessage) =>
+    senderIsTrustedContentScript(sender)
+      ? resolveAutoFillResponse(normalizeAutoFillOtpContext(typedMessage.otpContext))
+      : Promise.resolve({ success: false, reason: "invalid_sender" } as const),
+});
+
 browser.runtime.onMessage.addListener(
   (message: unknown, sender: browser.Runtime.MessageSender) => {
     // Reject messages from other extensions or web pages. Optional chaining
     // degrades gracefully in unit tests that supply a partial sender object.
     if (sender?.id !== browser.runtime.id) return;
 
-    const routed = routeByType(message, {
-      TOTP_SECRET_FROM_PAGE: (typedMessage) =>
-        (async () => {
-          const secret = typedMessage.secret;
-          if (typeof secret !== "string" || !secret.length) {
-            return { ok: false as const };
-          }
-          const normalized = normalizeTotpSecretCandidate(secret);
-          if (!normalized) {
-            return { ok: false as const };
-          }
-          try {
-            await browser.storage.session?.set({
-              [PENDING_TOTP_SECRET_SESSION_KEY]: normalized,
-            });
-            return { ok: true as const };
-          } catch {
-            return { ok: false as const };
-          }
-        })(),
-      ENROLLED_ALIAS_FROM_PAGE: (typedMessage) =>
-        (async () => {
-          const alias = (typedMessage as EnrolledAliasFromPage).alias;
-          if (typeof alias !== "string" || !alias.length) {
-            return { ok: false as const };
-          }
-          try {
-            await browser.storage.session?.set({
-              [ENROLLED_FACTOR_ALIAS_SESSION_KEY]: alias,
-            });
-            return { ok: true as const };
-          } catch {
-            return { ok: false as const };
-          }
-        })(),
-      ONBOARDING_CONTENT_SCRIPT_READY: () =>
-        // Poll response: no push channel, so the worker returns the last show command (or null).
-        Promise.resolve({ overlayCommand: stagedOverlayCommand ?? null }),
-      STAGE_ONBOARDING_CREDENTIALS: () =>
-        Promise.resolve(
-          guardedRoute(
-            message,
-            isStageOnboardingCredentials,
-            (validMessage) => handleStageOnboardingCredentials(validMessage),
-            () => ({ ok: false as const })
-          )
-        ),
-      CLEAR_ONBOARDING_CREDENTIALS: () =>
-        Promise.resolve(
-          guardedRoute(
-            message,
-            isClearOnboardingCredentials,
-            (validMessage) => handleClearOnboardingCredentials(validMessage),
-            () => ({ ok: false as const })
-          )
-        ),
-      LOGOUT_CUNY_SESSIONS: () =>
-        (async () => {
-          if (!isLogoutCunySessionsRequest(message)) {
-            return { ok: false as const };
-          }
-          await terminateOaaRuiSessions();
-          return { ok: true as const };
-        })(),
-      AUTO_FILL_REQUEST: (typedMessage) =>
-        resolveAutoFillResponse(normalizeAutoFillOtpContext(typedMessage.otpContext)),
-    });
+    const routed = routeByType(message, coreMessageRoutes(sender, message));
     if (routed !== undefined) {
       return routed;
     }
 
     if (hasOnboardingMessageType(message)) {
-      return handleOnboardingMessage(message);
+      return handleOnboardingMessage(message, sender);
     }
 
     return;

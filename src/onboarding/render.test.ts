@@ -10,6 +10,7 @@ vi.mock("webextension-polyfill", () => ({
       local: { get: vi.fn(), set: vi.fn(), remove: vi.fn() },
     },
     runtime: {
+      id: "test-ext-id",
       sendMessage: vi.fn().mockResolvedValue(undefined),
       onMessage: { addListener: vi.fn(), removeListener: vi.fn() },
     },
@@ -210,7 +211,7 @@ describe("mountOnboarding", () => {
     passwordForward.click();
     bridgeListener(
       { type: "ONBOARDING_STAGE_DETECTED", stage: "allow_gate" },
-      { tab: { id: 123 } } as never,
+      { id: "test-ext-id", tab: { id: 123 } } as never,
       () => undefined
     );
     const onRemovedListener = vi.mocked(browser.tabs.onRemoved.addListener).mock.calls[0]?.[0];
@@ -240,7 +241,7 @@ describe("mountOnboarding", () => {
         type: "ONBOARDING_VERIFY_STATUS",
         status: "second_failure",
       },
-      {} as never,
+      { id: "test-ext-id" } as never,
       () => undefined
     );
     expect(paused.hidden).toBe(false);
@@ -270,7 +271,7 @@ describe("mountOnboarding", () => {
           type: "ONBOARDING_STAGE_DETECTED",
           stage,
         },
-        {} as never,
+        { id: "test-ext-id" } as never,
         () => undefined
       );
       expect(markerElement.hidden).toBe(false);

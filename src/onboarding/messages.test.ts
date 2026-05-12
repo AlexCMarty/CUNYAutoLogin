@@ -230,6 +230,15 @@ describe("isOnboardingReopenCunyTab", () => {
       isOnboardingReopenCunyTab({ type: "ONBOARDING_REOPEN_CUNY_TAB", url: 123 })
     ).toBe(false);
   });
+
+  test("empty string url → false", () => {
+    expect(isOnboardingReopenCunyTab({ type: "ONBOARDING_REOPEN_CUNY_TAB", url: "" })).toBe(
+      false
+    );
+    expect(
+      isOnboardingReopenCunyTab({ type: "ONBOARDING_REOPEN_CUNY_TAB", url: "   " })
+    ).toBe(false);
+  });
 });
 
 // ──── isOnboardingTabReattached ──────────────────────────────────────────────

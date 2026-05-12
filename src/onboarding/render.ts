@@ -15,10 +15,12 @@
  * Security: this module holds the email/password drafts only via the
  * controller closure. Nothing written to `browser.storage.*`. The sidebar
  * unmount path fires `CLEAR_ONBOARDING_CREDENTIALS` so the service worker
- * also drops its in-memory copy.
+ * also drops its in-memory copy. The runtime bridge ignores messages whose
+ * `sender.id` is not this extension (cross-extension `sendMessage` noise).
  */
 
 import browser from "webextension-polyfill";
+import type { Runtime } from "webextension-polyfill";
 import { mountBeadHeader } from "./beadHeader";
 import {
   type OnboardingController,
@@ -436,8 +438,9 @@ const installRuntimeMessageBridge = (
   } as const;
   const listener = (
     message: unknown,
-    sender?: { tab?: { id?: number } | undefined }
+    sender: Runtime.MessageSender
   ): void => {
+    if (sender.id !== browser.runtime.id) return;
     if (!isOnboardingMessage(message)) return;
     if (isDevMode()) {
       // eslint-disable-next-line no-console
