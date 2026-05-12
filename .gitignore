@@ -28,10 +28,6 @@ Thumbs.db
 # Agent screenshots
 agent_screenshots/
 
-# Local security audit reports (orchestrator output; do not ship in repo)
-security-audit-findings-perspective-1.md
-security-audit-findings-perspective-2.md
-
 # Agent reports
 .reports/
 
