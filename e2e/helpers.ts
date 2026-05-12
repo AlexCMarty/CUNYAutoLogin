@@ -96,7 +96,7 @@ export async function lockVault(page: Page): Promise<void> {
   await expect(page.locator("#vault-locked-header")).toBeVisible();
   await expect(page.locator("#submit-btn")).toHaveText("Unlock");
   await expect(page.locator("#vault-greeting-sub")).toContainText(
-    "Type your password to fill your CUNY sign-in."
+    "Use your biometrics or type your password to fill your CUNY sign-in."
   );
 }
 

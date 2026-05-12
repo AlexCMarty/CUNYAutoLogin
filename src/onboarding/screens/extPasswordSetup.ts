@@ -47,7 +47,7 @@ const createExtPasswordContainer = (doc: Document): HTMLElement => {
   const body = doc.createElement("p");
   body.className = "onboarding-body";
   body.textContent =
-    "You'll type this each time you sign in. Pick something memorable — it's different from your CUNY password.";
+    "To keep your information secure, you need to choose a password for the extension. Pick something memorable — it's different from your CUNY password.";
   container.appendChild(body);
 
   return container;
