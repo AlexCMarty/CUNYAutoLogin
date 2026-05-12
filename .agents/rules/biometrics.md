@@ -9,7 +9,7 @@ The extension can wrap the vault master password with a key derived from the Web
 - **Implementation:** `src/crypto/biometric.ts`
 - **Storage key:** `cunyBiometricCredential` in `browser.storage.local` (AES-GCM-wrapped master password + credential metadata; no plaintext secrets — see `.agents/rules/security.md`).
 - **rp.id:** `WEBAUTHN_RP_ID` from `src/cuny/ssoSite.ts` (`"ssologin.cuny.edu"`).
-- **Current status:** dev build only. Gated by `if (import.meta.env.MODE !== "production")` at the call sites. Production bundles must not ship the biometric onboarding screens until the platform support story stabilises.
+- **Onboarding:** `BIOMETRIC_OFFER` / `BIOMETRIC_PREP` in `src/onboarding/screens/` are mounted for **all** Vite bundles (including `vite build` production). If no platform authenticator is available, the offer screen auto-dispatches decline and the flow continues without biometrics.
 
 ## Minimum platform requirements
 
@@ -109,7 +109,7 @@ Single `credentials.get()` prompt:
 
 ## The `import.meta.env.DEV` trap
 
-`import.meta.env.DEV` is **always `false` in `vite build` output, even with `--mode development`**. Using it to gate features (or to keep debug logging) silently strips them from the dev build. **Use `import.meta.env.MODE !== "production"` instead.** This is the established pattern in this codebase — see the commit history around the biometric feature for the bug this caused. Note that content-script code uses `if (import.meta.env.DEV)` for tree-shaking the FILL_CREDENTIALS test path (see `.agents/rules/flows.md`); that is the **only** correct use because the content-script Vite config does behave like a dev server in dev builds. Everywhere else in the extension, prefer `MODE !== "production"`.
+`import.meta.env.DEV` is **always `false` in `vite build` output, even with `--mode development`**. Using it to gate features (or to keep debug logging) silently strips them from the dev build. **Use `import.meta.env.MODE !== "production"` instead** for non-production-only diagnostics (for example `console.debug` in `biometric.ts`). Note that content-script code uses `if (import.meta.env.DEV)` for tree-shaking the FILL_CREDENTIALS test path (see `.agents/rules/flows.md`); that is the **only** correct use because the content-script Vite config does behave like a dev server in dev builds. Everywhere else in the extension, prefer `MODE !== "production"` when you truly mean “not the production bundle.”
 
 ## When to search the web
 

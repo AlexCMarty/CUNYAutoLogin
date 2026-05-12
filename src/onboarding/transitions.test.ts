@@ -132,6 +132,7 @@ describe("back-button contract", () => {
       "VERIFY_LOGIN_CODE",
       "SET_DEFAULT",
       "EXT_PASSWORD_SETUP",
+      "BIOMETRIC_OFFER",
       "COMPLETE_DEMO",
       "COMPLETE_DONE",
     ] as const) {

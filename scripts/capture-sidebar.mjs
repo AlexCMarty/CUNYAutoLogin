@@ -100,11 +100,10 @@ Hash-fragment shortcuts:
     WELCOME, EMAIL_ENTRY, PASSWORD_ENTRY, OPENING_CUNY, CUNY_TOTP, ALLOW_GATE,
     OAA_SPA_HOME, GUIDED_MANAGE, GUIDED_ADD_FACTOR, GUIDED_FACTOR_TYPE,
     GUIDED_SECRET_CAPTURE, VERIFY_LOGIN_CODE, SET_DEFAULT, EXT_PASSWORD_SETUP,
-    BIOMETRIC_OFFER (*), BIOMETRIC_PREP (*), COMPLETE_DEMO, COMPLETE_DONE
+    BIOMETRIC_OFFER, BIOMETRIC_PREP, COMPLETE_DEMO, COMPLETE_DONE
   Credential-error variants (no dedicated state — renders inline on the screen):
     #qa=EMAIL_ENTRY&qaCred=email        email field error
     #qa=PASSWORD_ENTRY&qaCred=password  password field error
-  (*) Only present in e2e / non-production builds (build:e2e).
   CREDENTIAL_ERROR has no screen mount — use the qaCred variants above instead.
 
 Requires: npm run build:e2e (or equivalent) so dist/ exists.

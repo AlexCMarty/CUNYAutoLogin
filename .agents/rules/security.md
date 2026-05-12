@@ -8,7 +8,7 @@ The master password is **never written to `storage.local` or disk**. It lives on
 
 ## Key constraints
 
-- **`browser.storage.local` allowed keys** — **`cunyVault`** (encrypted `StoredVault`) and **`cunyBiometricCredential`** (AES-GCM-wrapped master password + WebAuthn credential ID + PRF salt; dev build only; no plaintext secrets). Nothing else may be added to `storage.local` without an explicit security pass.
+- **`browser.storage.local` allowed keys** — **`cunyVault`** (encrypted `StoredVault`) and **`cunyBiometricCredential`** (AES-GCM-wrapped master password + WebAuthn credential ID + PRF salt; optional biometric unlock; no plaintext secrets). Nothing else may be added to `storage.local` without an explicit security pass.
 - **Master password never in `storage.local`** — `decryptVault` / `encryptVault` accept it as a parameter. Never write it to `storage.local` or logs.
 - **`browser` import** — always `import browser from "webextension-polyfill"`, never `chrome.*`.
 - **Minimum browser versions** — `storage.session` requires Firefox 128+ and Chrome 141+. Do not lower these without adding a fallback.

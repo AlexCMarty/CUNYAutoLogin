@@ -310,15 +310,20 @@ async function handleUnlocked(els: SidebarDom): Promise<void> {
   await browser.storage.local.set({ [VAULT_STORAGE_KEY]: newVault });
   storedVault = newVault;
   sessionPayload = { email, password, totpSecret };
+  const previousSessionMaster = sessionMasterPassword;
   sessionMasterPassword = masterPasswordToUse;
   await saveSessionMaster(masterPasswordToUse);
-  if (import.meta.env.MODE !== "production" && sessionMasterPassword !== null && masterPasswordToUse !== sessionMasterPassword) {
+  if (
+    previousSessionMaster !== null &&
+    masterPasswordToUse !== previousSessionMaster
+  ) {
     // Stale biometric credential would decrypt to old password — clear it so
     // the unlock button disappears until the user re-enrolls.
     const { clearBiometricCredential } = await import("../crypto/biometric");
     await clearBiometricCredential();
     const bioBtn = document.getElementById("biometric-unlock-btn");
     if (bioBtn) bioBtn.hidden = true;
+    biometricAvailable = false;
   }
   els.newMasterPassword.value = "";
   els.confirmNewMasterPassword.value = "";
@@ -452,9 +457,7 @@ async function init(): Promise<void> {
 
   els.lockBtn.addEventListener("click", () => void handleLock(els));
 
-  if (import.meta.env.MODE !== "production") {
-    await maybeWireBiometricUnlock(els);
-  }
+  await maybeWireBiometricUnlock(els);
 
   await maybeMountDevDebugPanel(els);
 }

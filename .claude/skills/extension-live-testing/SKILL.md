@@ -274,10 +274,10 @@ Use this to reach the screen under investigation. Skip ahead only when the user�
 
 13. **`?view=post-enroll`** — **SET_DEFAULT**: kebab on CUNYAutoLogin factor → **Set as Default**; polling until preferred factor flips; then **EXT_PASSWORD_SETUP**.
 
-**Later sidebar screens (when implemented in build):**
+**Later sidebar screens:**
 
 14. **EXT_PASSWORD_SETUP** — strength, match, forward disabled rules.
-15. **BIOMETRIC_OFFER / BIOMETRIC_PREP** — platform authenticator may be unavailable in automation; note environment caveat.
+15. **BIOMETRIC_OFFER / BIOMETRIC_PREP** — optional WebAuthn PRF enrollment after extension password; platform authenticator may be unavailable in automation; note environment caveat.
 16. **COMPLETE_DEMO / COMPLETE_DONE** — terminal UI; demo tab behavior per user task.
 
 **Interruption / resume (when testing those claims):**

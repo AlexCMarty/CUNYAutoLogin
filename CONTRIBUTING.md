@@ -79,7 +79,7 @@ End-to-end fixtures and the fixture server (`e2e/fixtures-server.mjs`) mirror th
 
 For **sidebar-only** visual QA (layout, `#qa=<STATE>`, vault modes, etc.) without hitting live CUNY:
 
-1. `npm run build:e2e`
+1. `npm run build:e2e` (or `build:dev` — `#qa=` / `#onboarding=1` hashes are ignored in **production** bundles; see `src/sidebar/sidebar.ts`)
 2. Pick a capture command (see below).
 
 Writes under `agent_screenshots/` (gitignored); prints one **absolute PNG path** per line on stdout. Default viewport **380×800**; override with `--width` / `--height`. See `node scripts/capture-sidebar.mjs --help` and [`e2e/extension-fixture.ts`](e2e/extension-fixture.ts) for the same Chromium load-extension approach.
@@ -104,8 +104,8 @@ Writes under `agent_screenshots/` (gitignored); prints one **absolute PNG path**
 | 14 | `npm run capture-sidebar -- '#qa=VERIFY_LOGIN_CODE'` | |
 | 15 | `npm run capture-sidebar -- '#qa=SET_DEFAULT'` | |
 | 16 | `npm run capture-sidebar -- '#qa=EXT_PASSWORD_SETUP'` | |
-| 17 | `npm run capture-sidebar -- '#qa=BIOMETRIC_OFFER'` | e2e build only |
-| 18 | `npm run capture-sidebar -- '#qa=BIOMETRIC_PREP'` | e2e build only |
+| 17 | `npm run capture-sidebar -- '#qa=BIOMETRIC_OFFER'` | |
+| 18 | `npm run capture-sidebar -- '#qa=BIOMETRIC_PREP'` | |
 | 19 | `npm run capture-sidebar -- '#qa=COMPLETE_DEMO'` | |
 | 20 | `npm run capture-sidebar -- '#qa=COMPLETE_DONE'` | |
 | 21 | `npm run capture-sidebar -- --qa-vault-locked` | vault locked UI |

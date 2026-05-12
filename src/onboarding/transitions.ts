@@ -119,7 +119,7 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
     // Vault material is staged in memory; BACK is disabled to avoid a vague
     // partial-exit while secrets are mid-setup.
     BACK: null,
-    EXT_PASSWORD_SAVED: import.meta.env.MODE !== "production" ? "BIOMETRIC_OFFER" : "COMPLETE_DEMO",
+    EXT_PASSWORD_SAVED: "BIOMETRIC_OFFER",
   }),
   BIOMETRIC_OFFER: Object.freeze({
     BACK: null,

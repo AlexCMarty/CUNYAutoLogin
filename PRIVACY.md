@@ -1,6 +1,6 @@
 # Privacy Policy — CUNYAutoLogin
 
-**Last updated:** May 6, 2026  
+**Last updated:** May 11, 2026  
 
 **Operator:** This extension is an independent open source project maintained by **Alexander C. Marty**. It is **not** affiliated with, endorsed by, or operated by the City University of New York (CUNY) or its vendors.
 
@@ -13,6 +13,7 @@ This policy describes how the **CUNYAutoLogin** browser extension (“the extens
 ## Summary
 
 - The extension is designed so that your **CUNY login email, password, and TOTP (authenticator) secret** are stored **only on your computer**, inside the browser, **encrypted** with a **vault password (extension password)** you choose.
+- **Optional biometric unlock** (for example Face ID, Touch ID, or Windows Hello): if you turn it on, the extension stores **only** a WebAuthn passkey record and a **cryptographic wrapper** around your vault password so the OS can prompt you instead of typing the password each time. That enrollment runs **on your device** through the browser’s WebAuthn APIs; **no biometric templates** and **no plaintext vault password** are sent to the extension developer or written to ordinary extension logs.
 - Your **vault password** is **not** written to persistent extension storage; it is kept in the browser’s **session** storage (and in memory while unlocked), which is cleared when the browser session ends according to browser rules.
 - The extension **does not** send your credentials or vault contents to the developer’s servers. There is **no account system**, **no cloud sync**, and **no analytics or crash-reporting** built into the extension code for those purposes.
 - The extension **does** interact with **official CUNY sites** you already use (for example to fill sign-in fields and to complete logout flows), using only the permissions declared in its `manifest.json`.
@@ -27,12 +28,13 @@ This policy describes how the **CUNYAutoLogin** browser extension (“the extens
 | Category              | What                                                                                                                                                  | Where / how                                                                                                    |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | **Vault (encrypted)** | CUNY Login email (`@login.cuny.edu`), password, TOTP secret material needed to generate one-time codes, and related vault metadata                    | `browser.storage.local` as a single encrypted blob (PBKDF2 + AES-GCM). Readable only with your vault password. |
+| **Biometric unlock (optional)** | WebAuthn credential identifiers, authenticator metadata the browser needs for later prompts, and your vault password **re-encrypted** with a key derived inside the platform authenticator (not stored in plaintext) | `browser.storage.local` as a separate small record **only if you enroll**. Skipping onboarding biometrics leaves this empty. |
 | **Onboarding flag**   | Whether you finished first-time setup                                                                                                                 | `browser.storage.local` as a non-secret boolean.                                                               |
 | **Session-only data** | Vault unlock key derived from your vault password; optional **setup drafts** during onboarding; **pending TOTP secret** scraped during MFA enrollment | `browser.storage.session` (not persisted like normal disk storage; cleared when the session ends).             |
 | **In-memory staging** | Email and password during a narrow onboarding window before the vault exists                                                                          | Held only in the extension **service worker** memory until cleared or the worker terminates.                   |
 
 
-If you **uninstall** the extension or **clear** extension data, locally stored vault and flags are removed according to your browser’s behavior.
+If you **uninstall** the extension or **clear** extension data, locally stored vault, optional biometric enrollment data, and flags are removed according to your browser’s behavior.
 
 ### Information we do not collect as a product feature
 
@@ -51,15 +53,15 @@ There is **no** built-in telemetry, analytics SDK, or remote logging of your vau
 
 The manifest requests **storage**, **activeTab**, **sidePanel** (and Firefox **sidebar** equivalents), and **cookies**, with access limited to:
 
-- `https://ssologin.cuny.edu/`*  
+- `https://ssologin.cuny.edu/*`  
 - `https://brightspace.cuny.edu/*`
 
 **Typical uses:**
 
-- **Storage:** Encrypted vault, session keys, onboarding state (as above).  
+- **Storage:** Encrypted vault, optional biometric-enrollment record, session keys, onboarding state (as above).  
 - **Side panel / sidebar:** User interface for setup, unlock, and settings.  
 - **Active tab:** Opening or focusing tabs when the flow needs a CUNY page (for example first-time login).  
-- **Host access + content script on `ssologin.cuny.edu`:** Detecting the sign-in and MFA pages the extension supports and filling fields **only in that origin’s documents**, in line with the extension’s purpose.  
+- **Host access + content script on `ssologin.cuny.edu`:** Detecting the sign-in and MFA pages the extension supports and filling fields **only in that origin’s documents**, in line with the extension’s purpose. The same host permission is also used so WebAuthn “relying party” checks align with CUNY Login’s domain when you **optionally** enroll biometric unlock from the extension UI—still **no** credential upload to the extension operator.  
 - **Cookies:** Best-effort removal of **named Brightspace session cookies** on specific flows (for example when reopening a clean session). The extension does **not** read arbitrary cookie jars for unrelated sites or exfiltrate cookie values to third parties.
 
 **Network:** The extension may issue **same-origin** requests to **CUNY SSO** URLs that are part of documented logout behavior (for example to end an IdP session when the flow requires it), using the browser’s normal cookie jar for that origin. It does not send your vault blob or master password over the network.
@@ -70,6 +72,7 @@ The manifest requests **storage**, **activeTab**, **sidePanel** (and Firefox **s
 
 - **CUNY and its vendors** operate the websites you sign in to. Their privacy policies govern data you submit **to them**. This extension automates interactions you would otherwise perform manually on those sites; it does not change CUNY’s role as a data controller for information you give **to CUNY**.  
 - **Browser vendors** (Mozilla, Google, Microsoft, Apple, etc.) provide the runtime, storage APIs, and sync features. If you use **browser sync** or backups, understand your vendor’s policies—**this extension does not implement its own cloud backup**, but your browser might sync extension data if you enable that.  
+- **Operating system / device authenticators:** If you use **biometric unlock**, your OS and hardware-backed authenticator perform the biometric check. The extension does **not** receive raw fingerprint, face image, or similar **biometric templates** from the OS—only the cryptographic outputs the browser exposes through **WebAuthn** after a successful verification.  
 - **GitHub** (or other hosts) may process IP addresses and similar metadata when you visit the project page or download releases; that is governed by GitHub’s policies, not this extension’s code.
 
 ---
@@ -77,7 +80,7 @@ The manifest requests **storage**, **activeTab**, **sidePanel** (and Firefox **s
 ## Security practices (high level)
 
 - Vault data at rest uses **PBKDF2** (SHA-256) with a high iteration count and **AES-GCM** with per-save random salt and IV.  
-- The **vault password** is not stored in `storage.local`.  
+- The **vault password** is not stored in `storage.local` in plaintext. If you use biometric unlock, an additional **AES-GCM**-wrapped copy of the vault password is stored tied to a **WebAuthn** credential; unlocking re-derives the wrapping key through a **platform-only** prompt (your OS / authenticator), not over the network to this project.  
 - Production builds avoid logging secrets; development logging is gated behind development flags.
 
 No method of electronic storage is 100% secure. You are responsible for choosing a **strong vault password**, locking your device, and keeping your browser up to date.

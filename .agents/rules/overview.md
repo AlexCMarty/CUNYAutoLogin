@@ -49,8 +49,8 @@ src/
   onboarding/screens/           welcome, emailEntry, passwordEntry, cunyTotp, openingCuny, allowGate,
                                 oaaSpaHome, guidedManage, guidedAddFactor, guidedFactorType,
                                 guidedSecretCapture, verifyLoginCode, setDefault, extPasswordSetup,
-                                completeDemo, completeDone.
-                                biometricOffer, biometricPrep — dev build only (not wired in prod).
+                                completeDemo, completeDone,
+                                biometricOffer, biometricPrep.
                                 CREDENTIAL_ERROR is an onboarding state (not a separate file): inline UX
                                 lives in emailEntry.ts / passwordEntry.ts.
                                 guidedCommon.ts — shared guided-flow helpers

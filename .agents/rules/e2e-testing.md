@@ -39,7 +39,7 @@ npm run capture-sidebar -- --qa-vault-unlocked  # vault unlocked / management UI
 npm run capture-sidebar -- --capture-all        # all 22 visual states, one PNG each; prints one path per line
 ```
 
-All 18 jumpable onboarding states are valid hash targets. `BIOMETRIC_OFFER` and `BIOMETRIC_PREP` only exist in e2e (non-production) builds. `CREDENTIAL_ERROR` has no screen mount — use the `qaCred` variants above instead.
+All 18 jumpable onboarding states are valid hash targets in **non-production** bundles (`build:e2e` / `build:dev`). `CREDENTIAL_ERROR` has no screen mount — use the `qaCred` variants above instead.
 
 Viewport defaults to **380×800**; use `--width` / `--height` to override. Writes under `agent_screenshots/` by default; stdout is one absolute path per PNG. Full state table: `CONTRIBUTING.md` → **Sidebar screenshots (CLI)**.
 

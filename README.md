@@ -36,14 +36,15 @@ After updates, download a new release zip, unzip to replace the old folder, then
 
 ## First-time setup
 
-The first time you use the extension, the **sidebar** walks you through setup in a few stages. **Your info** → **First login** → **Set up login codes** → **Extension password** → **Done**. Plan on about **five minutes**.
+The first time you use the extension, the **sidebar** walks you through setup in a few stages. **Your info** → **First login** → **Set up login codes** → **Extension password** → **Optional biometrics** → **Done**. Plan on about **five minutes**.
 
 1. **Open the extension** (puzzle piece → pin CUNYAutoLogin if you want it visible)
 2. **Your CUNY email** must end with `@login.cuny.edu` (your CUNY Login address — not a campus @stu-mail.school.cuny.edu). Enter the password for this email too.
 3. **Autofill (partially)** — then the extension opens **CUNY Login** in a new tab and can fill your email and password for that first sign-in. You need to type a six digit code, but this is the **last time** you'll have to do that.
 4. **Set up login codes** — the flow guides you through **CUNY MFA Self-Service** so you can add a **Mobile Authenticator (TOTP)**. **Do not share the secret** with anyone; it is equivalent to your authenticator for sign-in.
 5. **Extension password** — this is your **vault master password**. It encrypts everything stored locally. It is kept in the browser session while unlocked, not shipped to a server.
-6. **Log in!** You will be redirected to Brightspace to watch the automatic login. **It fills the six digit code for you**.
+6. **Biometrics (optional)** — you may be offered **Face ID, Touch ID, or Windows Hello** so you can unlock the vault without typing the extension password each time. You can skip this and use your password only; both paths keep secrets on your device.
+7. **Log in!** You will be redirected to Brightspace to watch the automatic login. **It fills the six digit code for you**.
 
 If you close the sidebar mid-setup, **open it again in the same browser session**; the flow can often resume from a safe point. If something goes wrong on the CUNY page, the sidebar usually explains the next step.
 
