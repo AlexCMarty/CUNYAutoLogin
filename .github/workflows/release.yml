@@ -18,8 +18,12 @@ jobs:
       - name: Guard — release workflow must not build e2e artifacts
         run: |
           set -euo pipefail
-          if grep -RInE '(^|\\s)npm run build:e2e(\\s|$)|E2E_MANIFEST=1' .github/workflows; then
-            echo "ERROR: Store release workflows must not invoke build:e2e or E2E_MANIFEST=1."
+          # Assembled at runtime so this file does not contain the forbidden substrings
+          # (a self-match would make grep -R on .github/workflows fail the job).
+          e2e_build=$(printf '%s:%s' build e2e)
+          e2e_var=$(printf '%s=%s' E2E_MANIFEST 1)
+          if grep -RInE "(^|\\s)npm run ${e2e_build}(\\s|$)|${e2e_var}" .github/workflows; then
+            echo "ERROR: Store release workflows must not invoke ${e2e_build} or ${e2e_var}."
             exit 1
           fi
           if grep -F 'http://127.0.0.1:4173' src/manifest.json; then
