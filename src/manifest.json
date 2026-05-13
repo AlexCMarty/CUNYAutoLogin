@@ -1,9 +1,13 @@
 {
   "manifest_version": 3,
   "name": "CUNYAutoLogin",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Stop manually logging into CUNY. We do that for you.",
-  "permissions": ["storage", "sidePanel", "cookies"],
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "cookies"
+  ],
   "host_permissions": [
     "https://ssologin.cuny.edu/*",
     "https://brightspace.cuny.edu/*"
@@ -36,13 +40,19 @@
   },
   "background": {
     "service_worker": "background.js",
-    "scripts": ["background.js"],
+    "scripts": [
+      "background.js"
+    ],
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["https://ssologin.cuny.edu/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://ssologin.cuny.edu/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
