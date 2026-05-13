@@ -24,6 +24,10 @@ export const CREDENTIAL_ERROR_FIXTURE_URL =
 
 export const TOTP_FIXTURE_URL = `${FIXTURE_ORIGIN}/oaa-totp-factor/`;
 
+/** TOTP fixture with CUNY's rejected-code query param — triggers the error banner. */
+export const TOTP_FIXTURE_WRONG_CODE_URL =
+  `${FIXTURE_ORIGIN}/oaa-totp-factor/?emsg=Entered+TOTP+is+incorrect.`;
+
 export const SELF_SERVICE_FIXTURE_URL = `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_ra=1`;
 export const SELF_SERVICE_INVALID_SECRET_FIXTURE_URL =
   `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_ra=1&secret=not-a-valid-secret!`;

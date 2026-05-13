@@ -217,6 +217,9 @@ export const TOTP_OTP_INPUT_ID = "otpValue|input" as const;
 /** Substring matched against button `innerHTML` to find the Verify control. */
 export const TOTP_VERIFY_BUTTON_LABEL = "Verify" as const;
 
+/** URL query param CUNY appends after a rejected TOTP submission. Non-null value means error. */
+export const TOTP_ERROR_EMSG_PARAM = "emsg" as const;
+
 /** Parameters for TOTP codes (must match what CUNY’s IdP expects). */
 export const TOTP_GENERATION_OPTIONS = {
   algorithm: "SHA-1" as const,

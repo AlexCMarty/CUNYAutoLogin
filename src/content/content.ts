@@ -7,6 +7,7 @@ import {
   matchesMfaConsentPage,
   matchesTotpEnrollPage,
   matchesTotpPage,
+  TOTP_ERROR_EMSG_PARAM,
 } from "../cuny/ssoSite";
 import {
   isFillMessage,
@@ -24,6 +25,7 @@ import { startMfaEnrollVerifyOtpPolling } from "./mfaEnrollVerifyFlow";
 import { requestAndExecuteOverlayCommand } from "./overlayBridge";
 import { installAllowConsentClickReporter } from "./allowConsentReporter";
 import { watchTotpSecretOnEnrollPage } from "./totpEnrollSecretBridge";
+import { mountTotpErrorBanner } from "./banner";
 
 const LOG_PREFIX = "[CUNYAutoLogin]";
 
@@ -46,6 +48,16 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
     // TOTP challenge means credentials were accepted; keep sidebar in sync with the tab.
     await announceCunyTotpChallenge();
     if (payload.totpSecret.length > 0) {
+      const emsg = new URLSearchParams(window.location.search).get(TOTP_ERROR_EMSG_PARAM);
+      if (emsg !== null) {
+        mountTotpErrorBanner(() => {
+          void (async () => {
+            const result = await fillTotp(payload.totpSecret);
+            if (result.isErr()) log("error:", result.error);
+          })();
+        });
+        return;
+      }
       const result = await fillTotp(payload.totpSecret);
       if (result.isErr()) log("error:", result.error);
     }

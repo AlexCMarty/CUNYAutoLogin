@@ -124,3 +124,69 @@ export const unmountCredentialErrorBanner = (
   const existing = doc.getElementById(CREDENTIAL_ERROR_BANNER_ID);
   existing?.remove();
 };
+
+export const TOTP_ERROR_BANNER_ID = "cunyautologin-totp-error-banner" as const;
+
+export const TOTP_ERROR_BANNER_COPY =
+  "CUNYAutoLogin: TOTP was rejected — you might be on the wrong factor or the timer rolled over." as const;
+
+const RETRY_BUTTON_STYLE: BannerStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "6px 14px",
+  background: "#ffd666",
+  color: "#1b1233",
+  border: "none",
+  borderRadius: "999px",
+  fontWeight: "700",
+  fontSize: "12px",
+  letterSpacing: "0.02em",
+  cursor: "pointer",
+  flex: "0 0 auto",
+  fontFamily:
+    "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+};
+
+export const mountTotpErrorBanner = (
+  onRetry: () => void,
+  doc: Document = document
+): HTMLElement => {
+  const existing = doc.getElementById(TOTP_ERROR_BANNER_ID);
+  if (existing instanceof HTMLElement) return existing;
+
+  const banner = doc.createElement("div");
+  banner.id = TOTP_ERROR_BANNER_ID;
+  banner.setAttribute("role", "alert");
+  banner.setAttribute("aria-live", "assertive");
+  banner.dataset.cunyautologinBanner = "totp-error";
+  applyStyle(banner, BANNER_STYLE);
+
+  const badge = doc.createElement("span");
+  badge.textContent = BANNER_ICON_TEXT;
+  badge.setAttribute("aria-hidden", "false");
+  applyStyle(badge, BADGE_STYLE);
+
+  const text = doc.createElement("span");
+  text.dataset.cunyautologinBannerText = "totp-error";
+  text.textContent = TOTP_ERROR_BANNER_COPY;
+  applyStyle(text, TEXT_STYLE);
+
+  const retryBtn = doc.createElement("button");
+  retryBtn.textContent = "Try again";
+  retryBtn.setAttribute("type", "button");
+  applyStyle(retryBtn, RETRY_BUTTON_STYLE);
+  retryBtn.addEventListener("click", () => {
+    banner.remove();
+    onRetry();
+  });
+
+  banner.appendChild(badge);
+  banner.appendChild(text);
+  banner.appendChild(retryBtn);
+  doc.documentElement.appendChild(banner);
+  return banner;
+};
+
+export const unmountTotpErrorBanner = (doc: Document = document): void => {
+  doc.getElementById(TOTP_ERROR_BANNER_ID)?.remove();
+};
