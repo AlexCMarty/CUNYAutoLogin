@@ -7,14 +7,12 @@ import {
   RUI_CLIENT_OTP_ERROR,
   RUI_SERVER_OTP_ERROR,
 } from "../cuny/ssoSite";
-import type { AutoFillRequest, AutoFillResponse, OnboardingVerifyStatus } from "../onboarding/messages";
-import { simulateKeystrokes } from "./content.utils";
+import { isAutoFillResponse, type AutoFillRequest, type OnboardingVerifyStatus } from "../onboarding/messages";
+import { LOG_PREFIX, simulateKeystrokes } from "./content.utils";
 import { getOtp } from "./totpLoginFlow";
 
-const LOG_PREFIX = "[CUNYAutoLogin]";
-
 const log = (...args: unknown[]): void => {
-  if (!import.meta.env.DEV) return;
+  if (import.meta.env.MODE === "production") return;
   // eslint-disable-next-line no-console
   console.log(LOG_PREFIX, "MFA self-service · TOTP verify:", ...args);
 };
@@ -37,9 +35,6 @@ const sendVerifyStatus = (status: OnboardingVerifyStatus["status"]): void => {
   };
   void browser.runtime.sendMessage(message).catch(() => undefined);
 };
-
-const isAutoFillResponse = (value: unknown): value is AutoFillResponse =>
-  typeof value === "object" && value !== null && "success" in value;
 
 const tryFillMfaEnrollVerifyOtp = async (otpInput: HTMLInputElement): Promise<boolean> => {
   try {
@@ -73,7 +68,7 @@ const tryFillMfaEnrollVerifyOtp = async (otpInput: HTMLInputElement): Promise<bo
     log("filled 6-digit code");
     return true;
   } catch (error) {
-    if (import.meta.env.DEV) {
+    if (import.meta.env.MODE !== "production") {
       // eslint-disable-next-line no-console
       console.warn("[CUNYAutoLogin] mfaEnrollVerifyFlow tick: unexpected error", error);
     }

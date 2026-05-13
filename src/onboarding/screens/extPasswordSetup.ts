@@ -227,7 +227,7 @@ const runExtPasswordVaultSave = async (
 
     dispatch("EXT_PASSWORD_SAVED");
   } catch (error) {
-    if (import.meta.env.DEV) {
+    if (import.meta.env.MODE !== "production") {
       // eslint-disable-next-line no-console
       console.warn("[CUNYAutoLogin] extPasswordSetup: unexpected vault save error", error);
     }

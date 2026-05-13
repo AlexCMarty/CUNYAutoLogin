@@ -10,6 +10,12 @@ import {
   TOTP_ENROLL_SECRET_FIXTURE_URL,
   TOTP_ENROLL_VERIFY_FIXTURE_URL,
 } from "./constants";
+import {
+  BRIGHTSPACE_HOME_URL,
+  SSO_LOGIN_HOST,
+  SSO_LOGIN_ORIGIN,
+  WEBAUTHN_RP_ID,
+} from "../src/cuny/ssoSite";
 import { expect, test } from "./extension-fixture";
 import {
   lockVault,
@@ -306,7 +312,7 @@ test.describe("biometrics offer", () => {
     });
     const credentials = await authenticator.getCredentials();
     expect(credentials.length).toBe(1);
-    expect(credentials[0]?.rpId).toBe("ssologin.cuny.edu");
+    expect(credentials[0]?.rpId).toBe(WEBAUTHN_RP_ID);
   });
 });
 
@@ -485,7 +491,7 @@ test.describe("completion and demo", () => {
     await expect
       .poll(() => demoTab.url(), { timeout: 10_000 })
       .toMatch(
-        /^https:\/\/(?:brightspace\.cuny\.edu\/d2l\/home|ssologin\.cuny\.edu\/oam\/server\/auth_cred_submit)/
+        new RegExp(`^(?:${BRIGHTSPACE_HOME_URL}|${SSO_LOGIN_ORIGIN}/oam/server/auth_cred_submit)`)
       );
     // Sidebar should show narration status during the demo.
     await expect(
@@ -538,7 +544,7 @@ test.describe("interruption: CUNY tab closed mid-flow", () => {
     const newTab = await newTabPromise;
     await newTab.waitForLoadState("domcontentloaded");
     // The reopened tab should return to CUNY SSO entry flow.
-    expect(newTab.url()).toContain("ssologin.cuny.edu");
+    expect(newTab.url()).toContain(SSO_LOGIN_HOST);
     await newTab.close();
   });
 

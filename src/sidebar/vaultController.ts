@@ -67,7 +67,7 @@ let currentMode: Mode = "locked";
 let sessionMasterPassword: string | null = null;
 let sessionPayload: VaultPayload | null = null;
 let storedVault: StoredVault | null = null;
-let biometricAvailable = false;
+let isBiometricAvailable = false;
 
 const isSidebarVaultManagement = (): boolean =>
   document.body.dataset.vaultUi === "sidebar-management";
@@ -195,7 +195,7 @@ function renderMode(els: SidebarDom): void {
     els.modeHint.hidden = true;
     els.modeHint.textContent = "";
     els.submitBtn.textContent = "Unlock";
-    if (bioBtn) bioBtn.hidden = !biometricAvailable;
+    if (bioBtn) bioBtn.hidden = !isBiometricAvailable;
   } else {
     if (bioBtn) bioBtn.hidden = true;
     renderUnlockedMode(els, isSidebarVaultManagement(), sessionPayload);
@@ -323,7 +323,7 @@ async function handleUnlocked(els: SidebarDom): Promise<void> {
     await clearBiometricCredential();
     const bioBtn = document.getElementById("biometric-unlock-btn");
     if (bioBtn) bioBtn.hidden = true;
-    biometricAvailable = false;
+    isBiometricAvailable = false;
   }
   els.newMasterPassword.value = "";
   els.confirmNewMasterPassword.value = "";
@@ -362,7 +362,7 @@ async function maybeWireBiometricUnlock(els: SidebarDom): Promise<void> {
   const { isBiometricEnrolled, unlockWithBiometric } = await import("../crypto/biometric");
   if (!(await isBiometricEnrolled())) return;
 
-  biometricAvailable = true;
+  isBiometricAvailable = true;
   // renderMode already ran at init — show the button now if still in locked mode.
   if (currentMode === "locked") bioBtn.hidden = false;
   bioBtn.addEventListener("click", async () => {
@@ -411,10 +411,8 @@ async function maybeMountDevDebugPanel(els: SidebarDom): Promise<void> {
     onClearLiveSessions: async () => {
       const message: LogoutCunySessionsRequest = { type: "LOGOUT_CUNY_SESSIONS" };
       try {
-        const response = (await browser.runtime.sendMessage(message)) as
-          | LogoutCunySessionsAck
-          | undefined;
-        return response?.ok === true;
+        const response = await browser.runtime.sendMessage(message);
+        return (response as LogoutCunySessionsAck | undefined)?.ok === true;
       } catch {
         return false;
       }
@@ -425,7 +423,7 @@ async function maybeMountDevDebugPanel(els: SidebarDom): Promise<void> {
 async function init(): Promise<void> {
   const elsResult = getEls();
   if (elsResult.isErr()) {
-    if (import.meta.env.DEV) {
+    if (import.meta.env.MODE !== "production") {
       // eslint-disable-next-line no-console
       console.error("[CUNYAutoLogin] sidebar DOM incomplete");
     }
@@ -463,7 +461,7 @@ async function init(): Promise<void> {
 }
 
 void init().catch((error) => {
-  if (import.meta.env.DEV) {
+  if (import.meta.env.MODE !== "production") {
     // eslint-disable-next-line no-console
     console.error("[CUNYAutoLogin] sidebar init failed", error);
   }

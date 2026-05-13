@@ -41,6 +41,7 @@
 import browser from "webextension-polyfill";
 import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
 import type { LogoutCunySessionsRequest, StageOnboardingCredentials } from "../messages";
+import { DEV_MODE_NAMES } from "../devModes";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const SCREEN_HEADLINE = "Opening your CUNY portal\u2026";
@@ -59,8 +60,6 @@ export const OPENING_CUNY_BACK_SELECTOR =
   "[data-onboarding-opening-back='true']";
 export const OPENING_CUNY_WAITING_SELECTOR =
   "[data-onboarding-opening-waiting='true']";
-
-const DEV_MODE_NAMES = ["development", "e2e"] as const;
 
 /**
  * Dev/e2e escape hatch: the URL hash may contain `cuny=<encoded>` to override

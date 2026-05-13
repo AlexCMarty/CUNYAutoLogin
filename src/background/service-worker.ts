@@ -29,7 +29,6 @@ import {
   isStageOnboardingCredentials,
   normalizeAutoFillOtpContext,
   type AutoFillResponse,
-  type EnrolledAliasFromPage,
   type OnboardingAck,
   type OnboardingCredentialsAck,
   type OnboardingOverlayCommand,
@@ -312,6 +311,55 @@ const handleClearOnboardingCredentials = (
   return { ok: true };
 };
 
+const readVaultCredentials = async (
+  masterPassword: string,
+  enrollSecretOverride: string | null
+): Promise<AutoFillResponse | null> => {
+  let localResult: Record<string, unknown>;
+  try {
+    localResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
+  } catch {
+    return { success: false, reason: "storage_error" };
+  }
+  const raw = localResult[VAULT_STORAGE_KEY];
+  if (!isStoredVault(raw)) return null;
+  const decResult = await decryptVault(raw, masterPassword);
+  return decResult.match<AutoFillResponse>(
+    (payload) => ({
+      success: true,
+      payload: enrollSecretOverride !== null
+        ? { ...payload, totpSecret: enrollSecretOverride }
+        : payload,
+    }),
+    () => ({ success: false, reason: "decrypt_error" })
+  );
+};
+
+const readStagedCredentials = async (
+  enrollSecretOverride: string | null
+): Promise<AutoFillResponse | null> => {
+  if (!stagedOnboardingCredentials) return null;
+  // Staged credentials are only for the pre-vault onboarding flow. If a vault
+  // already exists the user has locked it — staged creds must not bypass the lock.
+  let stagedLocalResult: Record<string, unknown>;
+  try {
+    stagedLocalResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
+  } catch {
+    return { success: false, reason: "storage_error" };
+  }
+  if (isStoredVault(stagedLocalResult[VAULT_STORAGE_KEY])) return null;
+  return {
+    success: true,
+    payload: {
+      email: stagedOnboardingCredentials.email,
+      password: stagedOnboardingCredentials.password,
+      // Login challenge (`otpValue|input`) must never consume the staged enroll
+      // secret — only `otp|input` opts in via otpContext.
+      totpSecret: enrollSecretOverride ?? "",
+    },
+  };
+};
+
 /**
  * Resolves the auto-fill response for the content script.
  *
@@ -337,13 +385,10 @@ const resolveAutoFillResponse = async (
 
   const masterPassword = sessionResult?.[SESSION_MASTER_KEY];
   const pendingTotpSecret = sessionResult?.[PENDING_TOTP_SECRET_SESSION_KEY];
-  // During mid-enrollment on `otp|input`, the freshly-scraped session
-  // secret is authoritative. It must override any stale vault secret a
-  // prior enrollment may have stored, otherwise the user types a code
-  // from the old secret into the new factor's verify field. Gate on
-  // `stagedOnboardingCredentials` so merely *viewing* an existing
-  // factor's self-service page (vault set up, no onboarding in flight)
-  // still returns the vault's authoritative secret.
+  // During mid-enrollment on `otp|input`, the freshly-scraped session secret is
+  // authoritative. Gate on `stagedOnboardingCredentials` so merely *viewing* an
+  // existing factor's self-service page (no onboarding in flight) still returns
+  // the vault's authoritative secret.
   const enrollSecretOverride: string | null =
     otpContext === "enroll_verify" &&
     stagedOnboardingCredentials !== null &&
@@ -353,51 +398,12 @@ const resolveAutoFillResponse = async (
       : null;
 
   if (typeof masterPassword === "string") {
-    let localResult: Record<string, unknown>;
-    try {
-      localResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
-    } catch {
-      return { success: false, reason: "storage_error" };
-    }
-    const raw = localResult[VAULT_STORAGE_KEY];
-    if (isStoredVault(raw)) {
-      const decResult = await decryptVault(raw, masterPassword);
-      return decResult.match<AutoFillResponse>(
-        (payload) => ({
-          success: true,
-          payload:
-            enrollSecretOverride !== null
-              ? { ...payload, totpSecret: enrollSecretOverride }
-              : payload,
-        }),
-        () => ({ success: false, reason: "decrypt_error" })
-      );
-    }
+    const vaultResult = await readVaultCredentials(masterPassword, enrollSecretOverride);
+    if (vaultResult !== null) return vaultResult;
   }
 
-  if (stagedOnboardingCredentials) {
-    // Staged credentials are only for the pre-vault onboarding flow. If a vault
-    // already exists the user has locked it — staged creds must not bypass the
-    // lock. Read storage.local here (master was absent, so we skipped it above).
-    let stagedLocalResult: Record<string, unknown>;
-    try {
-      stagedLocalResult = await browser.storage.local.get(VAULT_STORAGE_KEY);
-    } catch {
-      return { success: false, reason: "storage_error" };
-    }
-    if (!isStoredVault(stagedLocalResult[VAULT_STORAGE_KEY])) {
-      return {
-        success: true,
-        payload: {
-          email: stagedOnboardingCredentials.email,
-          password: stagedOnboardingCredentials.password,
-          // Login challenge (`otpValue|input`) must never consume the
-          // staged enroll secret — only `otp|input` opts in via otpContext.
-          totpSecret: enrollSecretOverride ?? "",
-        },
-      };
-    }
-  }
+  const stagedResult = await readStagedCredentials(enrollSecretOverride);
+  if (stagedResult !== null) return stagedResult;
 
   if (typeof masterPassword !== "string") {
     return { success: false, reason: "no_session_master" };
@@ -432,7 +438,7 @@ const handleTotpSecretFromPageMessage = async (
 
 const handleEnrolledAliasFromPageMessage = async (
   sender: browser.Runtime.MessageSender,
-  typedMessage: EnrolledAliasFromPage
+  typedMessage: Record<string, unknown>
 ): Promise<{ ok: boolean }> => {
   if (!senderIsTrustedContentScriptWithTab(sender)) {
     return { ok: false };
@@ -458,7 +464,7 @@ const coreMessageRoutes = (
   TOTP_SECRET_FROM_PAGE: (typedMessage) =>
     handleTotpSecretFromPageMessage(sender, typedMessage),
   ENROLLED_ALIAS_FROM_PAGE: (typedMessage) =>
-    handleEnrolledAliasFromPageMessage(sender, typedMessage as EnrolledAliasFromPage),
+    handleEnrolledAliasFromPageMessage(sender, typedMessage),
   ONBOARDING_CONTENT_SCRIPT_READY: () =>
     Promise.resolve({
       overlayCommand:

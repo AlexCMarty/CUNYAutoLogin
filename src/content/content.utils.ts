@@ -5,17 +5,12 @@ import {
   TOTP_SECRET_LEN_MIN,
   TOTP_SECRET_LEN_MAX,
   normalizeTotpSecretCandidate,
+  POST_SUBMIT_ERROR_OBSERVE_MS,
 } from "../cuny/ssoSite";
 
-export { TOTP_SECRET_LEN_MIN, TOTP_SECRET_LEN_MAX, normalizeTotpSecretCandidate };
+export { TOTP_SECRET_LEN_MIN, TOTP_SECRET_LEN_MAX, normalizeTotpSecretCandidate, POST_SUBMIT_ERROR_OBSERVE_MS };
 
-/**
- * How long to watch the DOM for a post-submit `serverError` alert before
- * giving up. Oracle usually renders the alert within ~300ms after POST; 8s
- * is generous but still bounded so we never leak an observer across a real
- * navigation.
- */
-export const POST_SUBMIT_ERROR_OBSERVE_MS = 8000;
+export const LOG_PREFIX = "[CUNYAutoLogin]" as const;
 
 /**
  * True if the credential-page `#serverError` alert element is present AND

@@ -1,3 +1,4 @@
+import { DEV_MODE_NAMES } from "../onboarding/devModes";
 import { tryParseDevQaOnboardingJumpFromWindow } from "../onboarding/devQaJump";
 import {
   clearResumeSnapshotSession,
@@ -16,8 +17,6 @@ import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
  * Dev/e2e `#qa=<STATE>` jumps to a mounted onboarding screen for visual QA
  * (extension-live-testing skill). Session resume is cleared first.
  */
-
-const DEV_MODE_NAMES = ["development", "e2e"] as const;
 
 const onboardingRequestedByDevHash = (): boolean => {
   if (!(DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE)) {

@@ -260,6 +260,9 @@ export const RUI_VERIFY_NOW_BTN_TEXT = "Verify Now" as const;
 /** Container element for each enrolled factor in the RUI SPA. */
 export const RUI_FACTOR_PANEL_SELECTOR = "factor-panel" as const;
 
+/** Header element that identifies the OAA SPA home view (use getElementById). */
+export const RUI_OAA_HOME_HEADER_ID = "categoryActionheader" as const;
+
 /** Option element for the CUNY TOTP challenge type in the RUI add-factor flow. */
 export const RUI_TOTP_OPTION_SELECTOR = "oj-option#ChallengeOMATOTP" as const;
 
@@ -271,6 +274,9 @@ export const RUI_KEBAB_MENU_BTN_SELECTOR = "oj-menu-button.menu-button button" a
 
 /** Trigger button for the add-factor / set-default dropdown menu. */
 export const RUI_ADD_MENU_SELECTOR = "oj-menu-button.menu-button" as const;
+
+/** Manage button on the OAA SPA home view that opens the factors list. */
+export const RUI_MANAGE_BTN_SELECTOR = "oj-button#createNewCategory" as const;
 
 /** Name input field id when setting the TOTP factor alias (contains `|` — use getElementById). */
 export const RUI_FACTOR_NAME_INPUT_ID = "name|input" as const;
@@ -306,6 +312,17 @@ export const WAIT_FOR_ELEMENT_TIMEOUT_MS = 10_000;
 
 /** Extended timeout for waiting on the TOTP secret element during enrollment. */
 export const WAIT_FOR_TOTP_SECRET_TIMEOUT_MS = 120_000;
+
+/**
+ * How long to watch the DOM for a post-submit `serverError` alert before
+ * giving up. Oracle usually renders the alert within ~300ms after POST; 8s
+ * is generous but still bounded so we never leak an observer across a real
+ * navigation.
+ */
+export const POST_SUBMIT_ERROR_OBSERVE_MS = 8000;
+
+/** How long the content script waits for CUNY's set-default confirmation before unblocking the flow. */
+export const SET_DEFAULT_CONFIRM_TIMEOUT_MS = 2000;
 
 // ── Extension identity ─────────────────────────────────────────────────────────
 

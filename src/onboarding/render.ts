@@ -48,6 +48,7 @@ import type {
   OnboardingScreenContext,
   ScreenHandle,
 } from "./screens/screenContext";
+import { DEV_MODE_NAMES } from "./devModes";
 import type { DevQaJumpParseResult } from "./devQaJump";
 import {
   loadResumeSnapshotFromSession,
@@ -87,8 +88,6 @@ export const ONBOARDING_PLACEHOLDER_SELECTOR =
   "[data-onboarding-placeholder='true']";
 export const ONBOARDING_RESUME_BUTTON_SELECTOR = "[data-onboarding-resume='true']";
 export const ONBOARDING_REOPEN_CUNY_SELECTOR = "[data-onboarding-reopen-cuny='true']";
-
-const DEV_MODE_NAMES = ["development", "e2e"] as const;
 
 type PendingResumeSnapshot = {
   readonly state: OnboardingState;
@@ -349,6 +348,10 @@ const handleTotpEnrollVerify = (controller: OnboardingController): void => {
   }
 };
 
+const NO_SECRET_RECOVERY_TEXT =
+  "We found an existing authentication factor but don't have its secret key. " +
+  "Please delete it from the CUNY tab and re-enroll.";
+
 const handleFactorsListAfterEnroll = (controller: OnboardingController): void => {
   // Check in the sidebar (where storage.session is reliably available) rather
   // than the content script, which may lack session-storage access.
@@ -362,18 +365,7 @@ const handleFactorsListAfterEnroll = (controller: OnboardingController): void =>
       /* storage.session threw — keep hasSecret = true to avoid blocking the flow */
     }
 
-    if (!hasSecret) {
-      const recoveryEl = document.querySelector<HTMLElement>(
-        "[data-onboarding-recovery-message='true']"
-      );
-      if (recoveryEl) {
-        recoveryEl.textContent =
-          "We found an existing authentication factor but don't have its secret key. " +
-          "Please delete it from the CUNY tab and re-enroll.";
-        recoveryEl.hidden = false;
-      }
-      return;
-    }
+    if (!hasSecret) return;
 
     const state = controller.getSnapshot().state;
     if (state === "VERIFY_LOGIN_CODE") {
@@ -496,6 +488,28 @@ const installRuntimeMessageBridge = (
         const stage = typedMessage.stage;
         const sideEffect = stageSideEffects[stage as keyof typeof stageSideEffects];
         sideEffect?.();
+        if (stage === "factors_list_after_enroll") {
+          // DOM side-effect: show no-secret recovery using screenHost (avoids
+          // direct document.querySelector in the handler). Dispatch is handled
+          // separately by applyOnboardingMessage above.
+          void (async () => {
+            try {
+              const got = await browser.storage.session?.get(PENDING_TOTP_SECRET_SESSION_KEY);
+              const val = got?.[PENDING_TOTP_SECRET_SESSION_KEY];
+              if (!(typeof val === "string" && val.length > 0)) {
+                const el = screenHost.querySelector<HTMLElement>(
+                  "[data-onboarding-recovery-message='true']"
+                );
+                if (el) {
+                  el.textContent = NO_SECRET_RECOVERY_TEXT;
+                  el.hidden = false;
+                }
+              }
+            } catch {
+              /* storage.session unavailable — nothing to show */
+            }
+          })();
+        }
       },
       ONBOARDING_VERIFY_STATUS: (typedMessage) => {
         if (typedMessage.status === "success") {
@@ -530,7 +544,8 @@ const installRuntimeMessageBridge = (
   };
 };
 
-/** Best-effort retries — transient SW wake failures should not leave staging live. */
+/** Best-effort retries — transient SW wake failures should not leave staging live.
+ *  0ms: immediate; 75ms: covers SW message-queue drain; 200ms: covers cold SW wake (~100–150ms on slow devices). */
 const CLEAR_STAGING_RETRY_BACKOFF_MS = [0, 75, 200] as const;
 
 const clearStagedOnboardingCredentials = (): void => {
@@ -809,86 +824,75 @@ const registerSidebarInterruptionBindings = ({
   return { handleResume, handleReopenCuny, unwireTabClose };
 };
 
-const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
-  const {
-    controller,
-    doc,
-    screenHost,
-    resumeButton,
-    reopenCunyButton,
-    shell,
-    header,
-    restoreVaultMainWrap,
-    suppressResumeSnapshots,
-  } = model;
-  const screenHandleRef = { current: null as ScreenHandle | null };
-  const resumeLatch: SidebarResumeLatch = { snapshot: null };
-  const isCunyTabMissingFlag = { value: false };
-  const activeCunyTabIdRef = { value: null as number | null };
+type LifecycleRefs = {
+  screenHandleRef: { current: ScreenHandle | null };
+  resumeLatch: SidebarResumeLatch;
+  isCunyTabMissingFlag: { value: boolean };
+};
 
+const buildRepaintCallbacks = (
+  model: OnboardingMountModel,
+  refs: LifecycleRefs
+): { repaint: () => void; repaintInterruptionActions: () => void } => {
+  const { controller, resumeButton, reopenCunyButton, header, screenHost, doc } = model;
   const repaintInterruptionActions = (): void => {
-    const currentState = controller.getSnapshot().state;
-    resumeButton.hidden = resumeLatch.snapshot === null;
+    resumeButton.hidden = refs.resumeLatch.snapshot === null;
     reopenCunyButton.hidden =
-      !CUNY_REATTACHABLE_STATES.has(currentState) || !isCunyTabMissingFlag.value;
+      !CUNY_REATTACHABLE_STATES.has(controller.getSnapshot().state) ||
+      !refs.isCunyTabMissingFlag.value;
   };
-
   const repaint = (): void => {
-    const state = controller.getSnapshot().state;
-    header.renderFor(state);
-    screenHandleRef.current = renderActiveScreen(
-      controller,
-      screenHost,
-      doc,
-      screenHandleRef.current
+    header.renderFor(controller.getSnapshot().state);
+    refs.screenHandleRef.current = renderActiveScreen(
+      controller, screenHost, doc, refs.screenHandleRef.current
     );
     repaintInterruptionActions();
   };
+  return { repaint, repaintInterruptionActions };
+};
+
+const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
+  const { controller, screenHost, resumeButton, reopenCunyButton, shell, header,
+    restoreVaultMainWrap, suppressResumeSnapshots } = model;
+  const refs: LifecycleRefs = {
+    screenHandleRef: { current: null },
+    resumeLatch: { snapshot: null },
+    isCunyTabMissingFlag: { value: false },
+  };
+  const activeCunyTabIdRef = { value: null as number | null };
+
+  const { repaint, repaintInterruptionActions } = buildRepaintCallbacks(model, refs);
 
   const unsubscribe = subscribeOnboardingController(controller, repaint, suppressResumeSnapshots);
-
-  const uninstallBridge = installRuntimeMessageBridge(
-    controller,
-    screenHost,
-    (tabId) => {
-      activeCunyTabIdRef.value = tabId;
-      isCunyTabMissingFlag.value = false;
-      repaintInterruptionActions();
-    }
-  );
-
+  const uninstallBridge = installRuntimeMessageBridge(controller, screenHost, (tabId) => {
+    activeCunyTabIdRef.value = tabId;
+    refs.isCunyTabMissingFlag.value = false;
+    repaintInterruptionActions();
+  });
   const { handleResume, handleReopenCuny, unwireTabClose } =
     registerSidebarInterruptionBindings({
-      latch: resumeLatch,
+      latch: refs.resumeLatch,
       controller,
       resumeButton,
       reopenCunyButton,
       repaint,
       repaintInterruptionActions,
       activeCunyTabIdRef,
-      isCunyTabMissingFlag,
+      isCunyTabMissingFlag: refs.isCunyTabMissingFlag,
     });
 
   repaint();
   if (!suppressResumeSnapshots) {
-    void loadAndApplyResumeSnapshot((snapshot) => {
-      resumeLatch.snapshot = snapshot;
-    }, repaintInterruptionActions);
+    void loadAndApplyResumeSnapshot(
+      (snapshot) => { refs.resumeLatch.snapshot = snapshot; },
+      repaintInterruptionActions
+    );
   }
 
   const bag: OnboardingUnmountBag = {
-    unsubscribe,
-    uninstallBridge,
-    unwireTabClose,
-    resumeButton,
-    reopenCunyButton,
-    handleResume,
-    handleReopenCuny,
-    controller,
-    screenHandleRef,
-    header,
-    shell,
-    restoreVaultMainWrap,
+    unsubscribe, uninstallBridge, unwireTabClose, resumeButton, reopenCunyButton,
+    handleResume, handleReopenCuny, controller,
+    screenHandleRef: refs.screenHandleRef, header, shell, restoreVaultMainWrap,
     suppressResumeSnapshots,
   };
   return () => runOnboardingUnmount(bag);

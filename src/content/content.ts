@@ -11,10 +11,11 @@ import {
 } from "../cuny/ssoSite";
 import {
   isFillMessage,
+  LOG_PREFIX,
   type FillMessage,
 } from "./content.utils";
 import { startRuiOnboardingObservers } from "./ruiOnboarding";
-import type { AutoFillRequest, AutoFillResponse } from "../onboarding/messages";
+import { isAutoFillResponse, type AutoFillRequest } from "../onboarding/messages";
 import {
   announceCunyTotpChallenge,
   handleAutoFillFailureCredentialError,
@@ -27,10 +28,8 @@ import { installAllowConsentClickReporter } from "./allowConsentReporter";
 import { watchTotpSecretOnEnrollPage } from "./totpEnrollSecretBridge";
 import { mountTotpErrorBanner } from "./banner";
 
-const LOG_PREFIX = "[CUNYAutoLogin]";
-
 function log(...args: unknown[]): void {
-  if (!import.meta.env.DEV) return;
+  if (import.meta.env.MODE === "production") return;
   // eslint-disable-next-line no-console
   console.log(LOG_PREFIX, ...args);
 }
@@ -70,14 +69,15 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
 async function autoFill(): Promise<void> {
   try {
     const request: AutoFillRequest = { type: "AUTO_FILL_REQUEST" };
-    const response = (await browser.runtime.sendMessage(request)) as AutoFillResponse;
+    const raw = await browser.runtime.sendMessage(request);
+    if (!isAutoFillResponse(raw)) return;
 
-    if (!response.success) {
-      await handleAutoFillFailureCredentialError(log, response.reason);
+    if (!raw.success) {
+      await handleAutoFillFailureCredentialError(log, raw.reason);
       return;
     }
     log("autoFill: credentials received, triggering main()");
-    await main(response.payload);
+    await main(raw.payload);
   } catch (autoFillError) {
     log("autoFill: error —", autoFillError);
   }

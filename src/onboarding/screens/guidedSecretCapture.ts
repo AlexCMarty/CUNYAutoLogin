@@ -5,7 +5,12 @@
  */
 
 import browser from "webextension-polyfill";
-import { PENDING_TOTP_SECRET_SESSION_KEY, RUI_VERIFY_NOW_BTN_TEXT } from "../../cuny/ssoSite";
+import {
+  PENDING_TOTP_SECRET_SESSION_KEY,
+  RUI_ONBOARDING_POLL_INTERVAL_MS,
+  RUI_VERIFY_NOW_BTN_TEXT,
+  WAIT_FOR_ELEMENT_TIMEOUT_MS,
+} from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 import { appendStepProgress, appendTabHint, sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
@@ -73,9 +78,6 @@ export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScree
     stepTotal: 8,
   });
 
-  const GUIDED_SECRET_POLL_INTERVAL_MS = 400;
-  const GUIDED_SECRET_POLL_TIMEOUT_MS  = 10_000;
-
   const revealIfSecret = (): void => {
     void (async () => {
       try {
@@ -90,12 +92,10 @@ export const mountGuidedSecretCaptureScreen: ScreenMount = (ctx: OnboardingScree
     })();
   };
   revealIfSecret();
-  const intervalId = window.setInterval(() => {
-    revealIfSecret();
-  }, GUIDED_SECRET_POLL_INTERVAL_MS);
+  const intervalId = window.setInterval(revealIfSecret, RUI_ONBOARDING_POLL_INTERVAL_MS);
   const timeoutId = window.setTimeout(() => {
     window.clearInterval(intervalId);
-  }, GUIDED_SECRET_POLL_TIMEOUT_MS);
+  }, WAIT_FOR_ELEMENT_TIMEOUT_MS);
 
   return {
     unmount: () => {

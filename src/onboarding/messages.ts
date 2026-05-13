@@ -53,6 +53,9 @@ export type AutoFillResponse =
         | "invalid_sender";
     };
 
+export const isAutoFillResponse = (value: unknown): value is AutoFillResponse =>
+  typeof value === "object" && value !== null && "success" in value;
+
 /** Narrow `otpContext` from an untyped message record; invalid values become `undefined`. */
 export const normalizeAutoFillOtpContext = (
   value: unknown

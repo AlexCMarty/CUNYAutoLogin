@@ -65,11 +65,14 @@ export const mountBiometricPrepScreen: ScreenMount = (ctx: OnboardingScreenConte
 
     // Master password is written to session storage by extPasswordSetup.ts
     // immediately before this state is entered.
-    const sessionData = await browser.storage.session?.get(SESSION_MASTER_KEY).catch(() => null);
-    const masterPassword =
-      typeof sessionData?.[SESSION_MASTER_KEY] === "string"
-        ? (sessionData[SESSION_MASTER_KEY] as string)
-        : null;
+    let masterPassword: string | null = null;
+    try {
+      const sessionData = await browser.storage.session?.get(SESSION_MASTER_KEY);
+      const candidate = sessionData?.[SESSION_MASTER_KEY];
+      if (typeof candidate === "string") masterPassword = candidate;
+    } catch {
+      /* storage.session unavailable — fallback to null */
+    }
 
     if (!masterPassword) {
       statusMsg.hidden = false;

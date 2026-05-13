@@ -2,6 +2,7 @@
  * SPA home view after Allow — guide student to click Manage.
  */
 
+import { RUI_MANAGE_BTN_SELECTOR } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 import { appendStepProgress, appendTabHint, sendHideOverlayCommand, sendShowOverlayCommand } from "./guidedCommon";
 
@@ -9,7 +10,6 @@ const HEADLINE = "Open your login settings on the CUNY tab.";
 const BODY =
   "On the CUNY tab, click Manage under My Authentication Factors to continue.";
 const TAB_HINT = "We've highlighted the next control on the CUNY tab.";
-const MANAGE_SELECTOR = "oj-button#createNewCategory";
 
 export const mountOaaSpaHomeScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root } = ctx;
@@ -39,7 +39,7 @@ export const mountOaaSpaHomeScreen: ScreenMount = (ctx: OnboardingScreenContext)
   root.appendChild(container);
 
   sendShowOverlayCommand({
-    targetSpec: { type: "css", selector: MANAGE_SELECTOR },
+    targetSpec: { type: "css", selector: RUI_MANAGE_BTN_SELECTOR },
     tooltipText: "Click Manage",
     stepIndex: 1,
     stepTotal: 8,

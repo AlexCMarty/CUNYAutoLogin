@@ -14,8 +14,7 @@
 import type { CredentialCulprit } from "./messages";
 import type { OnboardingState } from "./state";
 import { type OnboardingEvent, advance } from "./transitions";
-
-const DEV_MODE_NAMES = ["development", "e2e"] as const;
+import { DEV_MODE_NAMES } from "./devModes";
 
 const isDevMode = (): boolean =>
   (DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE);

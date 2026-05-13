@@ -15,6 +15,7 @@ import {
   RUI_KEBAB_BTN_SELECTOR,
   RUI_KEBAB_MENU_BTN_SELECTOR,
   RUI_ONBOARDING_POLL_INTERVAL_MS,
+  SET_DEFAULT_CONFIRM_TIMEOUT_MS,
 } from "../cuny/ssoSite";
 
 export { detectRuiSpaView } from "./ruiSpaView";
@@ -95,7 +96,6 @@ const totpOptionIsDisabled = (doc: Document): boolean => {
 let pollId: number | null = null;
 let setDefaultTimeoutId: number | null = null;
 
-const SET_DEFAULT_CONFIRM_TIMEOUT_MS = 2000;
 
 const armSetDefaultTimeout = (): void => {
   if (setDefaultTimeoutId !== null) return;

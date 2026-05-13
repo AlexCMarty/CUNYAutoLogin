@@ -14,7 +14,7 @@ import {
 } from "./constants";
 import { expect, test } from "./extension-fixture";
 import { onboardingHashWith, setupVault, walkToCunyTotp, walkToPasswordEntry } from "./helpers";
-import { E2E_PASSWORD, E2E_TOTP_SECRET } from "./test-credentials";
+import { E2E_EMAIL, E2E_PASSWORD, E2E_TOTP_SECRET } from "./test-credentials";
 import { CREDENTIAL_ERROR_BANNER_ID } from "../src/content/banner";
 
 const ONBOARDING_HASH = "#onboarding=1";
@@ -55,7 +55,7 @@ test.describe("onboarding screens 1-3", () => {
 
     const emailInput = page.locator("[data-onboarding-email-input='true']");
     const emailForward = page.locator("[data-onboarding-email-forward='true']");
-    await emailInput.fill("jane.doe@login.cuny.edu");
+    await emailInput.fill(E2E_EMAIL);
     await expect(emailForward).toBeEnabled();
     await emailForward.click();
 
@@ -88,7 +88,7 @@ test.describe("onboarding screens 1-3", () => {
     await expect(hint).toBeVisible();
     await expect(hint).toContainText("CUNY logins end in @login.cuny.edu");
 
-    await setEmailValue("jane.doe@login.cuny.edu");
+    await setEmailValue(E2E_EMAIL);
     await emailInput.blur();
     await expect(emailForward).toBeEnabled();
     await emailForward.click();
@@ -101,7 +101,7 @@ test.describe("onboarding screens 1-3", () => {
     await page.locator("[data-onboarding-welcome-cta='true']").click();
     await page
       .locator("[data-onboarding-email-input='true']")
-      .fill("jane.doe@login.cuny.edu");
+      .fill(E2E_EMAIL);
     await page.locator("[data-onboarding-email-forward='true']").click();
 
     const pwInput = page.locator("[data-onboarding-password-input='true']");
@@ -150,7 +150,7 @@ test.describe("onboarding screens 1-3", () => {
 
   test("Enter on email field advances to PASSWORD_ENTRY", async ({ page }) => {
     await page.locator("[data-onboarding-welcome-cta='true']").click();
-    await page.locator("[data-onboarding-email-input='true']").fill("jane.doe@login.cuny.edu");
+    await page.locator("[data-onboarding-email-input='true']").fill(E2E_EMAIL);
     await page.locator("[data-onboarding-email-input='true']").press("Enter");
     await expect(
       page.locator("[data-onboarding-screen='PASSWORD_ENTRY']")

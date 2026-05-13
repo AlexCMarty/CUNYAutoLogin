@@ -3,7 +3,9 @@
  * screen for visual QA. See extension-live-testing skill (Visual QA section).
  */
 
+import { LOGIN_EMAIL_SUFFIX } from "../cuny/ssoSite";
 import type { OnboardingControllerInit } from "./controller";
+import { DEV_MODE_NAMES } from "./devModes";
 import { SCREEN_MOUNTS } from "./screenMounts";
 import {
   type CredentialCulprit,
@@ -12,9 +14,9 @@ import {
 import type { OnboardingState } from "./state";
 import { isOnboardingState } from "./state";
 
-export const DEV_MODE_NAMES = ["development", "e2e"] as const;
+export { DEV_MODE_NAMES } from "./devModes";
 
-export const QA_DEFAULT_EMAIL = "visual-qa@login.cuny.edu";
+export const QA_DEFAULT_EMAIL = `visual-qa${LOGIN_EMAIL_SUFFIX}`;
 export const QA_DEFAULT_PASSWORD = "Dev-QA-password-seed-not-real";
 
 const QA_HASH_PARAM = "qa";
