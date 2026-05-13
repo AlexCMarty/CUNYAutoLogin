@@ -51,7 +51,7 @@ There is **no** built-in telemetry, analytics SDK, or remote logging of your vau
 
 ## How the extension uses permissions
 
-The manifest requests **storage**, **activeTab**, **sidePanel** (and Firefox **sidebar** equivalents), and **cookies**, with access limited to:
+The manifest requests **storage**, **sidePanel** (and Firefox **sidebar** equivalents), and **cookies**, with access limited to:
 
 - `https://ssologin.cuny.edu/*`  
 - `https://brightspace.cuny.edu/*`
@@ -60,7 +60,7 @@ The manifest requests **storage**, **activeTab**, **sidePanel** (and Firefox **s
 
 - **Storage:** Encrypted vault, optional biometric-enrollment record, session keys, onboarding state (as above).  
 - **Side panel / sidebar:** User interface for setup, unlock, and settings.  
-- **Active tab:** Opening or focusing tabs when the flow needs a CUNY page (for example first-time login).  
+- **Tab coordination:** Opening or navigating browser tabs to official CUNY Login / Brightspace URLs during onboarding and logout (for example first-time login), within the extension’s declared host access—without broad access to all websites.  
 - **Host access + content script on `ssologin.cuny.edu`:** Detecting the sign-in and MFA pages the extension supports and filling fields **only in that origin’s documents**, in line with the extension’s purpose. The same host permission is also used so WebAuthn “relying party” checks align with CUNY Login’s domain when you **optionally** enroll biometric unlock from the extension UI—still **no** credential upload to the extension operator.  
 - **Cookies:** Best-effort removal of **named Brightspace session cookies** on specific flows (for example when reopening a clean session). The extension does **not** read arbitrary cookie jars for unrelated sites or exfiltrate cookie values to third parties.
 
