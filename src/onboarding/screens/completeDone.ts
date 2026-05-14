@@ -71,7 +71,11 @@ export const mountCompleteDoneScreen: ScreenMount = (ctx: OnboardingScreenContex
   cta.className = "onboarding-btn onboarding-btn-primary";
   cta.textContent = "Get back to studying!";
   cta.addEventListener("click", () => {
-    void dismissSidebarPanel().catch(() => {
+    void dismissSidebarPanel().catch((error: unknown) => {
+      if (import.meta.env.MODE !== "production") {
+        // eslint-disable-next-line no-console
+        console.warn("[CUNYAutoLogin] sidebar close failed", error);
+      }
       window.close();
     });
   });

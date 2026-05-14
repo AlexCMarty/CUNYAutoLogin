@@ -15,7 +15,14 @@ import {
 import { mountCredentialErrorBanner } from "./banner";
 import { waitForElement, waitForInputById } from "./domWait";
 
-let submitAttempted = false;
+let hasSubmitBeenAttempted = false;
+
+const warnRuntimeMessageFailure = (context: string, error: unknown): void => {
+  if (import.meta.env.MODE !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(`[CUNYAutoLogin] credentialFlow: ${context}`, error);
+  }
+};
 
 /**
  * Notifies the sidebar of a wrong-credential DOM signal and mounts the
@@ -29,9 +36,10 @@ export const reportCredentialError = async (): Promise<void> => {
   };
   try {
     await browser.runtime.sendMessage(message);
-  } catch {
+  } catch (error) {
     // Extension reloaded or messaging unavailable — banner still tells the
     // student to look at the sidebar.
+    warnRuntimeMessageFailure("reportCredentialError sendMessage", error);
   }
 };
 
@@ -43,8 +51,9 @@ export const announceCunyTotpChallenge = async (): Promise<void> => {
   };
   try {
     await browser.runtime.sendMessage(message);
-  } catch {
+  } catch (error) {
     // Extension reloaded — sidebar may miss this transition.
+    warnRuntimeMessageFailure("announceCunyTotpChallenge sendMessage", error);
   }
 };
 
@@ -105,7 +114,7 @@ export const handleCredentialPageFlow = async (
 
   if (matchesCredentialErrorUrl(url)) {
     log("credential-error URL reached", url);
-    submitAttempted = true;
+    hasSubmitBeenAttempted = true;
     if (hasCredentialErrorInDom(document)) {
       await reportCredentialError();
       return true;
@@ -120,15 +129,15 @@ export const handleCredentialPageFlow = async (
 
   if (hasCredentialErrorInDom(document)) {
     log("credential-error DOM alert detected on credential URL", url);
-    submitAttempted = true;
+    hasSubmitBeenAttempted = true;
     await reportCredentialError();
     return true;
   }
-  if (submitAttempted) {
+  if (hasSubmitBeenAttempted) {
     log("skipping refill — submit already attempted on this lifetime");
     return true;
   }
-  submitAttempted = true;
+  hasSubmitBeenAttempted = true;
   watchForPostSubmitCredentialError();
   const result = await fillCredentials(payload.email, payload.password);
   if (result.isErr()) log("error:", result.error);
@@ -148,7 +157,7 @@ export const handleAutoFillFailureCredentialError = async (
   const url = window.location.href;
   const credErrorDom = hasCredentialErrorInDom(document);
   if (credErrorDom && (matchesCredentialErrorUrl(url) || matchesCredentialPage(url))) {
-    submitAttempted = true;
+    hasSubmitBeenAttempted = true;
     await reportCredentialError();
   }
 };

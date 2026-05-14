@@ -8,12 +8,14 @@ import {
   type VaultPayload,
 } from "../crypto/vault";
 import { clearResumeSnapshotSession } from "../onboarding/resumeSession";
-import type { LogoutCunySessionsAck, LogoutCunySessionsRequest } from "../onboarding/messages";
+import { isLogoutCunySessionsAck, type LogoutCunySessionsRequest } from "../onboarding/messages";
 import { loadVaultSessionSnapshot } from "../vaultSession/snapshot";
 import { LOGIN_EMAIL_SUFFIX, SESSION_MASTER_KEY } from "../cuny/ssoSite";
 import {
   EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG,
+  HIDE_PASSWORD_LABEL,
   MIN_MASTER_PASSWORD_LENGTH,
+  SHOW_PASSWORD_LABEL,
   type SidebarDom,
   validateEmail,
   decryptStatusMessage,
@@ -27,12 +29,19 @@ export type { SidebarDom } from "./sidebar.utils";
 const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const EYE_CLOSED = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
+const warnSessionStorageError = (context: string, error: unknown): void => {
+  if (import.meta.env.MODE !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(`[CUNYAutoLogin] sidebar: ${context}`, error);
+  }
+};
+
 /** Write master password to session storage if available (Chrome 114+, Firefox 115+ — matches `src/manifest.json`). */
 async function saveSessionMaster(masterPassword: string): Promise<void> {
   try {
     await browser.storage.session?.set({ [SESSION_MASTER_KEY]: masterPassword });
-  } catch {
-    // session storage not available — silently degrade
+  } catch (error) {
+    warnSessionStorageError("saveSessionMaster failed", error);
   }
 }
 
@@ -40,23 +49,22 @@ async function saveSessionMaster(masterPassword: string): Promise<void> {
 async function clearSessionMaster(): Promise<void> {
   try {
     await browser.storage.session?.remove(SESSION_MASTER_KEY);
-  } catch {
-    // silently degrade
+  } catch (error) {
+    warnSessionStorageError("clearSessionMaster failed", error);
   }
 }
 
 function setupPasswordToggles(): void {
-  document.querySelectorAll<HTMLButtonElement>(".toggle-visibility").forEach((btn) => {
-    const input = btn.previousElementSibling;
+  document.querySelectorAll<HTMLButtonElement>(".toggle-visibility").forEach((toggleBtn) => {
+    const input = toggleBtn.previousElementSibling;
     if (!(input instanceof HTMLInputElement)) return;
-    const baseLabel = btn.getAttribute("aria-label") ?? "Show password";
-    btn.innerHTML = EYE_CLOSED;
-    btn.setAttribute("aria-label", baseLabel);
-    btn.addEventListener("click", () => {
-      const nowShowing = input.type === "text";
-      input.type = nowShowing ? "password" : "text";
-      btn.innerHTML = nowShowing ? EYE_CLOSED : EYE_OPEN;
-      btn.setAttribute("aria-label", nowShowing ? baseLabel : baseLabel.replace("Show", "Hide"));
+    toggleBtn.innerHTML = EYE_CLOSED;
+    toggleBtn.setAttribute("aria-label", SHOW_PASSWORD_LABEL);
+    toggleBtn.addEventListener("click", () => {
+      const wasShowing = input.type === "text";
+      input.type = wasShowing ? "password" : "text";
+      toggleBtn.innerHTML = wasShowing ? EYE_CLOSED : EYE_OPEN;
+      toggleBtn.setAttribute("aria-label", wasShowing ? SHOW_PASSWORD_LABEL : HIDE_PASSWORD_LABEL);
     });
   });
 }
@@ -159,19 +167,12 @@ const renderUnlockedMode = (
   els.lockBtn.classList.remove("hidden");
   els.masterLabel.textContent = "Extension password";
   els.modeHint.hidden = false;
-  if (isManagement) {
-    els.modeHint.textContent =
-      "Change your CUNY login email or password below, then save.";
-    els.submitBtn.textContent = "Save changes";
-    if (els.emailLabel) els.emailLabel.textContent = "CUNY email";
-    if (els.passwordLabel) els.passwordLabel.textContent = "CUNY password";
-  } else {
-    els.modeHint.textContent =
-      "Edit any field and save. To change your extension password, fill the optional fields below.";
-    els.submitBtn.textContent = "Save changes";
-    if (els.emailLabel) els.emailLabel.textContent = "CUNY email";
-    if (els.passwordLabel) els.passwordLabel.textContent = "CUNY password";
-  }
+  els.modeHint.textContent = isManagement
+    ? "Change your CUNY login email or password below, then save."
+    : "Edit any field and save. To change your extension password, fill the optional fields below.";
+  els.submitBtn.textContent = "Save changes";
+  if (els.emailLabel) els.emailLabel.textContent = "CUNY email";
+  if (els.passwordLabel) els.passwordLabel.textContent = "CUNY password";
 
   if (payload) {
     els.email.value = payload.email;
@@ -412,8 +413,12 @@ async function maybeMountDevDebugPanel(els: SidebarDom): Promise<void> {
       const message: LogoutCunySessionsRequest = { type: "LOGOUT_CUNY_SESSIONS" };
       try {
         const response = await browser.runtime.sendMessage(message);
-        return (response as LogoutCunySessionsAck | undefined)?.ok === true;
-      } catch {
+        return isLogoutCunySessionsAck(response) && response.ok;
+      } catch (error) {
+        if (import.meta.env.MODE !== "production") {
+          // eslint-disable-next-line no-console
+          console.warn("[CUNYAutoLogin] logout sessions request failed", error);
+        }
         return false;
       }
     },

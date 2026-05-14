@@ -14,6 +14,7 @@
  * `storage.local` or `storage.session`.
  */
 
+import { SHOW_PASSWORD_LABEL, HIDE_PASSWORD_LABEL } from "../../sidebar/passwordToggleLabels";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const SCREEN_LABEL = "And your CUNY password.";
@@ -24,8 +25,6 @@ export const CREDENTIAL_ERROR_INLINE_COPY =
   "That email and password didn't work. Double-check and try again.";
 const CTA_LABEL = "Continue";
 const BACK_LABEL = "Back";
-const SHOW_LABEL = "Show password";
-const HIDE_LABEL = "Hide password";
 
 export const PASSWORD_INPUT_SELECTOR =
   "[data-onboarding-password-input='true']";
@@ -86,7 +85,7 @@ const buildPasswordEntryDom = (
   toggle.type = "button";
   toggle.dataset.onboardingPasswordToggle = "true";
   toggle.className = "onboarding-input-toggle";
-  toggle.setAttribute("aria-label", SHOW_LABEL);
+  toggle.setAttribute("aria-label", SHOW_PASSWORD_LABEL);
   toggle.textContent = "\u{1F441}";
 
   inputWrap.appendChild(input);
@@ -147,9 +146,12 @@ const attachPasswordEntryHandlers = (
   };
 
   const handleToggle = (): void => {
-    const isPasswordVisible = input.type === "text";
-    input.type = isPasswordVisible ? "password" : "text";
-    toggle.setAttribute("aria-label", isPasswordVisible ? SHOW_LABEL : HIDE_LABEL);
+    const wasPasswordVisible = input.type === "text";
+    input.type = wasPasswordVisible ? "password" : "text";
+    toggle.setAttribute(
+      "aria-label",
+      wasPasswordVisible ? SHOW_PASSWORD_LABEL : HIDE_PASSWORD_LABEL,
+    );
   };
 
   const handleForward = (): void => {

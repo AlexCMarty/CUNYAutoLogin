@@ -216,10 +216,16 @@ const FAST_FORWARD_EVENTS: Partial<Record<OnboardingState, OnboardingEvent>> = {
   GUIDED_SECRET_CAPTURE: "SECRET_CAPTURED",
 };
 
+/** Hard ceiling on fast-forward iterations — larger than the longest FAST_FORWARD_EVENTS chain, but bounded so a transition bug can't spin forever. */
+const MAX_FAST_FORWARD_STEPS = 10;
+
 const fastForwardToVerifyLogin = (controller: OnboardingController): void => {
-  let guard = 0;
-  while (controller.getSnapshot().state !== "VERIFY_LOGIN_CODE" && guard < 10) {
-    guard += 1;
+  let step = 0;
+  while (
+    controller.getSnapshot().state !== "VERIFY_LOGIN_CODE" &&
+    step < MAX_FAST_FORWARD_STEPS
+  ) {
+    step += 1;
     const event = FAST_FORWARD_EVENTS[controller.getSnapshot().state];
     if (!event) break;
     controller.dispatch(event);

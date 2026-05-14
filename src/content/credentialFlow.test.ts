@@ -11,11 +11,7 @@ vi.mock("webextension-polyfill", () => ({
 
 import { fillCredentials } from "./credentialFlow";
 import { CREDENTIAL_INPUT_IDS } from "../cuny/ssoSite";
-
-function unwrapErr<T, E>(result: import("neverthrow").Result<T, E>): E {
-  if (result.isOk()) throw new Error(`Expected Err, got ok(${JSON.stringify(result.value)})`);
-  return result.error;
-}
+import { unwrapErr } from "../testUtils/resultUnwrap";
 
 describe("fillCredentials", () => {
   beforeEach(() => {

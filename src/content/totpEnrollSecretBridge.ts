@@ -13,7 +13,10 @@ export const watchTotpSecretOnEnrollPage = async (): Promise<void> => {
     const message: TotpSecretFromPage = { type: "TOTP_SECRET_FROM_PAGE", secret };
     await browser.runtime.sendMessage(message);
     lastPostedEnrollTotpSecret = secret;
-  } catch {
-    // e.g. extension reloaded — ignore
+  } catch (error) {
+    if (import.meta.env.MODE !== "production") {
+      // eslint-disable-next-line no-console
+      console.warn("[CUNYAutoLogin] totpEnrollSecretBridge sendMessage failed", error);
+    }
   }
 };

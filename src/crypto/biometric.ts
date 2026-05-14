@@ -22,6 +22,38 @@ export const BIOMETRIC_STORAGE_KEY = "cunyBiometricCredential" as const;
 
 const WEBAUTHN_TIMEOUT_MS = 60_000;
 const IV_LENGTH = 12;
+const WEBAUTHN_CHALLENGE_BYTES = 32;
+const WEBAUTHN_PRF_SALT_BYTES = 32;
+const WEBAUTHN_USER_ID_BYTES = 16;
+const COSE_ALG_ES256 = -7;
+const COSE_ALG_RS256 = -257;
+
+const KNOWN_AUTHENTICATOR_TRANSPORTS: ReadonlySet<AuthenticatorTransport> = new Set([
+  "ble",
+  "hybrid",
+  "internal",
+  "nfc",
+  "usb",
+]);
+
+const isAuthenticatorTransport = (value: string): value is AuthenticatorTransport =>
+  (KNOWN_AUTHENTICATOR_TRANSPORTS as ReadonlySet<string>).has(value);
+
+const narrowTransports = (transports: readonly string[]): AuthenticatorTransport[] =>
+  transports.filter(isAuthenticatorTransport);
+
+const prfExtensionInputs = (
+  prfSalt: Uint8Array<ArrayBuffer>
+): AuthenticationExtensionsClientInputs =>
+  ({ prf: { eval: { first: prfSalt } } } as AuthenticationExtensionsClientInputs);
+
+const extractPrfResult = (credential: PublicKeyCredential): ArrayBuffer | undefined => {
+  const extResults = credential.getClientExtensionResults() as {
+    prf?: { enabled?: boolean; results?: { first?: unknown } };
+  };
+  const candidate = extResults.prf?.results?.first;
+  return candidate instanceof ArrayBuffer ? candidate : undefined;
+};
 
 export type BiometricError =
   | "unsupported_browser" // SecurityError / NotSupportedError — Firefox < 150 or no platform authenticator
@@ -100,30 +132,27 @@ const readStoredCredential = async (): Promise<StoredBiometricCredential | null>
 
 async function prfViaGet(
   credentialId: Uint8Array<ArrayBuffer>,
-  transports: string[],
+  transports: readonly string[],
   prfSalt: Uint8Array<ArrayBuffer>
 ): Promise<ArrayBuffer> {
   const rawAssertion = await navigator.credentials.get({
     publicKey: {
       rpId: WEBAUTHN_RP_ID,
-      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      challenge: crypto.getRandomValues(new Uint8Array(WEBAUTHN_CHALLENGE_BYTES)),
       allowCredentials: [{
         id: credentialId,
         type: "public-key" as const,
-        transports: transports as AuthenticatorTransport[],
+        transports: narrowTransports(transports),
       }],
       userVerification: "required",
       timeout: WEBAUTHN_TIMEOUT_MS,
-      extensions: { prf: { eval: { first: prfSalt } } } as AuthenticationExtensionsClientInputs,
+      extensions: prfExtensionInputs(prfSalt),
     },
   });
   if (!(rawAssertion instanceof PublicKeyCredential)) {
     throw new TypeError("unexpected assertion type");
   }
-  const extResults = rawAssertion.getClientExtensionResults() as {
-    prf?: { results?: { first?: ArrayBuffer } };
-  };
-  const prfOutput = extResults.prf?.results?.first;
+  const prfOutput = extractPrfResult(rawAssertion);
   if (!prfOutput) throw new PrfUnavailableError();
   return prfOutput;
 }
@@ -163,21 +192,21 @@ async function wrapMasterPassword(
 export const enrollBiometric = (masterPassword: string): ResultAsync<void, BiometricError> =>
   ResultAsync.fromPromise(
     (async () => {
-      const prfSalt = crypto.getRandomValues(new Uint8Array(32));
+      const prfSalt = crypto.getRandomValues(new Uint8Array(WEBAUTHN_PRF_SALT_BYTES));
 
       // Step 1 — register the platform credential, requesting PRF eval in one shot
       const rawCredential = await navigator.credentials.create({
         publicKey: {
-          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          challenge: crypto.getRandomValues(new Uint8Array(WEBAUTHN_CHALLENGE_BYTES)),
           rp: { name: EXTENSION_NAME, id: WEBAUTHN_RP_ID },
           user: {
-            id: crypto.getRandomValues(new Uint8Array(16)),
+            id: crypto.getRandomValues(new Uint8Array(WEBAUTHN_USER_ID_BYTES)),
             name: "cuny-user",
             displayName: "CUNY User",
           },
           pubKeyCredParams: [
-            { type: "public-key" as const, alg: -7 },   // COSE ES256
-            { type: "public-key" as const, alg: -257 }, // COSE RS256
+            { type: "public-key" as const, alg: COSE_ALG_ES256 },
+            { type: "public-key" as const, alg: COSE_ALG_RS256 },
           ],
           authenticatorSelection: {
             authenticatorAttachment: "platform",
@@ -188,7 +217,7 @@ export const enrollBiometric = (masterPassword: string): ResultAsync<void, Biome
           timeout: WEBAUTHN_TIMEOUT_MS,
           // Request PRF during create — platform authenticators (Windows Hello,
           // Touch ID) return the output here, saving a second get() prompt.
-          extensions: { prf: { eval: { first: prfSalt } } } as AuthenticationExtensionsClientInputs,
+          extensions: prfExtensionInputs(prfSalt),
         },
       });
 
@@ -211,11 +240,13 @@ export const enrollBiometric = (masterPassword: string): ResultAsync<void, Biome
         prf?: { enabled?: boolean; results?: { first?: ArrayBuffer } };
       };
 
+      const prfFromCreate = extractPrfResult(rawCredential);
+
       if (import.meta.env.MODE !== "production") {
         // eslint-disable-next-line no-console
         console.debug("[CUNYAutoLogin] biometric create ext results", JSON.stringify({
           prfEnabled: createExtResults.prf?.enabled,
-          prfHasResults: !!createExtResults.prf?.results?.first,
+          prfHasResults: prfFromCreate !== undefined,
           transports,
         }));
       }
@@ -225,8 +256,6 @@ export const enrollBiometric = (masterPassword: string): ResultAsync<void, Biome
       // cause Windows to show "Something went wrong". Bail immediately so the
       // prep screen shows the graceful fallback instead.
       if (createExtResults.prf?.enabled === false) throw new PrfUnavailableError();
-
-      const prfFromCreate = createExtResults.prf?.results?.first;
 
       // Prefer PRF from create() (one prompt); fall back to get() if enabled but deferred.
       const prfOutput: ArrayBuffer =
@@ -267,15 +296,15 @@ export const unlockWithBiometric = (): ResultAsync<string, BiometricError> =>
       const rawAssertion = await navigator.credentials.get({
         publicKey: {
           rpId: WEBAUTHN_RP_ID,
-          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          challenge: crypto.getRandomValues(new Uint8Array(WEBAUTHN_CHALLENGE_BYTES)),
           allowCredentials: [{
             id: credentialId,
             type: "public-key" as const,
-            transports: stored.transports as AuthenticatorTransport[],
+            transports: narrowTransports(stored.transports),
           }],
           userVerification: "required",
           timeout: WEBAUTHN_TIMEOUT_MS,
-          extensions: { prf: { eval: { first: prfSalt } } } as AuthenticationExtensionsClientInputs,
+          extensions: prfExtensionInputs(prfSalt),
         },
       });
 
@@ -283,10 +312,7 @@ export const unlockWithBiometric = (): ResultAsync<string, BiometricError> =>
         throw new TypeError("unexpected assertion type");
       }
 
-      const extResults = rawAssertion.getClientExtensionResults() as {
-        prf?: { results?: { first?: ArrayBuffer } };
-      };
-      const prfOutput = extResults.prf?.results?.first;
+      const prfOutput = extractPrfResult(rawAssertion);
       if (!prfOutput) throw new PrfUnavailableError();
 
       const aesKey = await crypto.subtle.importKey(
@@ -306,10 +332,18 @@ export const unlockWithBiometric = (): ResultAsync<string, BiometricError> =>
     mapWebAuthnError
   );
 
+const logStorageWarning = (context: string, error: unknown): void => {
+  if (import.meta.env.MODE !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(`[CUNYAutoLogin] biometric: ${context}`, error);
+  }
+};
+
 export const isBiometricEnrolled = async (): Promise<boolean> => {
   try {
     return (await readStoredCredential()) !== null;
-  } catch {
+  } catch (error) {
+    logStorageWarning("isBiometricEnrolled read failed", error);
     return false;
   }
 };
@@ -317,7 +351,7 @@ export const isBiometricEnrolled = async (): Promise<boolean> => {
 export const clearBiometricCredential = async (): Promise<void> => {
   try {
     await browser.storage.local.remove(BIOMETRIC_STORAGE_KEY);
-  } catch {
-    // silently degrade
+  } catch (error) {
+    logStorageWarning("clearBiometricCredential failed", error);
   }
 };

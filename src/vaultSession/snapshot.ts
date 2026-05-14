@@ -43,12 +43,20 @@ async function extensionStorage(): Promise<SnapshotStorage> {
   return cachedExtensionStorage;
 }
 
+const warnSnapshotFailure = (context: string, error: unknown): void => {
+  if (import.meta.env.MODE !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(`[CUNYAutoLogin] vaultSession.snapshot: ${context}`, error);
+  }
+};
+
 async function readSessionMaster(storage: SnapshotStorage): Promise<string | null> {
   try {
     const result = await storage.session?.get(SESSION_MASTER_KEY);
     const sessionMasterCandidate = result?.[SESSION_MASTER_KEY];
     return typeof sessionMasterCandidate === "string" ? sessionMasterCandidate : null;
-  } catch {
+  } catch (error) {
+    warnSnapshotFailure("readSessionMaster failed", error);
     return null;
   }
 }
@@ -56,8 +64,8 @@ async function readSessionMaster(storage: SnapshotStorage): Promise<string | nul
 async function clearBadSessionMaster(storage: SnapshotStorage): Promise<void> {
   try {
     await storage.session?.remove(SESSION_MASTER_KEY);
-  } catch {
-    // session storage unavailable — same as sidebar vault controller
+  } catch (error) {
+    warnSnapshotFailure("clearBadSessionMaster failed", error);
   }
 }
 
@@ -71,7 +79,8 @@ export async function loadVaultSessionSnapshot(
   let localResult: Record<string, unknown>;
   try {
     localResult = await resolvedStorage.local.get(VAULT_STORAGE_KEY);
-  } catch {
+  } catch (error) {
+    warnSnapshotFailure("local.get failed", error);
     return {
       mode: "setup",
       storedVault: null,

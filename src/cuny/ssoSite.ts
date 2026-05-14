@@ -319,10 +319,10 @@ export const WAIT_FOR_TOTP_SECRET_TIMEOUT_MS = 120_000;
  * is generous but still bounded so we never leak an observer across a real
  * navigation.
  */
-export const POST_SUBMIT_ERROR_OBSERVE_MS = 8000;
+export const POST_SUBMIT_ERROR_OBSERVE_MS = 8_000;
 
 /** How long the content script waits for CUNY's set-default confirmation before unblocking the flow. */
-export const SET_DEFAULT_CONFIRM_TIMEOUT_MS = 2000;
+export const SET_DEFAULT_CONFIRM_TIMEOUT_MS = 2_000;
 
 // ── Extension identity ─────────────────────────────────────────────────────────
 

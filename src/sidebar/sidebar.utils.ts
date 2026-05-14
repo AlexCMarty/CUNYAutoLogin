@@ -9,6 +9,8 @@ export const MIN_MASTER_PASSWORD_LENGTH = 12;
 export const EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG =
   "Choose a different password than your CUNY login password.";
 
+export { HIDE_PASSWORD_LABEL, SHOW_PASSWORD_LABEL } from "./passwordToggleLabels";
+
 export interface SidebarDom {
   form: HTMLFormElement;
   email: HTMLInputElement;
@@ -55,11 +57,18 @@ export function showTotpSecretSourceHint(els: SidebarDom): void {
   els.totpSecretSourceHint.classList.remove("hidden");
 }
 
+const warnSessionStorageUnavailable = (context: string, error: unknown): void => {
+  if (import.meta.env.MODE !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(`[CUNYAutoLogin] sidebar.utils: ${context}`, error);
+  }
+};
+
 export async function clearPendingTotpFromSession(): Promise<void> {
   try {
     await browser.storage.session?.remove(PENDING_TOTP_SECRET_SESSION_KEY);
-  } catch {
-    // session storage unavailable
+  } catch (error) {
+    warnSessionStorageUnavailable("clearPendingTotpFromSession failed", error);
   }
 }
 
@@ -78,8 +87,8 @@ export async function applyPendingTotpFromPage(els: SidebarDom): Promise<void> {
     els.totpSecret.value = secret;
     showTotpSecretSourceHint(els);
     await clearPendingTotpFromSession();
-  } catch {
-    // session storage unavailable
+  } catch (error) {
+    warnSessionStorageUnavailable("applyPendingTotpFromPage failed", error);
   }
 }
 

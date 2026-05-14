@@ -133,6 +133,13 @@ export const isLogoutCunySessionsRequest = (
   return record.type === "LOGOUT_CUNY_SESSIONS";
 };
 
+export const isLogoutCunySessionsAck = (
+  value: unknown
+): value is LogoutCunySessionsAck => {
+  if (typeof value !== "object" || value === null) return false;
+  return typeof (value as Record<string, unknown>).ok === "boolean";
+};
+
 export const isStageOnboardingCredentials = (
   value: unknown
 ): value is StageOnboardingCredentials => {
@@ -385,7 +392,7 @@ export const isOnboardingCunyTabMissing = (
   return typeof value.missing === "boolean";
 };
 
-type OnboardingMessageValidator = (msg: Record<string, unknown>) => boolean;
+type OnboardingMessageValidator = (candidate: Record<string, unknown>) => boolean;
 
 // One entry per OnboardingMessageType — delegates to the per-type guards above
 // so validation logic stays in one place and the cast-free lookup replaces the
@@ -394,13 +401,13 @@ const ONBOARDING_MESSAGE_VALIDATORS: Record<
   OnboardingMessageType,
   OnboardingMessageValidator
 > = {
-  ONBOARDING_STAGE_DETECTED:   (msg) => isOnboardingStageDetected(msg),
-  ONBOARDING_CREDENTIAL_ERROR: (msg) => isOnboardingCredentialError(msg),
-  ONBOARDING_OVERLAY_COMMAND:  (msg) => isOnboardingOverlayCommand(msg),
-  ONBOARDING_VERIFY_STATUS:    (msg) => isOnboardingVerifyStatus(msg),
-  ONBOARDING_REOPEN_CUNY_TAB:  (msg) => isOnboardingReopenCunyTab(msg),
-  ONBOARDING_TAB_REATTACHED:   (msg) => isOnboardingTabReattached(msg),
-  ONBOARDING_CUNY_TAB_MISSING: (msg) => isOnboardingCunyTabMissing(msg),
+  ONBOARDING_STAGE_DETECTED:   isOnboardingStageDetected,
+  ONBOARDING_CREDENTIAL_ERROR: isOnboardingCredentialError,
+  ONBOARDING_OVERLAY_COMMAND:  isOnboardingOverlayCommand,
+  ONBOARDING_VERIFY_STATUS:    isOnboardingVerifyStatus,
+  ONBOARDING_REOPEN_CUNY_TAB:  isOnboardingReopenCunyTab,
+  ONBOARDING_TAB_REATTACHED:   isOnboardingTabReattached,
+  ONBOARDING_CUNY_TAB_MISSING: isOnboardingCunyTabMissing,
 };
 
 /**

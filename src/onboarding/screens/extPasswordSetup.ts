@@ -3,7 +3,9 @@ import { PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../../cuny/
 import { VAULT_STORAGE_KEY, encryptVault } from "../../crypto/vault";
 import {
   EXT_PASSWORD_MUST_DIFFER_FROM_CUNY_MSG,
+  HIDE_PASSWORD_LABEL,
   MIN_MASTER_PASSWORD_LENGTH,
+  SHOW_PASSWORD_LABEL,
 } from "../../sidebar/sidebar.utils";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
@@ -12,11 +14,17 @@ export type PasswordStrength = "Weak" | "Fair" | "Strong";
 /** Passwords up to this length are considered Weak regardless of variety. */
 const WEAK_PASSWORD_MAX_LENGTH = 8;
 
+/** Distinct character classes required (a-z, A-Z, 0-9, symbol) before crossing the Weak threshold. */
+const MIN_PASSWORD_VARIETY = 3;
+
+const EXT_PASSWORD_SAVE_FAILED_MSG =
+  "Something went wrong saving your password. Please try again.";
+
 export const computePasswordStrength = (pw: string): PasswordStrength => {
   if (pw.length < WEAK_PASSWORD_MAX_LENGTH) return "Weak";
   const variety = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/]
     .filter((re) => re.test(pw)).length;
-  if (variety < 3) return "Weak";
+  if (variety < MIN_PASSWORD_VARIETY) return "Weak";
   if (pw.length >= MIN_MASTER_PASSWORD_LENGTH) return "Strong";
   return "Fair";
 };
@@ -72,7 +80,7 @@ const buildPasswordInput = (
   pwToggle.type = "button";
   pwToggle.className = "onboarding-input-toggle";
   pwToggle.dataset.onboardingExtPasswordToggle = "true";
-  pwToggle.setAttribute("aria-label", "Show password");
+  pwToggle.setAttribute("aria-label", SHOW_PASSWORD_LABEL);
   pwToggle.textContent = "\u{1F441}";
   pwWrap.appendChild(pwInput);
   pwWrap.appendChild(pwToggle);
@@ -122,7 +130,7 @@ const buildConfirmInput = (
   confirmToggle.type = "button";
   confirmToggle.className = "onboarding-input-toggle";
   confirmToggle.dataset.onboardingExtPasswordConfirmToggle = "true";
-  confirmToggle.setAttribute("aria-label", "Show password");
+  confirmToggle.setAttribute("aria-label", SHOW_PASSWORD_LABEL);
   confirmToggle.textContent = "\u{1F441}";
   confirmWrap.appendChild(confirmInput);
   confirmWrap.appendChild(confirmToggle);
@@ -141,7 +149,7 @@ const buildConfirmInput = (
   const errorMsg = doc.createElement("p");
   errorMsg.className = "onboarding-error onboarding-ext-password-error";
   errorMsg.hidden = true;
-  errorMsg.textContent = "Something went wrong saving your password. Please try again.";
+  errorMsg.textContent = EXT_PASSWORD_SAVE_FAILED_MSG;
   container.appendChild(errorMsg);
   const forwardBtn = doc.createElement("button");
   forwardBtn.type = "button";
@@ -194,9 +202,8 @@ const runExtPasswordVaultSave = async (
 ): Promise<void> => {
   const { pwInput, forwardBtn, errorMsg } = refs;
   const extensionPassword = pwInput.value;
-  const saveFailedText = "Something went wrong saving your password. Please try again.";
   forwardBtn.disabled = true;
-  errorMsg.textContent = saveFailedText;
+  errorMsg.textContent = EXT_PASSWORD_SAVE_FAILED_MSG;
   errorMsg.hidden = true;
 
   try {
@@ -215,7 +222,7 @@ const runExtPasswordVaultSave = async (
 
     const encResult = await encryptVault({ email, password, totpSecret }, extensionPassword);
     if (encResult.isErr()) {
-      errorMsg.textContent = saveFailedText;
+      errorMsg.textContent = EXT_PASSWORD_SAVE_FAILED_MSG;
       errorMsg.hidden = false;
       syncValidation();
       return;
@@ -231,7 +238,7 @@ const runExtPasswordVaultSave = async (
       // eslint-disable-next-line no-console
       console.warn("[CUNYAutoLogin] extPasswordSetup: unexpected vault save error", error);
     }
-    errorMsg.textContent = saveFailedText;
+    errorMsg.textContent = EXT_PASSWORD_SAVE_FAILED_MSG;
     errorMsg.hidden = false;
     syncValidation();
   }
@@ -304,15 +311,15 @@ const attachExtPasswordSetupHandlers = (
   };
 
   const handlePwToggle = (): void => {
-    const showing = pwInput.type === "text";
-    pwInput.type = showing ? "password" : "text";
-    pwToggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+    const wasShowing = pwInput.type === "text";
+    pwInput.type = wasShowing ? "password" : "text";
+    pwToggle.setAttribute("aria-label", wasShowing ? SHOW_PASSWORD_LABEL : HIDE_PASSWORD_LABEL);
   };
 
   const handleConfirmToggle = (): void => {
-    const showing = confirmInput.type === "text";
-    confirmInput.type = showing ? "password" : "text";
-    confirmToggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+    const wasShowing = confirmInput.type === "text";
+    confirmInput.type = wasShowing ? "password" : "text";
+    confirmToggle.setAttribute("aria-label", wasShowing ? SHOW_PASSWORD_LABEL : HIDE_PASSWORD_LABEL);
   };
 
   const handlePwKeydown = (event: KeyboardEvent): void => {

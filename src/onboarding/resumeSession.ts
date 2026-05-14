@@ -38,6 +38,13 @@ export const isResumeSnapshot = (
   return true;
 };
 
+const warnResumeSnapshotFailure = (context: string, error: unknown): void => {
+  if (import.meta.env.MODE !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(`[CUNYAutoLogin] resumeSession: ${context}`, error);
+  }
+};
+
 export async function loadResumeSnapshotFromSession(): Promise<OnboardingResumeSnapshot | null> {
   try {
     const result = await browser.storage.session?.get(
@@ -46,7 +53,8 @@ export async function loadResumeSnapshotFromSession(): Promise<OnboardingResumeS
     const fresh = result?.[ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY];
     if (isResumeSnapshot(fresh)) return fresh;
     return null;
-  } catch {
+  } catch (error) {
+    warnResumeSnapshotFailure("load failed", error);
     return null;
   }
 }
@@ -54,8 +62,8 @@ export async function loadResumeSnapshotFromSession(): Promise<OnboardingResumeS
 export async function clearResumeSnapshotSession(): Promise<void> {
   try {
     await browser.storage.session?.remove(ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY);
-  } catch {
-    // Ignore when session storage is unavailable.
+  } catch (error) {
+    warnResumeSnapshotFailure("clear failed", error);
   }
 }
 
@@ -66,8 +74,8 @@ export async function saveResumeSnapshotSession(
     await browser.storage.session?.set({
       [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: payload,
     });
-  } catch {
-    // Ignore when session storage is unavailable.
+  } catch (error) {
+    warnResumeSnapshotFailure("save failed", error);
   }
 }
 

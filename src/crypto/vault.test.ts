@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { Result } from "neverthrow";
 import {
   PBKDF2_ITERATIONS,
   VAULT_STORAGE_KEY,
@@ -8,6 +7,7 @@ import {
   isStoredVault,
 } from "./vault";
 import type { StoredVault, VaultPayload } from "./vault";
+import { unwrap, unwrapErr } from "../testUtils/resultUnwrap";
 
 const PAYLOAD: VaultPayload = {
   email: "student@login.cuny.edu",
@@ -15,24 +15,6 @@ const PAYLOAD: VaultPayload = {
   totpSecret: "JBSWY3DPEHPK3PXP",
 };
 const MASTER = "correct-horse-battery-staple";
-
-/**
- * Unwrap a Result, throwing a descriptive error if it is Err.
- * Prefer this over _unsafeUnwrap() so failures show the actual error value.
- */
-function unwrap<T, E>(result: Result<T, E>): T {
-  if (result.isErr()) throw new Error(`Expected Ok, got err(${JSON.stringify(result.error)})`);
-  return result.value;
-}
-
-/**
- * Unwrap the error from a Result, throwing a descriptive error if it is Ok.
- * Prefer this over _unsafeUnwrapErr() so failures show the actual success value.
- */
-function unwrapErr<T, E>(result: Result<T, E>): E {
-  if (result.isOk()) throw new Error(`Expected Err, got ok(${JSON.stringify(result.value)})`);
-  return result.error;
-}
 
 function bytesToB64(bytes: Uint8Array): string {
   let binary = "";
