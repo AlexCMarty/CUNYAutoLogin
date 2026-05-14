@@ -9,7 +9,7 @@ MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storag
 - Saved email must end with `@login.cuny.edu` (enforced in `sidebar/sidebar.utils.ts`)
 - All CUNY page constants (selectors, URL paths, timing) go in `src/cuny/ssoSite.ts` only
 - Content script must stay a single IIFE — never add ESM imports to `src/content/`
-- No `console.log`/`console.debug` outside a dev-mode guard. Use `if (import.meta.env.MODE !== "production")` — **not** `if (import.meta.env.DEV)`, which is always `false` in `vite build` output (including `build:dev`). See `.agents/rules/biometrics.md` § "The `import.meta.env.DEV` trap".
+- No `console.log`/`console.debug` outside a dev-mode guard. Use `if (import.meta.env.MODE !== "production")` — **not** `if (import.meta.env.DEV)`, which reflects the Vite mode at build time (`true` in `build:dev`, `false` in `build`) and therefore does not reliably gate production-only exclusions across all build targets. See `.agents/rules/biometrics.md` § "The `import.meta.env.DEV` trap".
 - **Lint:** `npm run lint` runs ESLint with `--max-warnings 0` (covers `id-length`, `no-console`, etc.); must pass with zero errors and zero warnings before merge
 - Do NOT assume completion just because unit tests pass. Run full `npm run test`.
 - **Minimum browsers** (see `src/manifest.json`): Firefox **128+** (`strict_min_version`), Chromium **141+** (`minimum_chrome_version`). Do not document or relax below these without updating the manifest and fallbacks.

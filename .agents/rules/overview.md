@@ -65,6 +65,9 @@ src/
   content/totpEnrollSecretBridge.ts  Enroll-page secret scrape/post bridge
   content/mfaEnrollVerifyFlow.ts    Self-service enroll-verify polling flow
   content/overlayBridge.ts      Pull/execute overlay commands
+  content/overlay.ts            Overlay command definitions and execution helpers
+  content/ruiOnboarding.ts      RUI SPA view observers; startRuiOnboardingObservers wired in content.ts
+  content/ruiSpaView.ts         detectRuiSpaView — identifies which Oracle RUI SPA view is active
   content/allowConsentReporter.ts   Allow-button click reporter
   content/banner.ts             Extension-branded credential-error banner (INT_MAX z-index)
   content/content.utils.ts      Pure helpers (TOTP normalization, KO-aware input setter)
@@ -83,8 +86,9 @@ e2e/
   onboarding-completion.spec.ts Extension password, completion, interruptions
   locked.spec.ts                Vault locked behavior
   unlocked.spec.ts              Unlocked vault + autofill
-  helpers.ts                    gotoPrimarySurface, clearVaultIfPossible, setupVault, lockVault,
-                                walkToPasswordEntry, onboardingHashWith
+  helpers.ts                    setupVault, clearVaultIfPossible, lockVault, walkToPasswordEntry,
+                                walkToCunyTotp, waitForAutofillWindow, expectInputRemainsEmpty,
+                                onboardingHashWith
   extension-fixture.ts          Loads built extension into Chromium via --load-extension
   fixtures-server.mjs           Local HTTP server for e2e/fixtures/*.html
   fixtures/                     credential, credential-error, credential-success-transient,

@@ -148,7 +148,8 @@ Rebuild and reload after source changes.
 
 ## Storage (`storage.local`)
 
-- **`cunyVault`** — encrypted `StoredVault`. Only key in `storage.local`.
+- **`cunyVault`** — encrypted `StoredVault` (see `src/crypto/vault.ts`).
+- **`cunyBiometricCredential`** — AES-GCM-wrapped master password + WebAuthn credential metadata for biometric unlock (see `src/crypto/biometric.ts`). Present only when the user completes biometric enrollment.
 
 Do not add new `storage.local` keys without a security review (see `.agents/rules/security.md`).
 

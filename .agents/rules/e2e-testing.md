@@ -19,6 +19,7 @@ Local HTTP server on `FIXTURE_PORT` serving `e2e/fixtures/`. Current routes:
   - `?view=home` auto-clicks Manage after 1500ms
   - `?view=secret` Verify Now appends `&autoSubmit=1`; `?view=verify&autoSubmit=1` suppresses empty-OTP error
 - `allow-gate.html` — `/cunylogin/pages/mfaConsent.jsp` (supports `?next=<url>`)
+- `credential.html` (also) — `/oamfed/idp/samlv20` — SAMLv20 redirect variant used by `unlocked.spec.ts` (exported as `CREDENTIAL_SAMLV20_FIXTURE_URL` from `e2e/constants.ts`)
 
 **Firefox is not supported** in E2E — test manually via `about:debugging`.
 

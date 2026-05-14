@@ -114,7 +114,7 @@ if (matchesMfaConsentPage(window.location.href)) {
 export { CREDENTIAL_ERROR_ELEMENT_ID, CREDENTIAL_ERROR_TEXT_MARKER };
 
 // isFillMessage is only called in the DEV block below; Vite tree-shakes it from
-// the production IIFE because import.meta.env.DEV evaluates to false at build time.
+// the production IIFE because import.meta.env.DEV is false when mode === "production".
 if (import.meta.env.DEV) {
   browser.runtime.onMessage.addListener(
     (message: unknown, sender: Runtime.MessageSender) => {
