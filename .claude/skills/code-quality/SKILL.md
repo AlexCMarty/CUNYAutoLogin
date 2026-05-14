@@ -1,7 +1,7 @@
 ---
 name: code-quality
 description: Spawn parallel subagents that aggressively audit the codebase for spaghetti code, code quality issues, and non-senior-dev patterns. Produces a severity-ranked findings report with exact file/line citations.
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Code Quality
