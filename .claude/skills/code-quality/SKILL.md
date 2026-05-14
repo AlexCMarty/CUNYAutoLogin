@@ -1,6 +1,6 @@
 ---
 name: code-quality
-description: Spawn parallel subagents that aggressively audit the codebase for spaghetti code, code smells, and non-senior-dev patterns. Produces a severity-ranked findings report with exact file/line citations.
+description: Spawn parallel subagents that aggressively audit the codebase for spaghetti code, code quality issues, and non-senior-dev patterns. Produces a severity-ranked findings report with exact file/line citations.
 disable-model-invocation: true
 ---
 
@@ -12,9 +12,9 @@ Hunt ruthlessly for code that a senior engineer would flag in review. Treat the 
 
 ## Core Rules
 
-1. **Code is guilty until proven innocent.** Every smell gets a finding unless there is a documented reason for the pattern.
+1. **Code is guilty until proven innocent.** Every issue gets a finding unless there is a documented reason for the pattern.
 2. **Cite exactly.** Every finding includes file path, line number(s), and the offending code snippet.
-3. **No false passes.** If a pattern *looks* like a smell but is actually fine, explain why in a "Not a finding" note — do not silently skip it.
+3. **No false passes.** If a pattern *looks* like an issue but is actually fine, explain why in a "Not a finding" note — do not silently skip it.
 4. **Severity is not optional.** Every finding is rated `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW`.
 5. **Fix, don't just flag.** Every finding includes a concrete corrective action (rename, split, add type, etc.).
 
@@ -29,9 +29,9 @@ Hunt ruthlessly for code that a senior engineer would flag in review. Treat the 
 
 ---
 
-## Smell Taxonomy
+## Issue Taxonomy
 
-Each subagent focuses on one category. These are the canonical smells for this TypeScript/MV3 extension:
+Each subagent focuses on one category. These are the canonical issues for this TypeScript/MV3 extension:
 
 ### 1. Type Safety
 - `any` types (explicit or implicit via unsafe cast)
@@ -100,7 +100,7 @@ Each subagent focuses on one category. These are the canonical smells for this T
 - Timeout/interval values not named
 - Storage key strings defined inline instead of imported from the module that owns them
 
-### 10. Security Smells (non-crypto)
+### 10. Security Issues (non-crypto)
 - `console.log` of anything that *might* carry credential-shaped data (email, password, secret)
 - Storage writes of non-vault data to `browser.storage.local` (should be `storage.session` or in-memory)
 - Any use of `localStorage` in extension code (persists to disk — critical finding per the security rule)
@@ -123,7 +123,7 @@ rg --files src -g "*.ts" | xargs wc -l | sort -rn | head -20
 ### Step 2 — Spawn parallel subagents
 
 Divide the taxonomy into **four parallel subagent bundles**. Each agent receives:
-- Its assigned smell categories (from the taxonomy above)
+- Its assigned issue categories (from the taxonomy above)
 - The full `src/` and `e2e/` trees to read
 - The severity scale
 - The "cite exactly" rule
@@ -132,19 +132,19 @@ Divide the taxonomy into **four parallel subagent bundles**. Each agent receives
 **Bundle A — Types & Errors** (categories 1, 4)
 **Bundle B — Shape & Complexity** (categories 2, 3, 5)
 **Bundle C — Async & Dead Code** (categories 6, 8, 9)
-**Bundle D — Tests & Security Smells** (categories 7, 10)
+**Bundle D — Tests & Security Issues** (categories 7, 10)
 
 Each subagent must:
-1. `grep` / `rg` the codebase for canonical smell patterns before reading full files
+1. `grep` / `rg` the codebase for canonical patterns before reading full files
 2. Read the files most likely to have findings (largest files, files with multiple grep hits)
-3. Return findings as a structured list: `[SEVERITY] file:line — smell description — fix`
+3. Return findings as a structured list: `[SEVERITY] file:line — issue description — fix`
 
 ### Step 3 — Synthesize
 
 After all four bundles complete:
 1. Merge all findings
 2. De-duplicate (same line flagged by two agents → one finding, higher severity wins)
-3. Re-rank: if a finding touches both a complexity smell and a type-safety smell, escalate one level
+3. Re-rank: if a finding touches both a complexity issue and a type-safety issue, escalate one level
 4. Group by file for the final report
 
 ### Step 4 — Spot-check top findings
@@ -156,7 +156,7 @@ Before reporting, directly read the top 5 CRITICAL/HIGH findings to confirm they
 ## Output Format
 
 ```
-## Smell Hunt Report — <date>
+## Code Quality Report — <date>
 
 ### Summary
 - Files scanned: N
@@ -165,7 +165,7 @@ Before reporting, directly read the top 5 CRITICAL/HIGH findings to confirm they
 
 ### CRITICAL
 [file:line] <offending snippet>
-Smell: <category>
+Issue: <category>
 Why: <one sentence on why this is a real problem>
 Fix: <concrete corrective action>
 
