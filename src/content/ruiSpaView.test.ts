@@ -3,7 +3,6 @@ import { describe, expect, test, beforeEach } from "vitest";
 import { detectRuiSpaView } from "./ruiSpaView";
 import {
   RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID,
-  RUI_FACTOR_PANEL_SELECTOR,
   RUI_OAA_HOME_HEADER_ID,
   TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY,
 } from "../cuny/ssoSite";
