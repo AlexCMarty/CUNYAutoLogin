@@ -21,7 +21,7 @@ const SCREEN_LABEL = "And your CUNY password.";
 const SCREEN_SUBTEXT = "The password you use to log in to Brightspace or CUNYFirst.";
 const REASSURANCE_COPY =
   "We'll save it on this computer and use it now to sign you in so you can watch it work.";
-export const CREDENTIAL_ERROR_INLINE_COPY =
+const CREDENTIAL_ERROR_INLINE_COPY =
   "That email and password didn't work. Double-check and try again.";
 const CTA_LABEL = "Continue";
 const BACK_LABEL = "Back";
@@ -34,9 +34,6 @@ export const PASSWORD_BACK_SELECTOR =
   "[data-onboarding-password-back='true']";
 export const PASSWORD_TOGGLE_SELECTOR =
   "[data-onboarding-password-toggle='true']";
-export const PASSWORD_CREDENTIAL_ERROR_SELECTOR =
-  "[data-onboarding-password-credential-error='true']";
-
 type PasswordEntryDom = {
   readonly container: HTMLElement;
   readonly credentialError: HTMLParagraphElement;

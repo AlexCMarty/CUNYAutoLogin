@@ -13,11 +13,6 @@ const STEPS = [
   { title: "Come back here", desc: "Next we’ll set things up so you don’t have to do that again." },
 ] as const;
 
-export const CUNY_TOTP_SCREEN_SELECTOR =
-  "[data-onboarding-screen=’CUNY_TOTP’]";
-export const CUNY_TOTP_BACK_SELECTOR =
-  "[data-onboarding-cuny-totp-back=’true’]";
-
 const buildStepCard = (doc: Document): HTMLElement => {
   const card = doc.createElement("div");
   card.className = "onboarding-step-card";

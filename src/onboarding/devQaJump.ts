@@ -14,8 +14,6 @@ import {
 import type { OnboardingState } from "./state";
 import { isOnboardingState } from "./state";
 
-export { DEV_MODE_NAMES } from "./devModes";
-
 export const QA_DEFAULT_EMAIL = `visual-qa${LOGIN_EMAIL_SUFFIX}`;
 export const QA_DEFAULT_PASSWORD = "Dev-QA-password-seed-not-real";
 
@@ -25,7 +23,7 @@ const QA_PASSWORD_PARAM = "qaPassword";
 const QA_CRED_PARAM = "qaCred";
 
 /** States that have a real screen mount (excludes CREDENTIAL_ERROR placeholder). */
-export const QA_JUMPABLE_STATES = Object.keys(SCREEN_MOUNTS).filter(
+const QA_JUMPABLE_STATES = Object.keys(SCREEN_MOUNTS).filter(
   (key): key is OnboardingState =>
     isOnboardingState(key) && SCREEN_MOUNTS[key] !== undefined
 );

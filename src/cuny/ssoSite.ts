@@ -32,7 +32,7 @@ export const CREDENTIAL_PAGE_PATH_MARKERS = [
 ] as const;
 
 /** Path substring for the second-factor TOTP entry page. */
-export const TOTP_PAGE_PATH_MARKER = "/oaa-totp-factor/" as const;
+const TOTP_PAGE_PATH_MARKER = "/oaa-totp-factor/" as const;
 
 /**
  * Entry point the onboarding Screen 4 opens in a new tab. Hitting this URL
@@ -43,7 +43,7 @@ export const CUNY_LOGIN_ENTRY_URL =
   `${SSO_LOGIN_ORIGIN}/oaa/rui` as const;
 
 /** Host for CUNY Brightspace (must match manifest `host_permissions`). */
-export const BRIGHTSPACE_HOST = "brightspace.cuny.edu" as const;
+const BRIGHTSPACE_HOST = "brightspace.cuny.edu" as const;
 
 /** Post-demo destination: CUNY LMS home after extension-driven logout steps. */
 export const BRIGHTSPACE_HOME_URL =
@@ -122,7 +122,7 @@ export const OAA_RUI_OIDC_REDIRECT_PATH = "/oaa/rui/oidc/redirect" as const;
  * `#serverError` alert element (which also appears on re-renders without a
  * full navigation).
  */
-export const CREDENTIAL_ERROR_URL_PATH = "/oam/server/auth_cred_submit" as const;
+const CREDENTIAL_ERROR_URL_PATH = "/oam/server/auth_cred_submit" as const;
 
 /** Oracle's error-message container on the credential page (role=alert). */
 export const CREDENTIAL_ERROR_ELEMENT_ID = "serverError" as const;
@@ -148,7 +148,7 @@ export const matchesTotpPage = (url: string): boolean =>
  * Path substring for the Oracle RUI “add authentication method” flow where the IdP
  * shows the TOTP shared secret (e.g. …/oaa/rui/index.html).
  */
-export const TOTP_ENROLL_PAGE_PATH_MARKER = "/oaa/rui/" as const;
+const TOTP_ENROLL_PAGE_PATH_MARKER = "/oaa/rui/" as const;
 
 export const matchesTotpEnrollPage = (url: string): boolean =>
   url.includes(TOTP_ENROLL_PAGE_PATH_MARKER);

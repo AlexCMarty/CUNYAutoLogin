@@ -28,7 +28,7 @@ const warnRuntimeMessageFailure = (context: string, error: unknown): void => {
  * Notifies the sidebar of a wrong-credential DOM signal and mounts the
  * extension-branded banner so the student notices without looking at the sidebar.
  */
-export const reportCredentialError = async (): Promise<void> => {
+const reportCredentialError = async (): Promise<void> => {
   mountCredentialErrorBanner();
   const message: OnboardingCredentialError = {
     type: "ONBOARDING_CREDENTIAL_ERROR",
