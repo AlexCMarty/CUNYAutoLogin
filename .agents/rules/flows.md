@@ -29,7 +29,7 @@ Oracle JET renders inputs after `document_idle` — content script uses `Mutatio
 
 1. **Content script** (`watchTotpSecretOnEnrollPage`): On pages matching `matchesTotpEnrollPage`, waits via `MutationObserver` for `TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY`. Normalizes (strip whitespace, uppercase, strip trailing `=`; reject if invalid Base32) and sends `{ type: "TOTP_SECRET_FROM_PAGE", secret }`.
 2. **Service worker**: Validates and writes to `storage.session` under `PENDING_TOTP_SECRET_SESSION_KEY`.
-3. **Side panel** (`storage.session.onChanged`): Detects the key, reads it, pre-fills the TOTP input, clears the session key.
+3. **Side panel** (`guidedSecretCapture.ts`): Polls `storage.session` at `RUI_ONBOARDING_POLL_INTERVAL_MS` (no `onChanged` listener) — shows a capture confirmation when the key appears. On the `factors_list_after_enroll` stage, `render.ts` reads the key directly: if present, fast-forwards the flow to `SET_DEFAULT`; if absent, shows a recovery message prompting the user to re-enroll.
 
 ## MFA self-service verify OTP flow
 

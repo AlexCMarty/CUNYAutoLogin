@@ -184,6 +184,6 @@ The extension injects a credential error banner via `src/content/banner.ts` on t
 | Element | Source | Selector |
 |---------|--------|----------|
 | `#serverError` | CUNY native | `document.getElementById('serverError')` |
-| Extension banner | `banner.ts` | `div[data-cuny-autologin-banner]` or by `z-index: 2147483647` (INT_MAX) |
+| Extension banner | `banner.ts` | `div[data-cunyautologin-banner]` or by `z-index: 2147483647` (INT_MAX) |
 
 When writing tests for the credential-error page, assert on `#serverError` for CUNY behavior and on the extension banner selector for extension behavior. Never confuse the two.

@@ -29,12 +29,11 @@ This policy describes how the **CUNYAutoLogin** browser extension (“the extens
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | **Vault (encrypted)** | CUNY Login email (`@login.cuny.edu`), password, TOTP secret material needed to generate one-time codes, and related vault metadata                    | `browser.storage.local` as a single encrypted blob (PBKDF2 + AES-GCM). Readable only with your vault password. |
 | **Biometric unlock (optional)** | WebAuthn credential identifiers, authenticator metadata the browser needs for later prompts, and your vault password **re-encrypted** with a key derived inside the platform authenticator (not stored in plaintext) | `browser.storage.local` as a separate small record **only if you enroll**. Skipping onboarding biometrics leaves this empty. |
-| **Onboarding flag**   | Whether you finished first-time setup                                                                                                                 | `browser.storage.local` as a non-secret boolean.                                                               |
 | **Session-only data** | Vault unlock key derived from your vault password; optional **setup drafts** during onboarding; **pending TOTP secret** scraped during MFA enrollment | `browser.storage.session` (not persisted like normal disk storage; cleared when the session ends).             |
 | **In-memory staging** | Email and password during a narrow onboarding window before the vault exists                                                                          | Held only in the extension **service worker** memory until cleared or the worker terminates.                   |
 
 
-If you **uninstall** the extension or **clear** extension data, locally stored vault, optional biometric enrollment data, and flags are removed according to your browser’s behavior.
+If you **uninstall** the extension or **clear** extension data, locally stored vault and optional biometric enrollment data are removed according to your browser’s behavior.
 
 ### Information we do not collect as a product feature
 
@@ -58,7 +57,7 @@ The manifest requests **storage**, **sidePanel** (and Firefox **sidebar** equiva
 
 **Typical uses:**
 
-- **Storage:** Encrypted vault, optional biometric-enrollment record, session keys, onboarding state (as above).  
+- **Storage:** Encrypted vault, optional biometric-enrollment record, and session keys.  
 - **Side panel / sidebar:** User interface for setup, unlock, and settings.  
 - **Tab coordination:** Opening or navigating browser tabs to official CUNY Login / Brightspace URLs during onboarding and logout (for example first-time login), within the extension’s declared host access—without broad access to all websites.  
 - **Host access + content script on `ssologin.cuny.edu`:** Detecting the sign-in and MFA pages the extension supports and filling fields **only in that origin’s documents**, in line with the extension’s purpose. The same host permission is also used so WebAuthn “relying party” checks align with CUNY Login’s domain when you **optionally** enroll biometric unlock from the extension UI—still **no** credential upload to the extension operator.  
