@@ -48,7 +48,7 @@ npm run watch         # vite --watch for sidebar/background (dev mode); rerun bu
 | `npm run watch` | Watch sidebar/background in dev mode. |
 | `npm run typecheck` | `tsc --noEmit` only. |
 
-The [release workflow](.github/workflows/release.yml) runs **`npm run build`** after `npm ci`. **Unit and E2E tests are not run in CI** — run **`npm run test`** locally before merging.
+The [ci workflow](.github/workflows/ci.yml) runs lint, type-checking, **`npm run test:unit`**, and **`npm run test:e2e`** on every push and PR to `main`. The [release workflow](.github/workflows/release.yml) also runs **`npm run test:unit`** and **`npm run test:e2e`** before **`npm run build`** on every version tag. Run **`npm run test`** locally before merging.
 
 ---
 

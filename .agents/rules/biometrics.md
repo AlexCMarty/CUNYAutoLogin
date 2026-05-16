@@ -109,7 +109,7 @@ Single `credentials.get()` prompt:
 
 ## The `import.meta.env.DEV` trap
 
-`import.meta.env.DEV` is **always `false` in `vite build` output, even with `--mode development`**. Using it to gate features (or to keep debug logging) silently strips them from the dev build. **Use `import.meta.env.MODE !== "production"` instead** for non-production-only diagnostics (for example `console.debug` in `biometric.ts`). Note that content-script code uses `if (import.meta.env.DEV)` for tree-shaking the FILL_CREDENTIALS test path (see `.agents/rules/flows.md`); that is the **only** correct use because the content-script Vite config does behave like a dev server in dev builds. Everywhere else in the extension, prefer `MODE !== "production"` when you truly mean “not the production bundle.”
+`import.meta.env.DEV` is `true` in `build:dev` / `build:e2e` (`vite build --mode development`) and `false` in `build` (production). In practice its value tracks `MODE !== "production"` under the current build targets — but **use `import.meta.env.MODE !== "production"` explicitly** rather than `DEV` for non-production-only diagnostics (for example `console.debug` in `biometric.ts`). Note that content-script code uses `if (import.meta.env.DEV)` for tree-shaking the FILL_CREDENTIALS test path (see `.agents/rules/flows.md`); that is the **only** correct use because the content-script Vite config does behave like a dev server in dev builds. Everywhere else in the extension, prefer `MODE !== "production"` when you truly mean “not the production bundle.”
 
 ## When to search the web
 

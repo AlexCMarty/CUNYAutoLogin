@@ -34,8 +34,8 @@ export default tseslint.config({
     ],
 
     // Console output leaks internals to the browser console in production.
-    // All console calls must be gated by `if (import.meta.env.DEV)` or
-    // `if (isDevMode())`. Add eslint-disable-next-line only when the guard
+    // All console calls must be gated by `if (import.meta.env.MODE !== "production")`
+    // or `if (isDevMode())`. Add eslint-disable-next-line only when the guard
     // is present and you are certain no credential-shaped data is logged.
     "no-console": "warn",
   },

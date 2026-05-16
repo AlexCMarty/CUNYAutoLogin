@@ -63,7 +63,7 @@ The instructional text on this page names the registered factor: `"Enter TOTP fr
 <!-- Oracle JET SPA — all content rendered async by RequireJS/Knockout -->
 <!-- Wait for #otpValue|input via MutationObserver before interacting -->
 
-<!-- OTP input (rendered async, ~15s after load) -->
+<!-- OTP input (present at domComplete; ~417ms after load — not async) -->
 <input id="otpValue|input" type="text"
        class="oj-inputtext-input oj-text-field-input oj-component-initnode">
 

@@ -151,6 +151,6 @@ Observed state during mapping session: account had **4 factors** (Bitwarden, e, 
 ## Gotchas
 
 - **Same page as factors-list**: No URL change, no full reload. The SPA re-renders the panel list in-place. Poll for the new `factor-panel` element whose `factorAlias` matches the newly enrolled name.
-- **index attribute shifts**: The `index` attribute on each `factor-panel` reflects DOM order, not a stable ID. A newly enrolled factor may appear at any position. Always identify panels by `factorAlias` from the `factor` JSON attribute.
+- **index attribute shifts**: The `index` attribute on each `factor-panel` is server-assigned and may not match DOM order (see `factors-list.md` gotchas). A newly enrolled factor may appear at any position. Always identify panels by `factorAlias` from the `factor` JSON attribute, not by `index`.
 - **Default badge image src changes**: The preferred panel uses `Oval.png` instead of `phone.png`. Both panels are type "Mobile Authenticator - TOTP" — distinguish by image src or `alt` attribute.
 - **`Set As Default` option hidden via `display:none` in static DOM**: Interact via accessibility tree snapshot UIDs after the menu is opened, not by direct `getElementById('default{N}').click()`.
