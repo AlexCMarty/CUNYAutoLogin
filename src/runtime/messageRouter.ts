@@ -4,8 +4,6 @@ type AnyRouteHandler = (message: UnknownRecord) => unknown;
 const asRecord = (value: unknown): UnknownRecord | null =>
   typeof value === "object" && value !== null ? (value as UnknownRecord) : null;
 
-export type RouteHandler<TResult> = (message: UnknownRecord) => TResult;
-
 export type RouteTable = Readonly<Record<string, AnyRouteHandler>>;
 
 type RouteResult<T extends RouteTable> = ReturnType<T[keyof T]>;

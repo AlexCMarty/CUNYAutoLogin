@@ -40,7 +40,7 @@ export type OnboardingSnapshot = {
   readonly credentialError: OnboardingCredentialErrorInfo | null;
 };
 
-export type OnboardingSnapshotListener = (snapshot: OnboardingSnapshot) => void;
+type OnboardingSnapshotListener = (snapshot: OnboardingSnapshot) => void;
 
 export type OnboardingController = {
   readonly getSnapshot: () => OnboardingSnapshot;

@@ -15,7 +15,7 @@ import {
 } from "../crypto/vault";
 import { SESSION_MASTER_KEY } from "../cuny/ssoSite";
 
-export type VaultSessionMode = "setup" | "locked" | "unlocked";
+type VaultSessionMode = "setup" | "locked" | "unlocked";
 
 export type VaultSessionSnapshot = {
   mode: VaultSessionMode;

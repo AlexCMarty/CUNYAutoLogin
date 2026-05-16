@@ -67,7 +67,7 @@ export async function clearResumeSnapshotSession(): Promise<void> {
   }
 }
 
-export async function saveResumeSnapshotSession(
+async function saveResumeSnapshotSession(
   payload: OnboardingResumeSnapshot
 ): Promise<void> {
   try {

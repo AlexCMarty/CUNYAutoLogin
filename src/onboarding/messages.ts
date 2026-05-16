@@ -70,15 +70,6 @@ export type TotpSecretFromPage = {
   readonly secret: string;
 };
 
-export type TotpSecretFromPageAck = { readonly ok: boolean };
-
-/** Content script → service worker: stage the enrolled factor alias so the
- *  sidebar can read it from storage.session (content scripts lack session access). */
-export type EnrolledAliasFromPage = {
-  readonly type: "ENROLLED_ALIAS_FROM_PAGE";
-  readonly alias: string;
-};
-
 /**
  * Sidebar → service-worker: stage the in-memory onboarding credentials so the
  * content script can auto-fill them on the CUNY tab opened from the sidebar.
@@ -176,14 +167,14 @@ export const isPersistOnboardingResumeSnapshot = (
 // ──── target spec types (shared with content/overlay.ts) ────────────────────
 
 /** Prefer when the control has a stable selector (cheaper than accessibility text matching). */
-export type CssTarget = { readonly type: "css"; readonly selector: string };
+type CssTarget = { readonly type: "css"; readonly selector: string };
 
 /**
  * Click a CUNY element via accessibility-tree text match. Required for
  * oj-option items inside Oracle JET menus, which have display:none even when
  * the menu is visually open — they cannot be clicked via CSS selector.
  */
-export type A11yTarget = { readonly type: "a11y"; readonly text: string };
+type A11yTarget = { readonly type: "a11y"; readonly text: string };
 
 export type TargetSpec = CssTarget | A11yTarget;
 
@@ -216,7 +207,7 @@ export const CREDENTIAL_CULPRITS = ["email", "password", "unknown"] as const;
 export type CredentialCulprit = (typeof CREDENTIAL_CULPRITS)[number];
 
 export const OVERLAY_ACTIONS = ["show", "update", "hide"] as const;
-export type OverlayAction = (typeof OVERLAY_ACTIONS)[number];
+type OverlayAction = (typeof OVERLAY_ACTIONS)[number];
 
 export const VERIFY_STATUSES = [
   "pending",
@@ -224,7 +215,7 @@ export const VERIFY_STATUSES = [
   "first_failure",
   "second_failure",
 ] as const;
-export type VerifyStatus = (typeof VERIFY_STATUSES)[number];
+type VerifyStatus = (typeof VERIFY_STATUSES)[number];
 
 // ──── onboarding message shapes ──────────────────────────────────────────────
 
@@ -292,7 +283,7 @@ export type OnboardingMessageType = (typeof ONBOARDING_MESSAGE_TYPES)[number];
 
 // ──── ack shape (default-reject contract) ────────────────────────────────────
 
-export type OnboardingRejectReason =
+type OnboardingRejectReason =
   | "invalid_payload"
   | "unknown_type"
   | "forward_failed";

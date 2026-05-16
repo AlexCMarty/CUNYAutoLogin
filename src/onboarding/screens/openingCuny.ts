@@ -54,13 +54,6 @@ const REASSURANCE_COPY =
 const WAITING_LABEL = "Nothing to do yet \u2014 waiting for the tab to open.";
 const BACK_LABEL = "Back";
 
-export const OPENING_CUNY_SCREEN_SELECTOR =
-  "[data-onboarding-screen='OPENING_CUNY']";
-export const OPENING_CUNY_BACK_SELECTOR =
-  "[data-onboarding-opening-back='true']";
-export const OPENING_CUNY_WAITING_SELECTOR =
-  "[data-onboarding-opening-waiting='true']";
-
 /**
  * Dev/e2e escape hatch: the URL hash may contain `cuny=<encoded>` to override
  * the CUNY entry URL. Production always uses `CUNY_LOGIN_ENTRY_URL` — this

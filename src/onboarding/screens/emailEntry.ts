@@ -24,7 +24,7 @@ const SCREEN_SUBTEXT =
   "It's firstname.lastname12@login.cuny.edu — not your @stu-mail.baruch.cuny.edu or other school email.";
 const INLINE_HINT_COPY =
   "CUNY logins end in @login.cuny.edu \u2014 check your CUNYfirst welcome email if you're unsure.";
-export const CREDENTIAL_ERROR_INLINE_COPY =
+const CREDENTIAL_ERROR_INLINE_COPY =
   "That email and password didn't work. Double-check and try again.";
 const CTA_LABEL = "Continue";
 const BACK_LABEL = "Back";
@@ -44,9 +44,6 @@ export const EMAIL_FORWARD_SELECTOR = "[data-onboarding-email-forward='true']";
 export const EMAIL_BACK_SELECTOR = "[data-onboarding-email-back='true']";
 export const EMAIL_INLINE_HINT_SELECTOR =
   "[data-onboarding-email-hint='true']";
-export const EMAIL_CREDENTIAL_ERROR_SELECTOR =
-  "[data-onboarding-email-credential-error='true']";
-
 type EmailEntryDom = {
   readonly container: HTMLElement;
   readonly credentialError: HTMLParagraphElement;

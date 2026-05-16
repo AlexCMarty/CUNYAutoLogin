@@ -15,13 +15,13 @@
  * onNotFound callback fires so the sidebar can surface a recovery message.
  */
 
-import type { CssTarget, A11yTarget, TargetSpec } from "../onboarding/messages";
+import type { TargetSpec } from "../onboarding/messages";
 import {
   CUNY_ALLOW_GATE_BTN_SELECTOR,
   OVERLAY_TARGET_TIMEOUT_MS,
 } from "../cuny/ssoSite";
 
-export type { CssTarget, A11yTarget, TargetSpec };
+export type { TargetSpec };
 export { OVERLAY_TARGET_TIMEOUT_MS };
 
 const DIM_ATTR = "data-cuny-autologin-overlay";

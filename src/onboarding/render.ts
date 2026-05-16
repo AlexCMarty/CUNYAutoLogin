@@ -54,31 +54,15 @@ import {
   loadResumeSnapshotFromSession,
   persistOnboardingResumeSnapshot,
 } from "./resumeSession";
-import {
-  type BeadStage,
-  type OnboardingState,
-} from "./state";
+import { type OnboardingState } from "./state";
 import { type OnboardingEvent } from "./transitions";
 import { routeByType } from "../runtime/messageRouter";
 
-export { beadViewModelForState, type BeadViewModel } from "./beadViewModel";
+export { beadViewModelForState } from "./beadViewModel";
 
 /** Dev QA deep link options — pass `qaJump` from `tryParseDevQaOnboardingJumpFromWindow`. */
 export type MountOnboardingOptions = {
   readonly qaJump?: DevQaJumpParseResult;
-};
-
-export type ScreenRenderer = {
-  readonly state: OnboardingState;
-  mount: (ctx: OnboardingRenderContext) => void;
-  unmount?: () => void;
-};
-
-export type OnboardingRenderContext = {
-  readonly root: HTMLElement;
-  readonly currentState: OnboardingState;
-  readonly bead: BeadStage;
-  readonly dispatch: (event: OnboardingEvent) => void;
 };
 
 export const ONBOARDING_ROOT_ID = "onboarding-root";
