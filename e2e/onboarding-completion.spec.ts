@@ -20,6 +20,7 @@ import { expect, test } from "./extension-fixture";
 import {
   lockVault,
   onboardingHashWith,
+  setupViaQaJump,
   walkToPasswordEntry,
 } from "./helpers";
 import {
@@ -51,53 +52,14 @@ async function setupToAllowGate(
   return cunyTab;
 }
 
-/**
- * Walks the sidebar all the way to EXT_PASSWORD_SETUP state by driving the
- * fixture chain: credential → TOTP → allow-gate → oaa-spa-home → factors →
- * enroll-secret → enroll-verify → post-enroll → set-default.
- * Returns the cunyTab; caller is responsible for closing it.
- */
-async function setupToExtPasswordSetup(
-  page: Page,
-  context: import("@playwright/test").BrowserContext,
-  extensionId: string
-): Promise<Page> {
-  const cunyTab = await setupToAllowGate(page, context, extensionId);
-
-  // Fixture HTML encodes the Oracle RUI happy path; each step mirrors overlay-guided clicks.
-  await cunyTab.goto(ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL);
-  await cunyTab.getByRole("button", { name: "Allow" }).click({ timeout: 5_000 });
-  await expect(cunyTab).toHaveURL(/view=factors/, { timeout: 15_000 });
-
-  await cunyTab.locator("oj-menu-button button").click();
-  await cunyTab.locator("oj-option#ChallengeOMATOTP").click();
-  await expect(cunyTab).toHaveURL(/view=secret/, { timeout: 10_000 });
-
-  await cunyTab.locator("button#verify-now-btn").click();
-  await expect(cunyTab).toHaveURL(/view=verify/, { timeout: 10_000 });
-
-  await cunyTab.locator("button#verify-save-btn").click();
-  await expect(cunyTab).toHaveURL(/view=post-enroll(?!-unverified)/, { timeout: 10_000 });
-
-  await cunyTab.locator(".cuny-kebab button").click();
-  await cunyTab.locator("#set-default-option").click();
-  await expect(page.locator("[data-onboarding-screen='EXT_PASSWORD_SETUP']")).toBeVisible({
-    timeout: 5_000,
-  });
-
-  return cunyTab;
-}
-
 // eslint-disable-next-line max-lines-per-function
 test.describe("extension password: screen renders", () => {
-  let cunyTab: Page;
-
-  test.beforeEach(async ({ page, context, extensionId }) => {
-    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
-  });
-
-  test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
+  // These tests check UI/transitions of the EXT_PASSWORD_SETUP screen itself,
+  // not anything on the CUNY tab. Use the dev `#qa=` jump instead of the full
+  // credential→TOTP→enroll→set-default fixture walk — same screen state,
+  // ~7 s → ~1 s per test.
+  test.beforeEach(async ({ page, extensionId }) => {
+    await setupViaQaJump(page, extensionId, "EXT_PASSWORD_SETUP");
   });
 
   test("EXT_PASSWORD_SETUP screen renders with two password inputs", async ({ page }) => {
@@ -215,20 +177,19 @@ test.describe("extension password: screen renders", () => {
 });
 
 
-// eslint-disable-next-line max-lines-per-function
 test.describe("biometrics offer", () => {
-  let cunyTab: Page;
   let authenticator: VirtualPlatformAuthenticator;
 
-  test.beforeEach(async ({ page, context, extensionId }) => {
+  test.beforeEach(async ({ page, extensionId }) => {
     // Install the virtual platform authenticator before any WebAuthn capability
     // check fires — biometricOffer.ts auto-declines on
-    // isUserVerifyingPlatformAuthenticatorAvailable() === false. The
-    // authenticator is bound to the sidebar page WebContents and survives
-    // subsequent goto() calls inside setupToExtPasswordSetup.
+    // isUserVerifyingPlatformAuthenticatorAvailable() === false.
     authenticator = await addVirtualPlatformAuthenticator(page);
-    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
-    // Advance past extension password setup.
+    // QA-jump to EXT_PASSWORD_SETUP, then submit a real password so the vault
+    // gets saved with the master — this is what BIOMETRIC_OFFER's enrollment
+    // path requires. Skipping the credential→TOTP→enroll fixture chain saves
+    // ~5–6 s per test vs setupToExtPasswordSetup.
+    await setupViaQaJump(page, extensionId, "EXT_PASSWORD_SETUP");
     const pw = "Passw0rd!";
     await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
@@ -237,7 +198,6 @@ test.describe("biometrics offer", () => {
 
   test.afterEach(async () => {
     await authenticator?.remove();
-    await cunyTab.close().catch(() => {});
   });
 
   test("BIOMETRIC_OFFER renders the use and skip buttons when a platform authenticator is available", async ({
@@ -317,21 +277,18 @@ test.describe("biometrics offer", () => {
 });
 
 test.describe("biometrics prep: failure paths", () => {
-  let cunyTab: Page;
   let authenticator: VirtualPlatformAuthenticator;
 
   test.afterEach(async () => {
     await authenticator?.remove();
-    await cunyTab?.close().catch(() => {});
   });
 
   test("PRF-less authenticator surfaces the unsupported message and 'Continue anyway' completes onboarding", async ({
     page,
-    context,
     extensionId,
   }) => {
     authenticator = await addVirtualPlatformAuthenticator(page, { hasPrf: false });
-    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+    await setupViaQaJump(page, extensionId, "EXT_PASSWORD_SETUP");
     const pw = "Passw0rd!";
     await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
@@ -375,11 +332,10 @@ test.describe("biometrics prep: failure paths", () => {
 
   test("user-verification failure shows the retry message and leaves Continue enabled", async ({
     page,
-    context,
     extensionId,
   }) => {
     authenticator = await addVirtualPlatformAuthenticator(page);
-    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+    await setupViaQaJump(page, extensionId, "EXT_PASSWORD_SETUP");
     const pw = "Passw0rd!";
     await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
@@ -412,18 +368,14 @@ test.describe("biometrics prep: failure paths", () => {
 });
 
 test.describe("biometrics offer without virtual authenticator", () => {
-  let cunyTab: Page;
-
-  test.beforeEach(async ({ page, context, extensionId }) => {
-    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+  test.beforeEach(async ({ page, extensionId }) => {
+    // QA-jump to EXT_PASSWORD_SETUP, then submit a real password so the vault
+    // is saved (required for the BIOMETRIC_OFFER auto-decline check).
+    await setupViaQaJump(page, extensionId, "EXT_PASSWORD_SETUP");
     const pw = "Passw0rd!";
     await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-forward='true']").click();
-  });
-
-  test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
   });
 
   test("offer auto-declines to COMPLETE_DEMO when no platform authenticator is available", async ({
@@ -440,26 +392,18 @@ test.describe("biometrics offer without virtual authenticator", () => {
 });
 
 test.describe("completion and demo", () => {
-  let cunyTab: Page;
-
-  test.beforeEach(async ({ page, context, extensionId }) => {
-    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+  test.beforeEach(async ({ page, extensionId }) => {
+    // QA-jump to EXT_PASSWORD_SETUP, then submit a real password so the vault
+    // is saved. With no virtual authenticator, BIOMETRIC_OFFER auto-declines
+    // straight to COMPLETE_DEMO — no explicit skip needed.
+    await setupViaQaJump(page, extensionId, "EXT_PASSWORD_SETUP");
     const pw = "Passw0rd!";
     await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-forward='true']").click();
-    // Skip biometrics if shown.
-    const skipBtn = page.locator("[data-onboarding-biometric-skip='true']");
-    if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await skipBtn.click();
-    }
     await expect(
       page.locator("[data-onboarding-screen='COMPLETE_DEMO']")
     ).toBeVisible({ timeout: 5_000 });
-  });
-
-  test.afterEach(async () => {
-    await cunyTab.close().catch(() => {});
   });
 
   test(`COMPLETE_DEMO screen renders "You're all set." headline`, async ({ page }) => {
@@ -663,18 +607,15 @@ test.describe("hardening: selector timeout recovery", () => {
 });
 
 test.describe("post-onboarding: vault UI after completion", () => {
-  let cunyTab: Page | undefined;
-
-  test.beforeEach(async ({ page, context, extensionId }) => {
-    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+  test.beforeEach(async ({ page, extensionId }) => {
+    // QA-jump to EXT_PASSWORD_SETUP, then drive forward through to COMPLETE_DONE.
+    // Without a virtual authenticator, BIOMETRIC_OFFER auto-declines straight to
+    // COMPLETE_DEMO, so no explicit skip is needed.
+    await setupViaQaJump(page, extensionId, "EXT_PASSWORD_SETUP");
     const pw = "Passw0rd!";
     await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-confirm='true']").fill(pw);
     await page.locator("[data-onboarding-ext-password-forward='true']").click();
-    const skipBtn = page.locator("[data-onboarding-biometric-skip='true']");
-    if (await skipBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await skipBtn.click();
-    }
     await expect(page.locator("[data-onboarding-screen='COMPLETE_DEMO']")).toBeVisible({
       timeout: 5_000,
     });
@@ -682,10 +623,6 @@ test.describe("post-onboarding: vault UI after completion", () => {
     await expect(page.locator("[data-onboarding-screen='COMPLETE_DONE']")).toBeVisible({
       timeout: 5_000,
     });
-  });
-
-  test.afterEach(async () => {
-    await cunyTab?.close().catch(() => {});
   });
 
   test("reload sidebar without onboarding hash shows vault form not WELCOME", async ({
@@ -796,24 +733,21 @@ test.describe("smoke: full happy path Screen 1 → Screen 13", () => {
 
 // eslint-disable-next-line max-lines-per-function
 test.describe("biometric unlock after enrollment", () => {
-  let cunyTab: Page;
   let authenticator: VirtualPlatformAuthenticator;
 
   test.afterEach(async () => {
     await authenticator?.remove();
-    await cunyTab?.close().catch(() => {});
   });
 
   test("locked vault unlocks via the biometric button without typing the master password", async ({
     page,
-    context,
     extensionId,
   }) => {
     // Install the virtual platform authenticator on the sidebar tab; it
-    // survives the goto() inside setupToExtPasswordSetup and the eventual
-    // reload that mounts the vault management UI.
+    // survives the goto() inside setupViaQaJump and the eventual reload that
+    // mounts the vault management UI.
     authenticator = await addVirtualPlatformAuthenticator(page);
-    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+    await setupViaQaJump(page, extensionId, "EXT_PASSWORD_SETUP");
 
     const pw = "Passw0rd!";
     await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);
@@ -874,14 +808,13 @@ test.describe("biometric unlock after enrollment", () => {
 
   test("biometric button stays hidden when no credential is enrolled", async ({
     page,
-    context,
     extensionId,
   }) => {
     // Same flow but skip the enrollment step — no cunyBiometricCredential is
     // written, so isBiometricEnrolled() returns false and the unlock button
     // must remain hidden after lock.
     authenticator = await addVirtualPlatformAuthenticator(page);
-    cunyTab = await setupToExtPasswordSetup(page, context, extensionId);
+    await setupViaQaJump(page, extensionId, "EXT_PASSWORD_SETUP");
 
     const pw = "Passw0rd!";
     await page.locator("[data-onboarding-ext-password-input='true']").fill(pw);

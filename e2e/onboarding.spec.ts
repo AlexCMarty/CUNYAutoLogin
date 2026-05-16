@@ -446,9 +446,23 @@ test.describe("not set up (onboarding)", () => {
     const fixturePage = await context.newPage();
     await fixturePage.goto(SELF_SERVICE_FIXTURE_URL);
 
-    const { otp } = await TOTP.generate(E2E_TOTP_SECRET, TOTP_GENERATION_OPTIONS);
-    await expect(fixturePage.locator(`[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"]`)).toHaveValue(otp, {
-      timeout: 15_000,
-    });
+    const otpInput = fixturePage.locator(`[id="${RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID}"]`);
+    await expect(otpInput).toHaveValue(/^\d{6}$/, { timeout: 15_000 });
+    const typedValue = await otpInput.inputValue();
+
+    // Accept any of the adjacent 30 s windows — generate-time and fill-time can
+    // straddle a TOTP boundary, which would otherwise flake.
+    const now = Date.now();
+    const period = 30_000;
+    const candidates = await Promise.all(
+      [now - period, now, now + period].map(async (timestamp) => {
+        const { otp } = await TOTP.generate(E2E_TOTP_SECRET, {
+          ...TOTP_GENERATION_OPTIONS,
+          timestamp,
+        });
+        return otp;
+      })
+    );
+    expect(candidates).toContain(typedValue);
   });
 });

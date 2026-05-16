@@ -109,6 +109,18 @@ let stagedOnboardingCredentials: StagedOnboardingCredentials | null = null;
  */
 let stagedOverlayCommand: OnboardingOverlayCommand | null = null;
 
+// E2E-only: expose a hatch for the Playwright fixture to nuke module-private
+// state between tests. The persistent BrowserContext is now worker-scoped so
+// the SW (and the closure-scoped state above) lives across tests; without
+// this, leaked `stagedOnboardingCredentials` makes downstream tests flake.
+// Gated on build mode so production bundles never expose it.
+if (import.meta.env.MODE !== "production") {
+  (globalThis as { __e2eResetSwState?: () => void }).__e2eResetSwState = () => {
+    stagedOnboardingCredentials = null;
+    stagedOverlayCommand = null;
+  };
+}
+
 const clearBrightspaceSessionCookies = async (): Promise<void> => {
   const cookieNames = ["d2lSessionVal", "d2lSecureSessionVal"] as const;
   for (const cookieName of cookieNames) {
