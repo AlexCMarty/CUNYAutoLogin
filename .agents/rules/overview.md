@@ -57,6 +57,7 @@ src/
                                 screenContext.ts — shared mount context
   crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; VAULT_STORAGE_KEY
   cuny/ssoSite.ts               Single source of truth for SSO URL markers, DOM IDs, TOTP constants
+  cuny/openTabAfterOaaLogout.ts OAA logout tab helper (blank tab → logout URL → Logout.jsp → entry)
   runtime/messageRouter.ts      routeByType, guardedRoute shared helpers
   content/content.ts            IIFE composition root — startup wiring + URL routing
   content/domWait.ts            Shared MutationObserver wait helpers
@@ -74,7 +75,8 @@ src/
   background/service-worker.ts  Opens side panel on toolbar click; handles AUTO_FILL_REQUEST,
                                 STAGE/CLEAR_ONBOARDING_CREDENTIALS, TOTP_SECRET_FROM_PAGE,
                                 ONBOARDING_REOPEN_CUNY_TAB, LOGOUT_CUNY_SESSIONS (OAA logout via tab
-                                navigation + best-effort fetch — see .map/cookies/session-and-logout.md)
+                                navigation + best-effort fetch; Screen 4 uses openTabAfterOaaLogout —
+                                see .map/cookies/session-and-logout.md)
   manifest.json                 Source manifest (Vite writes dist/manifest.json)
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host_permissions
                                 and content_scripts.matches

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   CREDENTIAL_PAGE_PATH_MARKERS,
+  CUNY_LOGIN_ENTRY_URL,
   LOGIN_EMAIL_SUFFIX,
   OAA_RUI_OIDC_ACCESS_DENIED_ERROR,
   OAA_RUI_OIDC_REDIRECT_PATH,
@@ -13,6 +14,7 @@ import {
   matchesRuiMfaEnrollVerifyPage,
   matchesTotpEnrollPage,
   matchesTotpPage,
+  requiresOaaLogoutBeforeNavigation,
 } from "./ssoSite";
 
 describe("matchesCredentialPage", () => {
@@ -154,6 +156,18 @@ describe("matchesOaaRuiAccessDeniedRedirect", () => {
 
   test("missing error param → false", () => {
     expect(matchesOaaRuiAccessDeniedRedirect(`${SSO_LOGIN_ORIGIN}/oaa/rui/`)).toBe(false);
+  });
+});
+
+describe("requiresOaaLogoutBeforeNavigation", () => {
+  test("live ssologin entry URL requires OAA logout first", () => {
+    expect(requiresOaaLogoutBeforeNavigation(CUNY_LOGIN_ENTRY_URL)).toBe(true);
+  });
+
+  test("e2e fixture URLs skip OAA logout", () => {
+    expect(
+      requiresOaaLogoutBeforeNavigation("http://127.0.0.1:4173/oam/server/obrareq.cgi")
+    ).toBe(false);
   });
 });
 

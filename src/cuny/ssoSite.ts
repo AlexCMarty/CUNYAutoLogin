@@ -58,6 +58,15 @@ export const isBrightspaceUrl = (url: string): boolean => {
   }
 };
 
+/** True when navigation must terminate the live OAA session before loading `url`. */
+export const requiresOaaLogoutBeforeNavigation = (url: string): boolean => {
+  try {
+    return new URL(url).hostname === SSO_LOGIN_HOST;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Hostnames from which content-script → service-worker messages are accepted
  * (matches `content_scripts.matches` in manifest, including local E2E fixtures).
@@ -93,6 +102,9 @@ export const isAllowedReopenCunyTabUrl = (urlString: string): boolean => {
  */
 export const OAA_RUI_LOGOUT_URL =
   `${SSO_LOGIN_ORIGIN}/oaa/rui/user/v1/logout` as const;
+
+/** Post-logout landing page after navigating to {@link OAA_RUI_LOGOUT_URL}. */
+export const OAA_LOGOUT_COMPLETE_PATH_MARKER = "Logout.jsp" as const;
 
 /** `error` query value on Oracle OIDC redirect when the user denies consent. */
 export const OAA_RUI_OIDC_ACCESS_DENIED_ERROR = "access_denied" as const;

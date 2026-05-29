@@ -6,18 +6,19 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // and browser.runtime.sendMessage without pulling in the real polyfill
 // (which refuses to load outside a browser extension). `vi.hoisted` is
 // required because `vi.mock` is hoisted above the file's top-level bindings.
-const { sendMessageMock, tabsCreateMock } = vi.hoisted(() => ({
+const { sendMessageMock, openTabAfterOaaLogoutMock } = vi.hoisted(() => ({
   sendMessageMock: vi.fn<(message: unknown) => Promise<unknown>>(),
-  tabsCreateMock: vi.fn<
-    (options: { url: string; active?: boolean }) => Promise<unknown>
-  >(),
+  openTabAfterOaaLogoutMock: vi.fn<(targetUrl: string) => Promise<number | null>>(),
 }));
 
 vi.mock("webextension-polyfill", () => ({
   default: {
     runtime: { sendMessage: sendMessageMock },
-    tabs: { create: tabsCreateMock },
   },
+}));
+
+vi.mock("../../cuny/openTabAfterOaaLogout", () => ({
+  openTabAfterOaaLogout: (targetUrl: string) => openTabAfterOaaLogoutMock(targetUrl),
 }));
 
 import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
@@ -70,9 +71,9 @@ describe("mountOpeningCunyScreen", () => {
 
   beforeEach(() => {
     sendMessageMock.mockReset();
-    tabsCreateMock.mockReset();
+    openTabAfterOaaLogoutMock.mockReset();
     sendMessageMock.mockResolvedValue({ ok: true });
-    tabsCreateMock.mockResolvedValue({ id: 42 });
+    openTabAfterOaaLogoutMock.mockResolvedValue(42);
     document.body.innerHTML = "";
     // Clear any hash lingering from a previous test.
     window.location.hash = "";
@@ -82,6 +83,45 @@ describe("mountOpeningCunyScreen", () => {
 
   afterEach(() => {
     window.location.hash = "";
+  });
+
+  test("opens CUNY via openTabAfterOaaLogout only after logout ack and credential staging", async () => {
+    const callOrder: string[] = [];
+    sendMessageMock.mockImplementation(async (message: unknown) => {
+      const type = (message as { type?: string }).type ?? "unknown";
+      callOrder.push(type);
+      return { ok: true };
+    });
+    openTabAfterOaaLogoutMock.mockImplementation(async (targetUrl: string) => {
+      callOrder.push(`openTabAfterOaaLogout:${targetUrl}`);
+      return 42;
+    });
+
+    const { ctx } = buildCtx(root);
+    mountOpeningCunyScreen(ctx);
+    await vi.waitFor(() => {
+      expect(callOrder.length).toBeGreaterThanOrEqual(3);
+    });
+
+    expect(callOrder).toEqual([
+      "LOGOUT_CUNY_SESSIONS",
+      "STAGE_ONBOARDING_CREDENTIALS",
+      `openTabAfterOaaLogout:${CUNY_LOGIN_ENTRY_URL}`,
+    ]);
+  });
+
+  test("continues tab logout when LOGOUT_CUNY_SESSIONS returns ok:false", async () => {
+    sendMessageMock
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true });
+
+    const { ctx } = buildCtx(root);
+    mountOpeningCunyScreen(ctx);
+    await vi.waitFor(() => {
+      expect(openTabAfterOaaLogoutMock).toHaveBeenCalledTimes(1);
+    });
+    expect(sendMessageMock).toHaveBeenNthCalledWith(1, { type: "LOGOUT_CUNY_SESSIONS" });
+    expect(openTabAfterOaaLogoutMock).toHaveBeenCalledWith(CUNY_LOGIN_ENTRY_URL);
   });
 
   test("stages credentials with the SW and opens the CUNY tab directly from the sidebar", async () => {
@@ -103,11 +143,8 @@ describe("mountOpeningCunyScreen", () => {
     // Critical for Chrome: the tab is opened from the sidebar context, not
     // via ONBOARDING_REOPEN_CUNY_TAB. That avoids the MV3 side-panel-to-SW
     // wakeup race that caused the observed "nothing happens" hang.
-    expect(tabsCreateMock).toHaveBeenCalledTimes(1);
-    expect(tabsCreateMock).toHaveBeenCalledWith({
-      url: CUNY_LOGIN_ENTRY_URL,
-      active: true,
-    });
+    expect(openTabAfterOaaLogoutMock).toHaveBeenCalledTimes(1);
+    expect(openTabAfterOaaLogoutMock).toHaveBeenCalledWith(CUNY_LOGIN_ENTRY_URL);
 
     // And no reopen message should have fired via runtime.sendMessage.
     for (const call of sendMessageMock.mock.calls) {
@@ -141,15 +178,28 @@ describe("mountOpeningCunyScreen", () => {
     mountOpeningCunyScreen(ctx);
     await flush();
 
-    const [arg] = tabsCreateMock.mock.calls[0] ?? [];
+    const [arg] = openTabAfterOaaLogoutMock.mock.calls[0] ?? [];
     // Vitest's default mode is "test". Under "development"/"e2e" the override
     // would win; this assertion is deliberately loose so the test passes
     // regardless of the mode Vite picks for the suite.
     expect(arg).toBeDefined();
-    expect((arg as { url: string }).url).toMatch(
+    expect(arg as string).toMatch(
       /^https:\/\/ssologin\.cuny\.edu\/oaa\/rui$|^http:\/\/127\.0\.0\.1:4173\/fixture\/opening$/
     );
-    expect((arg as { active: boolean }).active).toBe(true);
+  });
+
+  test("retries staging when the SW returns ok:false", async () => {
+    sendMessageMock
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true });
+
+    const { ctx } = buildCtx(root);
+    mountOpeningCunyScreen(ctx);
+    await vi.waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledTimes(3);
+    });
+    expect(openTabAfterOaaLogoutMock).toHaveBeenCalledTimes(1);
   });
 
   test("silently recovers if the SW staging message rejects (tab still opens)", async () => {
@@ -165,15 +215,12 @@ describe("mountOpeningCunyScreen", () => {
     // intentional resilience choice: the content script's AUTO_FILL_REQUEST
     // will fall back to whatever vault state exists, and the user can retry
     // from Screen 4's back button.
-    expect(tabsCreateMock).toHaveBeenCalledTimes(1);
-    expect(tabsCreateMock).toHaveBeenCalledWith({
-      url: CUNY_LOGIN_ENTRY_URL,
-      active: true,
-    });
+    expect(openTabAfterOaaLogoutMock).toHaveBeenCalledTimes(1);
+    expect(openTabAfterOaaLogoutMock).toHaveBeenCalledWith(CUNY_LOGIN_ENTRY_URL);
   });
 
-  test("swallows tabs.create failures rather than crashing the sidebar", async () => {
-    tabsCreateMock.mockRejectedValueOnce(new Error("no permission"));
+  test("swallows openTabAfterOaaLogout failures rather than crashing the sidebar", async () => {
+    openTabAfterOaaLogoutMock.mockResolvedValueOnce(null);
 
     const { ctx } = buildCtx(root);
 
