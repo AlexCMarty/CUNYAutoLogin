@@ -28,6 +28,7 @@ vi.mock("webextension-polyfill", () => ({
       },
     },
     cookies: {
+      getAll: vi.fn(),
       remove: vi.fn(),
     },
     tabs: {
@@ -58,6 +59,7 @@ import {
   OAA_RUI_LOGOUT_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
+  SSO_LOGIN_HOST,
   SSO_LOGIN_ORIGIN,
   SSO_LOGIN_TABS_QUERY_URL_PATTERN,
 } from "../cuny/ssoSite";
@@ -117,6 +119,7 @@ beforeEach(async () => {
   if (tabsApi?.query) vi.mocked(tabsApi.query).mockResolvedValue([]);
   if (tabsApi?.sendMessage) vi.mocked(tabsApi.sendMessage).mockResolvedValue(undefined);
   if (tabsApi?.update) vi.mocked(tabsApi.update).mockResolvedValue({} as never);
+  vi.mocked(browser.cookies.getAll).mockResolvedValue([]);
   vi.mocked(browser.cookies.remove).mockResolvedValue(null);
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER);
@@ -1034,6 +1037,7 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
       url: [SSO_LOGIN_TABS_QUERY_URL_PATTERN],
     });
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
+    expect(vi.mocked(browser.cookies.getAll)).toHaveBeenCalledWith({ domain: SSO_LOGIN_HOST });
     expect(vi.mocked(browser.cookies.remove)).not.toHaveBeenCalled();
     expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({ url, active: true });
   });
@@ -1091,6 +1095,38 @@ describe("LOGOUT_CUNY_SESSIONS", () => {
       url: OAA_RUI_LOGOUT_URL,
     });
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
+    expect(vi.mocked(browser.cookies.getAll)).toHaveBeenCalledWith({ domain: SSO_LOGIN_HOST });
+  });
+
+  test("removes every ssologin cookie after logout", async () => {
+    vi.mocked(browser.cookies.getAll).mockResolvedValueOnce([
+      {
+        name: "OAM_ID",
+        domain: SSO_LOGIN_HOST,
+        path: "/",
+        secure: true,
+        storeId: "0",
+      },
+      {
+        name: "oaaCtx",
+        domain: `.${SSO_LOGIN_HOST}`,
+        path: "/oaa/",
+        secure: true,
+        storeId: "0",
+      },
+    ] as never);
+    expect(await handler({ type: "LOGOUT_CUNY_SESSIONS" }, EXT_SENDER)).toEqual({ ok: true });
+    expect(vi.mocked(browser.cookies.remove)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(browser.cookies.remove)).toHaveBeenNthCalledWith(1, {
+      name: "OAM_ID",
+      url: `https://${SSO_LOGIN_HOST}/`,
+      storeId: "0",
+    });
+    expect(vi.mocked(browser.cookies.remove)).toHaveBeenNthCalledWith(2, {
+      name: "oaaCtx",
+      url: `https://${SSO_LOGIN_HOST}/oaa/`,
+      storeId: "0",
+    });
   });
 
   test("returns ok:true even when no ssologin tabs are open (fetch still runs)", async () => {

@@ -12,6 +12,7 @@ import {
   OAA_RUI_LOGOUT_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
+  SSO_LOGIN_HOST,
   SSO_LOGIN_TABS_QUERY_URL_PATTERN,
   isAllowedReopenCunyTabUrl,
   isBrightspaceUrl,
@@ -160,10 +161,38 @@ const fetchLogOutOaaRui = async (): Promise<void> => {
   }
 };
 
+const ssoLoginCookieRemovalUrl = (cookie: browser.Cookies.Cookie): string => {
+  const protocol = cookie.secure ? "https:" : "http:";
+  const host = cookie.domain.startsWith(".") ? cookie.domain.slice(1) : cookie.domain;
+  return `${protocol}//${host}${cookie.path}`;
+};
+
+/** Remove every cookie visible for {@link SSO_LOGIN_HOST} (post server-side logout). */
+const clearSsoLoginCookies = async (): Promise<void> => {
+  let cookies: browser.Cookies.Cookie[];
+  try {
+    cookies = await browser.cookies.getAll({ domain: SSO_LOGIN_HOST });
+  } catch {
+    return;
+  }
+  for (const cookie of cookies) {
+    try {
+      await browser.cookies.remove({
+        name: cookie.name,
+        url: ssoLoginCookieRemovalUrl(cookie),
+        ...(cookie.storeId !== undefined ? { storeId: cookie.storeId } : {}),
+      });
+    } catch {
+      // Best-effort per cookie.
+    }
+  }
+};
+
 /** Navigate open SSO tabs to the OAA logout URL, then hit logout over fetch. */
 const terminateOaaRuiSessions = async (): Promise<void> => {
   await logOutOaaRuiInTabs();
   await fetchLogOutOaaRui();
+  await clearSsoLoginCookies();
 };
 
 /** Exported only for tests; not part of any wire contract. */
