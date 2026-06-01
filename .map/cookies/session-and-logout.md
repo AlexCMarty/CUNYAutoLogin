@@ -21,21 +21,6 @@ The logout URL is also available from the authenticated API: `GET /oaa/rui/user/
 
 The extension implements this via `browser.tabs.update(tabId, { url: OAA_RUI_LOGOUT_URL })` from the service worker. This works without the `tabs` permission because the URL matches the extension's existing `host_permissions` for `ssologin.cuny.edu`.
 
-## Onboarding Screen 4 — no open SSO tab (`openTabAfterOaaLogout`)
-
-When the student closes every `ssologin.cuny.edu` tab before Screen 4, `LOGOUT_CUNY_SESSIONS` alone only performs a best-effort service-worker `fetch` — **that does not terminate the OAA server session**. Screen 4 therefore uses `src/cuny/openTabAfterOaaLogout.ts`:
-
-1. `browser.tabs.create({ active: true })` — blank tab (no URL on create).
-2. `browser.tabs.update(tabId, { url: OAA_RUI_LOGOUT_URL })` — same navigation shape as the dev-panel logout button.
-3. Wait until the tab URL contains **`Logout.jsp`** and `status === "complete"`. Do **not** treat an early `complete` on `chrome://newtab` as logout finished (May 2026 regression: racing to `/oaa/rui` while still authenticated skipped credential validation and landed on MFA consent).
-4. `browser.tabs.update(tabId, { url: CUNY_LOGIN_ENTRY_URL })` — credential demo tab.
-
-**E2E / fixture targets** (`127.0.0.1`, `localhost`) skip steps 1–4 and open the fixture URL directly — there is no live OAA session to terminate (`requiresOaaLogoutBeforeNavigation` in `ssoSite.ts`).
-
-`ONBOARDING_REOPEN_CUNY_TAB` for SSO hosts uses the same helper. Brightspace reopen still clears D2L cookies and opens the target URL directly.
-
-Unit regression tests: `src/cuny/openTabAfterOaaLogout.test.ts` (describe **pre-auth onboarding regression**), `src/onboarding/screens/openingCuny.test.ts`, `src/background/service-worker.test.ts`.
-
 ## Cookies observed after a complete MFA login (May 2026, Chrome)
 
 Extension `host_permissions`: `https://ssologin.cuny.edu/*`.

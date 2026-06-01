@@ -35,12 +35,7 @@ vi.mock("webextension-polyfill", () => ({
       query: vi.fn(),
       sendMessage: vi.fn(),
       update: vi.fn(),
-      get: vi.fn(),
       onRemoved: { addListener: vi.fn() },
-      onUpdated: {
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-      },
     },
   },
 }));
@@ -116,24 +111,12 @@ beforeEach(async () => {
       query: ReturnType<typeof vi.fn>;
       sendMessage: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
-      get: ReturnType<typeof vi.fn>;
-      onUpdated: {
-        addListener: ReturnType<typeof vi.fn>;
-        removeListener: ReturnType<typeof vi.fn>;
-      };
     };
   }).tabs;
   if (tabsApi?.create) vi.mocked(tabsApi.create).mockResolvedValue({ id: 1 } as never);
   if (tabsApi?.query) vi.mocked(tabsApi.query).mockResolvedValue([]);
   if (tabsApi?.sendMessage) vi.mocked(tabsApi.sendMessage).mockResolvedValue(undefined);
   if (tabsApi?.update) vi.mocked(tabsApi.update).mockResolvedValue({} as never);
-  if (tabsApi?.get) {
-    vi.mocked(tabsApi.get).mockResolvedValue({
-      id: 1,
-      status: "complete",
-      url: `${SSO_LOGIN_ORIGIN}/cunylogin/pages/Logout.jsp`,
-    } as never);
-  }
   vi.mocked(browser.cookies.remove).mockResolvedValue(null);
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER);
@@ -1011,7 +994,6 @@ describe("AUTO_FILL_REQUEST onboarding fallback", () => {
 
 // ──── ONBOARDING_REOPEN_CUNY_TAB tab creation ────────────────────────────────
 
-// eslint-disable-next-line max-lines-per-function -- one assertion block per reopen scenario
 describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
   test("with Brightspace url → clears D2L session cookies before opening tab", async () => {
     const url = BRIGHTSPACE_HOME_URL;
@@ -1040,22 +1022,11 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
     expect(vi.mocked(tabsApi.create)).not.toHaveBeenCalled();
   });
 
-  test("with allowed ssologin url → terminates OAA session then opens tab via logout navigation", async () => {
+  test("with allowed ssologin url → terminates OAA session then opens tab", async () => {
     const url = `${SSO_LOGIN_ORIGIN}/oam/server/obrareq.cgi`;
     const tabsApi = (browser as unknown as {
-      tabs: {
-        create: ReturnType<typeof vi.fn>;
-        query: ReturnType<typeof vi.fn>;
-        update: ReturnType<typeof vi.fn>;
-        get: ReturnType<typeof vi.fn>;
-      };
+      tabs: { create: ReturnType<typeof vi.fn>; query: ReturnType<typeof vi.fn> };
     }).tabs;
-    vi.mocked(tabsApi.create).mockResolvedValueOnce({ id: 77 } as never);
-    vi.mocked(tabsApi.get).mockResolvedValue({
-      id: 77,
-      status: "complete",
-      url: `${SSO_LOGIN_ORIGIN}/cunylogin/pages/Logout.jsp`,
-    } as never);
     expect(
       await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB", url }, EXT_SENDER)
     ).toEqual({ ok: true });
@@ -1064,40 +1035,22 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
     });
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
     expect(vi.mocked(browser.cookies.remove)).not.toHaveBeenCalled();
-    expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({ active: true });
-    expect(vi.mocked(tabsApi.update)).toHaveBeenNthCalledWith(1, 77, {
-      url: OAA_RUI_LOGOUT_URL,
-    });
-    expect(vi.mocked(tabsApi.update)).toHaveBeenNthCalledWith(2, 77, { url });
+    expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({ url, active: true });
   });
 
-  test("without url → falls back to CUNY_LOGIN_ENTRY_URL after logout navigation", async () => {
+  test("without url → falls back to CUNY_LOGIN_ENTRY_URL", async () => {
     const tabsApi = (browser as unknown as {
-      tabs: {
-        create: ReturnType<typeof vi.fn>;
-        query: ReturnType<typeof vi.fn>;
-        update: ReturnType<typeof vi.fn>;
-        get: ReturnType<typeof vi.fn>;
-      };
+      tabs: { create: ReturnType<typeof vi.fn>; query: ReturnType<typeof vi.fn> };
     }).tabs;
-    vi.mocked(tabsApi.create).mockResolvedValueOnce({ id: 77 } as never);
-    vi.mocked(tabsApi.get).mockResolvedValue({
-      id: 77,
-      status: "complete",
-      url: `${SSO_LOGIN_ORIGIN}/cunylogin/pages/Logout.jsp`,
-    } as never);
     expect(
       await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" }, EXT_SENDER)
     ).toEqual({ ok: true });
     expect(vi.mocked(tabsApi.query)).toHaveBeenCalledWith({
       url: [SSO_LOGIN_TABS_QUERY_URL_PATTERN],
     });
-    expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({ active: true });
-    expect(vi.mocked(tabsApi.update)).toHaveBeenNthCalledWith(1, 77, {
-      url: OAA_RUI_LOGOUT_URL,
-    });
-    expect(vi.mocked(tabsApi.update)).toHaveBeenNthCalledWith(2, 77, {
+    expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({
       url: CUNY_LOGIN_ENTRY_URL,
+      active: true,
     });
   });
 
@@ -1113,49 +1066,9 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
 
   test("fetch failure does not prevent tab from opening", async () => {
     vi.mocked(fetch).mockRejectedValueOnce(new Error("network error"));
-    const tabsApi = (browser as unknown as {
-      tabs: {
-        create: ReturnType<typeof vi.fn>;
-        update: ReturnType<typeof vi.fn>;
-        get: ReturnType<typeof vi.fn>;
-      };
-    }).tabs;
-    vi.mocked(tabsApi.create).mockResolvedValueOnce({ id: 77 } as never);
-    vi.mocked(tabsApi.get).mockResolvedValue({
-      id: 77,
-      status: "complete",
-      url: `${SSO_LOGIN_ORIGIN}/cunylogin/pages/Logout.jsp`,
-    } as never);
     expect(
       await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" }, EXT_SENDER)
     ).toEqual({ ok: true });
-    expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({ active: true });
-    expect(vi.mocked(tabsApi.update)).toHaveBeenNthCalledWith(1, 77, {
-      url: OAA_RUI_LOGOUT_URL,
-    });
-  });
-
-  test("regression: ssologin reopen never tabs.create directly at entry URL", async () => {
-    const tabsApi = (browser as unknown as {
-      tabs: { create: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> };
-    }).tabs;
-    vi.mocked(tabsApi.create).mockResolvedValueOnce({ id: 77 } as never);
-    vi.mocked(tabsApi.get).mockResolvedValue({
-      id: 77,
-      status: "complete",
-      url: `${SSO_LOGIN_ORIGIN}/cunylogin/pages/Logout.jsp`,
-    } as never);
-
-    await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" }, EXT_SENDER);
-
-    for (const call of vi.mocked(tabsApi.create).mock.calls) {
-      const options = call[0] as { url?: string };
-      expect(options.url).not.toBe(CUNY_LOGIN_ENTRY_URL);
-      expect(options.url).not.toBe(OAA_RUI_LOGOUT_URL);
-    }
-    expect(vi.mocked(tabsApi.update)).toHaveBeenNthCalledWith(2, 77, {
-      url: CUNY_LOGIN_ENTRY_URL,
-    });
   });
 });
 

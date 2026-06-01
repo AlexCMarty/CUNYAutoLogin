@@ -40,27 +40,13 @@ After TOTP factor enrollment, the IdP requires a one-time verification code. Pag
 
 Polling instead of `MutationObserver` because the Oracle SPA re-renders in ways that made observers flaky.
 
-## OAA logout before onboarding credential demo (Screen 4)
-
-If the student is already authenticated at `/oaa/rui`, opening `/oaa/rui` directly skips the credential form and MFA consent can advance onboarding without validating staged email/password.
-
-Screen 4 (`src/onboarding/screens/openingCuny.ts`) sequence:
-
-1. `LOGOUT_CUNY_SESSIONS` — navigate any open SSO tabs to `OAA_RUI_LOGOUT_URL` + best-effort fetch (clears stray tabs in other windows).
-2. `STAGE_ONBOARDING_CREDENTIALS` — ephemeral SW buffer for content-script autofill.
-3. `openTabAfterOaaLogout(CUNY_LOGIN_ENTRY_URL)` (`src/cuny/openTabAfterOaaLogout.ts`) — blank tab → `tabs.update` logout URL → wait for **`Logout.jsp`** → `tabs.update` entry URL.
-
-The sidebar opens the tab locally (not via `ONBOARDING_REOPEN_CUNY_TAB`) to avoid Chrome MV3 side-panel service-worker wakeup races. The SW reopen handler uses the same logout helper for SSO URLs.
-
-See [.map/cookies/session-and-logout.md](../../.map/cookies/session-and-logout.md) for live verification steps.
-
 ## Onboarding message bridge
 
 `onboarding/render.ts` registers `runtime.onMessage` routing known `ONBOARDING_*` messages through `applyOnboardingMessage(controller, message)`:
 
 - `ONBOARDING_CREDENTIAL_ERROR { culprit }` → routes sidebar to `EMAIL_ENTRY` (culprit === "email") or `PASSWORD_ENTRY` (default) with an inline red banner. Content script emits this when the credential-error DOM marker is present.
 - `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advances `OPENING_CUNY` to `ALLOW_GATE`.
-- `ONBOARDING_REOPEN_CUNY_TAB` → service worker opens the CUNY entry URL via `openTabAfterOaaLogout` (SSO hosts) after OAA logout; Brightspace URLs skip OAA logout.
+- `ONBOARDING_REOPEN_CUNY_TAB` → service worker opens `CUNY_LOGIN_ENTRY_URL` in a new tab.
 - `ONBOARDING_OVERLAY_COMMAND` / `ONBOARDING_VERIFY_STATUS` / `ONBOARDING_TAB_REATTACHED` → validated and ack-only via service worker; sidebar handlers wired in `onboarding/render.ts`.
 
 On sidebar unmount, `mountOnboarding` fires `CLEAR_ONBOARDING_CREDENTIALS`.

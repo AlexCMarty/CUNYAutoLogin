@@ -4,18 +4,17 @@
  * Behavior on mount:
  *   1. Ask the service worker to terminate any live OAA session via
  *      `LOGOUT_CUNY_SESSIONS` (navigates open SSO tabs to `OAA_RUI_LOGOUT_URL`
- *      in `src/cuny/ssoSite.ts` and performs a best-effort fetch logout). Clears
- *      stray SSO tabs in other windows; the new tab opened in step 3 performs the
- *      authoritative server-side logout via navigation.
+ *      in `src/cuny/ssoSite.ts` and performs a best-effort fetch logout). Without
+ *      this step, a student who is already signed in at the RUI entry would skip
+ *      the credential page and Screen 4 would hang waiting for auto-fill.
  *   2. Stage the in-memory email+password into the service worker's ephemeral
  *      cache via `STAGE_ONBOARDING_CREDENTIALS`. The content script asks for
  *      credentials via the existing `AUTO_FILL_REQUEST` flow, which falls back
  *      to this staged payload when the vault isn't set up yet (pre-vault).
- *   3. Open a new tab at `OAA_RUI_LOGOUT_URL`, wait for that navigation to
- *      complete, then navigate the same tab to the CUNY entry URL (defaults to
- *      `CUNY_LOGIN_ENTRY_URL`; override via `#cuny=<encoded url>` for fixtures).
- *      A service-worker fetch alone does not terminate the OAA server session
- *      when no SSO tab is open — real browser navigation is required.
+ *   3. Open the CUNY entry URL in a new tab directly from the sidebar via
+ *      `browser.tabs.create(...)`. The URL defaults to `CUNY_LOGIN_ENTRY_URL`;
+ *      override via the `#cuny=<encoded url>` hash param so the fixture server
+ *      can stand in for CUNY.
  *
  *      We intentionally do NOT route this through the service worker's
  *      `ONBOARDING_REOPEN_CUNY_TAB` handler from the sidebar path. In Chrome
@@ -40,14 +39,8 @@
  */
 
 import browser from "webextension-polyfill";
-import { openTabAfterOaaLogout } from "../../cuny/openTabAfterOaaLogout";
 import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
-import {
-  isLogoutCunySessionsAck,
-  isOnboardingCredentialsAck,
-  type LogoutCunySessionsRequest,
-  type StageOnboardingCredentials,
-} from "../messages";
+import type { LogoutCunySessionsRequest, StageOnboardingCredentials } from "../messages";
 import { DEV_MODE_NAMES } from "../devModes";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
@@ -101,31 +94,12 @@ const reportScreen4Failure = (where: string, error: unknown): void => {
   }
 };
 
-const logScreen4Step = (step: string): void => {
-  if (
-    typeof console !== "undefined" &&
-    (DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE)
-  ) {
-    // eslint-disable-next-line no-console
-    console.info(`[onboarding/opening-cuny] ${step}`);
-  }
-};
-
-const sendRuntimeMessageForOk = async (
+const sendRuntimeMessage = async (
   message: unknown,
-  where: string,
-  isAck: (value: unknown) => value is { readonly ok: boolean }
+  where: string
 ): Promise<boolean> => {
   try {
-    const response = await browser.runtime.sendMessage(message);
-    if (!isAck(response)) {
-      reportScreen4Failure(where, "unexpected ack shape");
-      return false;
-    }
-    if (!response.ok) {
-      reportScreen4Failure(where, "ok: false");
-      return false;
-    }
+    await browser.runtime.sendMessage(message);
     return true;
   } catch (error) {
     reportScreen4Failure(where, error);
@@ -133,7 +107,19 @@ const sendRuntimeMessageForOk = async (
   }
 };
 
-const buildOpeningCunyContainer = (doc: Document): HTMLElement => {
+const openCunyTab = async (url: string): Promise<void> => {
+  try {
+    await browser.tabs.create({ url, active: true });
+  } catch (error) {
+    reportScreen4Failure("browser.tabs.create", error);
+  }
+};
+
+export const mountOpeningCunyScreen: ScreenMount = (
+  ctx: OnboardingScreenContext
+) => {
+  const { doc, root, dispatch, getSnapshot } = ctx;
+
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "OPENING_CUNY";
   container.className = "onboarding-screen onboarding-screen-opening";
@@ -154,6 +140,10 @@ const buildOpeningCunyContainer = (doc: Document): HTMLElement => {
   reassurance.className = "onboarding-reassurance";
   reassurance.textContent = REASSURANCE_COPY;
 
+  // Pulsing animation + label. Spec: "Pulsing animation. Label beneath it:
+  // 'Nothing to do yet — waiting for the tab to open.'" The label removes the
+  // ambiguity of a bare pulse (which could read as "you need to do
+  // something"). We keep the pulse CSS-driven so jsdom doesn't need timers.
   const pulseWrap = doc.createElement("div");
   pulseWrap.className = "onboarding-pulse-wrap";
   pulseWrap.setAttribute("aria-hidden", "true");
@@ -176,24 +166,14 @@ const buildOpeningCunyContainer = (doc: Document): HTMLElement => {
   actions.className = "onboarding-actions onboarding-actions-single";
   actions.appendChild(back);
 
-  container.append(headline, body, directional, reassurance, pulseWrap, waiting, actions);
-  return container;
-};
-
-export const mountOpeningCunyScreen: ScreenMount = (
-  ctx: OnboardingScreenContext
-) => {
-  const { doc, root, dispatch, getSnapshot } = ctx;
-
-  const container = buildOpeningCunyContainer(doc);
+  container.appendChild(headline);
+  container.appendChild(body);
+  container.appendChild(directional);
+  container.appendChild(reassurance);
+  container.appendChild(pulseWrap);
+  container.appendChild(waiting);
+  container.appendChild(actions);
   root.appendChild(container);
-
-  const back = container.querySelector<HTMLButtonElement>(
-    "[data-onboarding-opening-back='true']"
-  );
-  if (!back) {
-    throw new Error("opening CUNY back button missing");
-  }
 
   // Kick off the tab-open side effects. Order: log out any SSO session, then
   // stage credentials BEFORE the tab opens — otherwise a very fast
@@ -208,34 +188,11 @@ export const mountOpeningCunyScreen: ScreenMount = (
   };
   const cunyUrl = resolveCunyEntryUrl();
   void (async () => {
-    logScreen4Step("LOGOUT_CUNY_SESSIONS");
-    const loggedOut = await sendRuntimeMessageForOk(
-      logoutPayload,
-      "LOGOUT_CUNY_SESSIONS",
-      isLogoutCunySessionsAck
-    );
-    if (!loggedOut) {
-      logScreen4Step("LOGOUT_CUNY_SESSIONS returned ok:false (continuing with tab logout)");
-    }
-    logScreen4Step("STAGE_ONBOARDING_CREDENTIALS");
-    const staged = await sendRuntimeMessageForOk(
-      stagePayload,
-      "STAGE_ONBOARDING_CREDENTIALS",
-      isOnboardingCredentialsAck
-    );
-    logScreen4Step(`openTabAfterOaaLogout → ${cunyUrl}`);
-    const tabId = await openTabAfterOaaLogout(cunyUrl);
-    if (tabId === null) {
-      reportScreen4Failure("openTabAfterOaaLogout", "tab open failed");
-    } else {
-      logScreen4Step(`openTabAfterOaaLogout complete (tab ${String(tabId)})`);
-    }
+    await sendRuntimeMessage(logoutPayload, "LOGOUT_CUNY_SESSIONS");
+    const staged = await sendRuntimeMessage(stagePayload, "STAGE_ONBOARDING_CREDENTIALS");
+    await openCunyTab(cunyUrl);
     if (!staged) {
-      await sendRuntimeMessageForOk(
-        stagePayload,
-        "STAGE_ONBOARDING_CREDENTIALS.retry",
-        isOnboardingCredentialsAck
-      );
+      await sendRuntimeMessage(stagePayload, "STAGE_ONBOARDING_CREDENTIALS.retry");
     }
   })();
 

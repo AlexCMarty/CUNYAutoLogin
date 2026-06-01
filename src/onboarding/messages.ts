@@ -108,13 +108,6 @@ export type PersistOnboardingResumeSnapshot = {
 
 export type OnboardingCredentialsAck = { readonly ok: boolean };
 
-export const isOnboardingCredentialsAck = (
-  value: unknown
-): value is OnboardingCredentialsAck => {
-  if (typeof value !== "object" || value === null) return false;
-  return typeof (value as Record<string, unknown>).ok === "boolean";
-};
-
 export type LogoutCunySessionsRequest = {
   readonly type: "LOGOUT_CUNY_SESSIONS";
 };

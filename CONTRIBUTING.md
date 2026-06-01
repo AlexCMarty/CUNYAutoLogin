@@ -205,7 +205,6 @@ After **My authentication factors**, the Oracle SPA often keeps the same URL whi
 | `src/cuny/ssoSite.ts` | **Single source of truth** for SSO URLs, DOM ids, timing |
 | `src/content/` | Content script (IIFE root `content.ts`, flows, banner) |
 | `src/background/service-worker.ts` | Auto-fill responses, onboarding staging, logout |
-| `src/cuny/openTabAfterOaaLogout.ts` | OAA logout tab sequence for Screen 4 and SSO reopen (wait for `Logout.jsp`) |
 | `vite.config.ts` | Sidebar + background ES modules |
 | `vite.content.config.ts` | Single-file `dist/content.js` (`inlineDynamicImports`) |
 | `e2e/` | Playwright, fixtures, extension loader |

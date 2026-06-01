@@ -38,12 +38,10 @@ Some flows (for example onboarding “try again”) must end the IdP session so 
 
 ### What the code does today
 
-`src/background/service-worker.ts` and `src/cuny/openTabAfterOaaLogout.ts` terminate the Oracle OAA server-side session by:
+`src/background/service-worker.ts` terminates the Oracle OAA server-side session by:
 
 1. Navigating open `https://ssologin.cuny.edu/*` tabs to **`OAA_RUI_LOGOUT_URL`** (`src/cuny/ssoSite.ts`), and  
-2. A best-effort **`fetch(OAA_RUI_LOGOUT_URL, { credentials: "include" })`** when no SSO tab is open (supplement only — **not sufficient alone**).
-
-**Onboarding Screen 4** and **`ONBOARDING_REOPEN_CUNY_TAB`** (SSO hosts) call **`openTabAfterOaaLogout`**: create a blank tab, `tabs.update` to the logout URL, wait until the tab loads **`Logout.jsp`**, then `tabs.update` to the target entry URL. A service-worker fetch or `tabs.create({ url: logout })` without waiting for `Logout.jsp` can leave the session live and skip credential validation (documented May 2026 regression).
+2. A best-effort **`fetch(OAA_RUI_LOGOUT_URL, { credentials: "include" })`** so logout still runs when no SSO tab is open.
 
 That matches the live-site procedure documented in [.map/cookies/session-and-logout.md](../../.map/cookies/session-and-logout.md). It uses the browser’s normal jar for **same-origin** logout — it is **not** “scrape cookies” or “attach `Cookie` to a random API”.
 

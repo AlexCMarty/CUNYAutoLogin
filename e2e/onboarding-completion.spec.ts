@@ -486,10 +486,9 @@ test.describe("interruption: CUNY tab closed mid-flow", () => {
     const newTabPromise = context.waitForEvent("page");
     await page.locator("[data-onboarding-reopen-cuny='true']").click();
     const newTab = await newTabPromise;
-    // Reopen runs OAA logout (blank tab → logout URL → Logout.jsp wait → entry URL).
-    await expect
-      .poll(() => newTab.url(), { timeout: 20_000 })
-      .toContain(SSO_LOGIN_HOST);
+    await newTab.waitForLoadState("domcontentloaded");
+    // The reopened tab should return to CUNY SSO entry flow.
+    expect(newTab.url()).toContain(SSO_LOGIN_HOST);
     await newTab.close();
   });
 

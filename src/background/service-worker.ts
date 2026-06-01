@@ -18,7 +18,6 @@ import {
   isTrustedContentScriptMessageHostname,
   normalizeTotpSecretCandidate,
 } from "../cuny/ssoSite";
-import { openTabAfterOaaLogout } from "../cuny/openTabAfterOaaLogout";
 import {
   hasOnboardingMessageType,
   isClearOnboardingCredentials,
@@ -281,18 +280,13 @@ const handleOnboardingMessage = async (
     await terminateOaaRuiSessions();
     if (isBrightspaceUrl(resolvedUrl)) {
       await clearBrightspaceSessionCookies();
-      try {
-        await browser.tabs.create({ url: resolvedUrl, active: true });
-        return { ok: true };
-      } catch {
-        return { ok: false, reason: "forward_failed" };
-      }
     }
-    const tabId = await openTabAfterOaaLogout(resolvedUrl);
-    if (tabId === null) {
+    try {
+      await browser.tabs.create({ url: resolvedUrl, active: true });
+      return { ok: true };
+    } catch {
       return { ok: false, reason: "forward_failed" };
     }
-    return { ok: true };
   }
   // Persist show commands so late-loading content scripts can pull them; clear on hide
   // so a stale overlay is not shown after the student leaves that step.
