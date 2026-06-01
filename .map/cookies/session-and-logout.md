@@ -2,9 +2,13 @@
 
 Observed May 2026 via live flows through `ssologin.cuny.edu` MFA. Values are intentionally omitted — only cookie **names**, hosts, attachment points, and behavior.
 
-## Logging out of `/oaa/rui` — server-side session, not cookie-based
+## Logging out of `/oaa/rui` — session behavior differs by OAuth consent state
 
-**The OAA SPA at `/oaa/rui/` maintains a server-side session.** Client-side cookie deletion alone does not log the user out. Even with zero browser cookies, the SPA loads as authenticated because the OAM server still considers the session valid.
+The logout mechanism behaves differently depending on whether the user has passed the OAuth allow gate (`mfaConsent.jsp`).
+
+### After the allow gate (full session)
+
+Once the user clicks Allow on `mfaConsent.jsp`, the OAM server establishes a full server-side session that is **independent of cookies**. Client-side cookie deletion alone does not log the user out — even with zero browser cookies, the SPA loads as authenticated because the OAM server still considers the session valid.
 
 **The correct logout procedure is to navigate to the OAA logout endpoint:**
 
@@ -19,7 +23,21 @@ This endpoint:
 
 The logout URL is also available from the authenticated API: `GET /oaa/rui/user/v1` returns `{"key":"logout_location","val":"/oaa/rui/user/v1/logout"}`.
 
-The extension implements this via `browser.tabs.update(tabId, { url: OAA_RUI_LOGOUT_URL })` from the service worker. This works without the `tabs` permission because the URL matches the extension's existing `host_permissions` for `ssologin.cuny.edu`.
+### At the allow gate (pre-consent)
+
+If the user has logged in and reached `mfaConsent.jsp` but has **not yet clicked Allow**, the session state is different:
+
+- The logout endpoint **does not work** from this state. Navigating to or fetching `GET /oaa/rui/user/v1/logout` redirects back to a fresh `mfaConsent.jsp` rather than to `Logout.jsp`. The server-side session is not terminated.
+- **Clearing all `ssologin.cuny.edu` cookies is sufficient for logout** at this stage. After cookie removal, navigating to `/oaa/rui` redirects to `obrareq.cgi` and requires full re-authentication.
+
+This asymmetry is why the extension's `terminateOaaRuiSessions` function runs both the logout fetch **and** a full cookie sweep: the fetch handles the post-consent case, and the cookie sweep handles the pre-consent (allow-gate) case.
+
+### Extension logout procedure (combined approach)
+
+The extension `terminateOaaRuiSessions` function:
+1. Navigates open SSO tabs to `OAA_RUI_LOGOUT_URL` (terminates post-consent sessions via redirect)
+2. Fetches `OAA_RUI_LOGOUT_URL` with `credentials: "include"` (belt-and-suspenders server-side termination)
+3. Calls `browser.cookies.getAll({ domain: SSO_LOGIN_HOST })` and removes every cookie (handles pre-consent sessions where the fetch fails)
 
 ## Cookies observed after a complete MFA login (May 2026, Chrome)
 
@@ -40,11 +58,19 @@ Extension `host_permissions`: `https://ssologin.cuny.edu/*`.
 
 ## Verification protocol
 
-1. Establish a logged-in state at `https://ssologin.cuny.edu/oaa/rui`.
-2. Trigger logout (dev panel button or `LOGOUT_CUNY_SESSIONS` runtime message).
+**Post-consent (past the allow gate):**
+1. Establish a fully authenticated session at `https://ssologin.cuny.edu/oaa/rui` (past `mfaConsent.jsp`).
+2. Trigger logout (`LOGOUT_CUNY_SESSIONS` runtime message).
 3. Confirm the tab navigated to `Logout.jsp` ("You Have Logged Out").
 4. Navigate to `https://ssologin.cuny.edu/oaa/rui` and verify redirect to `obrareq.cgi`.
-5. Record evidence as final URL + visible page text (never cookie values).
+
+**Pre-consent (at the allow gate):**
+1. Log in through TOTP but stop at `mfaConsent.jsp` without clicking Allow.
+2. Trigger logout (`LOGOUT_CUNY_SESSIONS` runtime message).
+3. The tab will navigate to the logout URL, but it redirects back to `mfaConsent.jsp` (not `Logout.jsp`) — this is expected and not a failure.
+4. Navigate to `https://ssologin.cuny.edu/oaa/rui` and verify redirect to `obrareq.cgi` (cookie sweep did the work).
+
+Record evidence as final URL + visible page text (never cookie values).
 
 ## Disclaimer
 
