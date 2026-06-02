@@ -15,8 +15,8 @@ import {
 } from "./state";
 
 describe("constants", () => {
-  test("19 onboarding states declared", () => {
-    expect(ONBOARDING_STATES.length).toBe(19);
+  test("25 onboarding states declared", () => {
+    expect(ONBOARDING_STATES.length).toBe(25);
   });
 
   test("ONBOARDING_STATES values are unique", () => {

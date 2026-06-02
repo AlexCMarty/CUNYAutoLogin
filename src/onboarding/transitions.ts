@@ -37,6 +37,20 @@ export const ONBOARDING_EVENTS = [
   "BIOMETRIC_PREP_DONE",
   "DEMO_REQUESTED",
   "DEMO_FINISHED",
+  // Advanced "use your existing key" branch (advanced-key-flow.md §3). These are
+  // declared so the transition graph is complete; no screen dispatches them yet
+  // (visuals-only pass — wiring is a follow-up).
+  "CHOOSE_GUIDED",
+  "CHOOSE_REUSE_KEY",
+  "CHOOSE_IMPORT_KEY",
+  "KEY_CONFIRMED",
+  "TEST_SUCCEEDED",
+  "TEST_BAD_CREDENTIALS",
+  "TEST_BAD_KEY",
+  "RETRY_CREDENTIALS",
+  "EDIT_EMAIL",
+  "RETRY_KEY",
+  "SWITCH_TO_GUIDED",
 ] as const;
 
 export type OnboardingEvent = (typeof ONBOARDING_EVENTS)[number];
@@ -60,8 +74,48 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
     BACK: "WELCOME",
   }),
   PASSWORD_ENTRY: Object.freeze({
+    // NOTE: live target is still OPENING_CUNY. The advanced fork lands here
+    // (NEXT → CHOOSE_SETUP_PATH) in a later wiring pass; left unchanged for now
+    // so this visuals-only pass does not alter the working flow.
     NEXT: "OPENING_CUNY",
     BACK: "EMAIL_ENTRY",
+  }),
+  // ── Advanced "use your existing key" branch (advanced-key-flow.md §4) ──────
+  // Declarative graph only — reachable via dev #qa= jumps, not from the live
+  // flow yet. Nothing dispatches these events on this pass.
+  CHOOSE_SETUP_PATH: Object.freeze({
+    CHOOSE_GUIDED: "OPENING_CUNY",
+    CHOOSE_REUSE_KEY: "KEY_FROM_OTHER_DEVICE",
+    CHOOSE_IMPORT_KEY: "KEY_FROM_AUTH_APP",
+    BACK: "PASSWORD_ENTRY",
+  }),
+  KEY_FROM_OTHER_DEVICE: Object.freeze({
+    KEY_CONFIRMED: "TEST_LOGIN",
+    BACK: "CHOOSE_SETUP_PATH",
+  }),
+  KEY_FROM_AUTH_APP: Object.freeze({
+    KEY_CONFIRMED: "TEST_LOGIN",
+    BACK: "CHOOSE_SETUP_PATH",
+  }),
+  TEST_LOGIN: Object.freeze({
+    // No BACK — a real sign-in is in flight once we reach this screen.
+    BACK: null,
+    TEST_SUCCEEDED: "EXT_PASSWORD_SETUP",
+    TEST_BAD_CREDENTIALS: "TEST_LOGIN_BAD_CREDENTIALS",
+    TEST_BAD_KEY: "TEST_LOGIN_BAD_KEY",
+  }),
+  TEST_LOGIN_BAD_CREDENTIALS: Object.freeze({
+    RETRY_CREDENTIALS: "PASSWORD_ENTRY",
+    EDIT_EMAIL: "EMAIL_ENTRY",
+    BACK: "PASSWORD_ENTRY",
+  }),
+  TEST_LOGIN_BAD_KEY: Object.freeze({
+    // RETRY_KEY must return to whichever paste page the user started on; the
+    // static table can't express that, so the renderer will resolve it from
+    // `keyEntryOrigin` in the wiring pass. KEY_FROM_OTHER_DEVICE is the default.
+    RETRY_KEY: "KEY_FROM_OTHER_DEVICE",
+    SWITCH_TO_GUIDED: "OPENING_CUNY",
+    BACK: "KEY_FROM_OTHER_DEVICE",
   }),
   OPENING_CUNY: Object.freeze({
     BACK: "PASSWORD_ENTRY",

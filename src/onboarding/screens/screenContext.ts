@@ -20,6 +20,13 @@ import type { OnboardingEvent } from "../transitions";
 export type OnboardingScreenContext = {
   readonly doc: Document;
   readonly root: HTMLElement;
+  /**
+   * Dev/QA-only visual variant from the `#qa=…&qaVariant=…` deep link (see
+   * `devQaJump.ts`). Lets a single screen state render one of several looks for
+   * `capture-sidebar` (e.g. `TEST_LOGIN` in-progress vs signed-in). `undefined`
+   * in production — screens fall back to their default appearance.
+   */
+  readonly qaVariant?: string;
   readonly getSnapshot: () => OnboardingSnapshot;
   readonly setEmail: (value: string) => void;
   readonly setPassword: (value: string) => void;

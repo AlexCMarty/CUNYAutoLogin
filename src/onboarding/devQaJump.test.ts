@@ -91,3 +91,19 @@ describe("parseDevQaOnboardingJumpFromHash", () => {
     warn.mockRestore();
   });
 });
+
+describe("parseDevQaOnboardingJumpFromHash qaVariant", () => {
+  test("parses qaVariant for advanced key-flow screens", () => {
+    const parsed = parseDevQaOnboardingJumpFromHash(
+      "#qa=TEST_LOGIN&qaVariant=success",
+      "development"
+    );
+    expect(parsed?.controllerInit.initialState).toBe("TEST_LOGIN");
+    expect(parsed?.qaVariant).toBe("success");
+  });
+
+  test("qaVariant is undefined when the param is absent", () => {
+    const parsed = parseDevQaOnboardingJumpFromHash("#qa=TEST_LOGIN", "development");
+    expect(parsed?.qaVariant).toBeUndefined();
+  });
+});

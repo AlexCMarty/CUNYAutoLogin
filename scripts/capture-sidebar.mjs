@@ -45,7 +45,7 @@ const QA_VAULT_PAYLOAD = {
 const SESSION_MASTER_KEY = "cunySessionMaster"; // src/cuny/ssoSite.ts
 
 /**
- * All 22 visual states the sidebar can show, in logical order.
+ * All 31 visual states the sidebar can show, in logical order.
  * Vault-locked and vault-unlocked are special strings handled separately.
  */
 const ALL_STATES = [
@@ -54,6 +54,17 @@ const ALL_STATES = [
   "#qa=EMAIL_ENTRY&qaCred=email",
   "#qa=PASSWORD_ENTRY",
   "#qa=PASSWORD_ENTRY&qaCred=password",
+  // Advanced "use your existing key" branch (visuals only). qaVariant picks the
+  // look: open = accordion expanded, valid = prefilled key, success = signed-in.
+  "#qa=CHOOSE_SETUP_PATH",
+  "#qa=KEY_FROM_OTHER_DEVICE",
+  "#qa=KEY_FROM_OTHER_DEVICE&qaVariant=open",
+  "#qa=KEY_FROM_OTHER_DEVICE&qaVariant=valid",
+  "#qa=KEY_FROM_AUTH_APP&qaVariant=open",
+  "#qa=TEST_LOGIN",
+  "#qa=TEST_LOGIN&qaVariant=success",
+  "#qa=TEST_LOGIN_BAD_CREDENTIALS",
+  "#qa=TEST_LOGIN_BAD_KEY",
   "#qa=OPENING_CUNY",
   "#qa=CUNY_TOTP",
   "#qa=ALLOW_GATE",
@@ -91,7 +102,7 @@ Options:
                         reflects the locked state for users who have not enrolled biometrics
   --qa-vault-unlocked   Inject a real encrypted vault + session master so the sidebar
                         renders in unlocked-vault / management mode
-  --capture-all         Capture all 22 visual states, one PNG each; prints one path per
+  --capture-all         Capture all 31 visual states, one PNG each; prints one path per
                         line. Ignores --hash / positional fragment.
 
 Hash-fragment shortcuts:
@@ -101,6 +112,13 @@ Hash-fragment shortcuts:
     OAA_SPA_HOME, GUIDED_MANAGE, GUIDED_ADD_FACTOR, GUIDED_FACTOR_TYPE,
     GUIDED_SECRET_CAPTURE, VERIFY_LOGIN_CODE, SET_DEFAULT, EXT_PASSWORD_SETUP,
     BIOMETRIC_OFFER, BIOMETRIC_PREP, COMPLETE_DEMO, COMPLETE_DONE
+  Advanced "use your existing key" branch (visuals only, dev/e2e build):
+    CHOOSE_SETUP_PATH, KEY_FROM_OTHER_DEVICE, KEY_FROM_AUTH_APP, TEST_LOGIN,
+    TEST_LOGIN_BAD_CREDENTIALS, TEST_LOGIN_BAD_KEY
+  Visual variants (append to the advanced states above):
+    &qaVariant=open      KEY_FROM_* with the instruction accordion expanded
+    &qaVariant=valid     KEY_FROM_* prefilled with a valid key (Confirm enabled)
+    &qaVariant=success   TEST_LOGIN signed-in frame (default is in-progress)
   Credential-error variants (no dedicated state — renders inline on the screen):
     #qa=EMAIL_ENTRY&qaCred=email        email field error
     #qa=PASSWORD_ENTRY&qaCred=password  password field error

@@ -170,7 +170,8 @@ const renderActiveScreen = (
   controller: OnboardingController,
   screenHost: HTMLElement,
   doc: Document,
-  currentHandle: ScreenHandle | null
+  currentHandle: ScreenHandle | null,
+  qaVariant?: string
 ): ScreenHandle => {
   currentHandle?.unmount();
   const snapshot = controller.getSnapshot();
@@ -178,6 +179,7 @@ const renderActiveScreen = (
   const ctx: OnboardingScreenContext = {
     doc,
     root: screenHost,
+    qaVariant,
     getSnapshot: controller.getSnapshot,
     setEmail: controller.setEmail,
     setPassword: controller.setPassword,
@@ -686,6 +688,8 @@ type OnboardingMountModel = {
   readonly header: ReturnType<typeof mountBeadHeader>;
   readonly restoreVaultMainWrap: () => void;
   readonly suppressResumeSnapshots: boolean;
+  /** Dev/QA visual variant from the deep link, forwarded to the active screen. */
+  readonly qaVariant?: string;
 };
 
 type OnboardingUnmountBag = {
@@ -834,7 +838,7 @@ const buildRepaintCallbacks = (
   const repaint = (): void => {
     header.renderFor(controller.getSnapshot().state);
     refs.screenHandleRef.current = renderActiveScreen(
-      controller, screenHost, doc, refs.screenHandleRef.current
+      controller, screenHost, doc, refs.screenHandleRef.current, model.qaVariant
     );
     repaintInterruptionActions();
   };
@@ -915,5 +919,6 @@ export const mountOnboarding = (
     header,
     restoreVaultMainWrap,
     suppressResumeSnapshots: qaJumpActive,
+    qaVariant: qaJumpBundle?.qaVariant,
   });
 };

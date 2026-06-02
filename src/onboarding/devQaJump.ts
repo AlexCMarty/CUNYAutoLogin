@@ -21,6 +21,8 @@ const QA_HASH_PARAM = "qa";
 const QA_EMAIL_PARAM = "qaEmail";
 const QA_PASSWORD_PARAM = "qaPassword";
 const QA_CRED_PARAM = "qaCred";
+/** Free-form visual variant token (e.g. `open`, `valid`, `success`) — see `OnboardingScreenContext.qaVariant`. */
+const QA_VARIANT_PARAM = "qaVariant";
 
 /** States that have a real screen mount (excludes CREDENTIAL_ERROR placeholder). */
 const QA_JUMPABLE_STATES = Object.keys(SCREEN_MOUNTS).filter(
@@ -35,6 +37,8 @@ const isCredentialCulprit = (value: string): value is CredentialCulprit =>
 
 export type DevQaJumpParseResult = {
   readonly controllerInit: OnboardingControllerInit;
+  /** Optional visual variant token passed to the active screen (dev/QA only). */
+  readonly qaVariant?: string;
 };
 
 /**
@@ -103,7 +107,9 @@ export function parseDevQaOnboardingJumpFromHash(
     initialCredentialError: initialCredentialError ?? null,
   };
 
-  return { controllerInit };
+  const qaVariant = params.get(QA_VARIANT_PARAM)?.trim() || undefined;
+
+  return { controllerInit, qaVariant };
 }
 
 /**

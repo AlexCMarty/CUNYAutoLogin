@@ -17,6 +17,14 @@ export const ONBOARDING_STATES = [
   "WELCOME",
   "EMAIL_ENTRY",
   "PASSWORD_ENTRY",
+  // Advanced "use your existing key" branch (visuals only for now — reachable
+  // via dev #qa= jumps; the live PASSWORD_ENTRY → OPENING_CUNY path is unchanged).
+  "CHOOSE_SETUP_PATH",
+  "KEY_FROM_OTHER_DEVICE",
+  "KEY_FROM_AUTH_APP",
+  "TEST_LOGIN",
+  "TEST_LOGIN_BAD_CREDENTIALS",
+  "TEST_LOGIN_BAD_KEY",
   "OPENING_CUNY",
   "CUNY_TOTP",
   "CREDENTIAL_ERROR",
@@ -58,6 +66,14 @@ export const STATE_TO_BEAD: Readonly<Record<OnboardingState, BeadStage>> = Objec
   WELCOME: 1,
   EMAIL_ENTRY: 1,
   PASSWORD_ENTRY: 1,
+  // Fork sits at bead 2 ("First login"); the paste/test/recovery screens at
+  // bead 3 ("Set up login codes") — UX-approved mapping (advanced-key-flow.md §2).
+  CHOOSE_SETUP_PATH: 2,
+  KEY_FROM_OTHER_DEVICE: 3,
+  KEY_FROM_AUTH_APP: 3,
+  TEST_LOGIN: 3,
+  TEST_LOGIN_BAD_CREDENTIALS: 3,
+  TEST_LOGIN_BAD_KEY: 3,
   OPENING_CUNY: 2,
   CUNY_TOTP: 2,
   CREDENTIAL_ERROR: 2,
@@ -97,6 +113,15 @@ export const RESUME_SAFE_STATE: Readonly<
   WELCOME: null,
   EMAIL_ENTRY: "EMAIL_ENTRY",
   PASSWORD_ENTRY: "PASSWORD_ENTRY",
+  // The fork is a pure choice (no staged secret) → resumable in place. The
+  // paste/test/recovery states stage a live secret in storage.session only, so
+  // they restart at the fork rather than resuming mid-paste (advanced-key-flow.md §5).
+  CHOOSE_SETUP_PATH: "CHOOSE_SETUP_PATH",
+  KEY_FROM_OTHER_DEVICE: "CHOOSE_SETUP_PATH",
+  KEY_FROM_AUTH_APP: "CHOOSE_SETUP_PATH",
+  TEST_LOGIN: "CHOOSE_SETUP_PATH",
+  TEST_LOGIN_BAD_CREDENTIALS: "CHOOSE_SETUP_PATH",
+  TEST_LOGIN_BAD_KEY: "CHOOSE_SETUP_PATH",
   OPENING_CUNY: "OPENING_CUNY",
   CUNY_TOTP: "CUNY_TOTP",
   CREDENTIAL_ERROR: "PASSWORD_ENTRY",

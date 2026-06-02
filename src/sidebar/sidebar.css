@@ -1010,3 +1010,223 @@ body[data-vault-ui="sidebar-management"] #totp-secret-field {
 
   & .onboarding-forward { width: 100%; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ADVANCED "use your existing key" flow — net-new components
+   ───────────────────────────────────────────────────────────────────────
+   Used by the CHOOSE_SETUP_PATH fork and the KEY_FROM_* paste screens.
+   Written in the existing token language so they sit alongside the rest of
+   the sheet unchanged. Everything else on these screens reuses the classes
+   above verbatim. See .agents handoff "advanced-key-flow.md".
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Choice cards (the fork) ───────────────────────────────────────────── */
+.onboarding-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  padding: 13px 14px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 10px;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.onboarding-choice:hover {
+  border-color: var(--clr-accent);
+}
+
+.onboarding-choice:focus-visible {
+  outline: 2px solid var(--clr-accent);
+  outline-offset: 2px;
+}
+
+.onboarding-choice-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.onboarding-choice-titlerow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.onboarding-choice-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--clr-text);
+  letter-spacing: 0.1px;
+}
+
+.onboarding-choice-desc {
+  font-size: 12px;
+  color: var(--clr-text-secondary);
+  line-height: 1.45;
+}
+
+.onboarding-choice-chevron {
+  flex-shrink: 0;
+  color: var(--clr-text-muted);
+  font-size: 17px;
+  line-height: 1;
+  transition: transform 0.15s, color 0.15s;
+}
+
+.onboarding-choice:hover .onboarding-choice-chevron {
+  transform: translateX(2px);
+  color: var(--clr-accent);
+}
+
+/* Lead / recommended card — accent emphasis */
+.onboarding-choice--lead {
+  border: 1.5px solid var(--clr-accent);
+  background: #faf2ee; /* ≈ accent 6% over surface */
+}
+
+.onboarding-choice--lead .onboarding-choice-chevron {
+  color: var(--clr-accent);
+}
+
+/* ── Small pill (Recommended / Advanced tags) ──────────────────────────── */
+.onboarding-pill {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--clr-accent);
+  padding: 2px 7px;
+  border-radius: 999px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.onboarding-pill--muted {
+  color: var(--clr-text-secondary);
+  background: var(--clr-hint-bg);
+}
+
+/* ── Labelled divider ──────────────────────────────────────────────────── */
+.onboarding-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--clr-text-muted);
+}
+
+.onboarding-divider::before,
+.onboarding-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--clr-border);
+}
+
+/* ── Instruction accordion (native <details>) ──────────────────────────── */
+.onboarding-accordion {
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  overflow: hidden;
+}
+
+.onboarding-accordion > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--clr-text);
+  user-select: none;
+}
+
+.onboarding-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.onboarding-accordion > summary:hover {
+  color: var(--clr-accent);
+}
+
+.onboarding-accordion-chevron {
+  flex-shrink: 0;
+  color: var(--clr-text-muted);
+  font-size: 12px;
+  transition: transform 0.18s ease;
+}
+
+.onboarding-accordion[open] > summary .onboarding-accordion-chevron {
+  transform: rotate(180deg);
+}
+
+.onboarding-accordion[open] > summary {
+  border-bottom: 1px solid var(--clr-border);
+}
+
+.onboarding-accordion-body {
+  padding: 10px 14px 12px;
+}
+
+.onboarding-accordion-body ol {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.onboarding-accordion-body li {
+  font-size: 12px;
+  color: var(--clr-text-secondary);
+  line-height: 1.45;
+}
+
+.onboarding-accordion-body li strong {
+  color: var(--clr-text);
+  font-weight: 600;
+}
+
+/* ── Secret-key input (mono) + validity line ───────────────────────────── */
+.onboarding-input--key {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.onboarding-input--key::placeholder {
+  color: var(--clr-text-muted);
+  letter-spacing: 0.08em;
+}
+
+.onboarding-field-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--clr-ok-ink);
+}
+
+.onboarding-field-ok::before {
+  content: "✓";
+  font-weight: 700;
+}
