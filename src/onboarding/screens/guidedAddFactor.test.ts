@@ -105,3 +105,52 @@ describe("mountGuidedAddFactorScreen", () => {
     );
   });
 });
+
+describe("mountGuidedAddFactorScreen — copy strings", () => {
+  test("headline copy is pinned", () => {
+    const { ctx } = makeCtx();
+    mountGuidedAddFactorScreen(ctx);
+    const h2 = document.querySelector("h2");
+    expect(h2?.textContent).toBe("Open the add menu.");
+  });
+
+  test("body copy mentions Add Authentication Factor", () => {
+    const { ctx } = makeCtx();
+    mountGuidedAddFactorScreen(ctx);
+    const body = document.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("Add Authentication Factor");
+  });
+
+  test("tab hint copy is rendered", () => {
+    const { ctx } = makeCtx();
+    mountGuidedAddFactorScreen(ctx);
+    const hint = document.querySelector(".onboarding-directional");
+    expect(hint?.textContent).toContain("highlighted the next control");
+  });
+
+  test("five-factor-limit copy mentions five", () => {
+    const { ctx } = makeCtx();
+    mountGuidedAddFactorScreen(ctx);
+    const el = document.querySelector<HTMLElement>("[data-onboarding-five-factor-limit='true']")!;
+    expect(el.textContent).toContain("five");
+  });
+
+  test("verify-later recovery copy mentions Verify", () => {
+    const { ctx } = makeCtx();
+    mountGuidedAddFactorScreen(ctx);
+    const el = document.querySelector<HTMLElement>("[data-onboarding-verify-later-recovery='true']")!;
+    expect(el.textContent).toContain("Verify");
+  });
+});
+
+describe("mountGuidedAddFactorScreen — overlay targetSpec", () => {
+  test("show overlay uses css targetSpec", () => {
+    const { ctx } = makeCtx();
+    mountGuidedAddFactorScreen(ctx);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetSpec: expect.objectContaining({ type: "css" }),
+      })
+    );
+  });
+});

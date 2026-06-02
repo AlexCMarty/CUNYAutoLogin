@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("webextension-polyfill", () => ({
   default: {
@@ -14,7 +14,9 @@ vi.mock("webextension-polyfill", () => ({
 
 import browser from "webextension-polyfill";
 import {
+  clearResumeSnapshotSession,
   isResumeSnapshot,
+  loadResumeSnapshotFromSession,
   ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY,
   persistOnboardingResumeSnapshot,
   type OnboardingResumeSnapshot,
@@ -26,17 +28,49 @@ describe("isResumeSnapshot", () => {
     expect(isResumeSnapshot(snap)).toBe(true);
   });
 
-  test("rejects COMPLETE_DONE", () => {
+  test("accepts snapshot with email and password fields", () => {
+    expect(
+      isResumeSnapshot({
+        state: "ALLOW_GATE",
+        email: "a@login.cuny.edu",
+        password: "pw",
+      })
+    ).toBe(true);
+  });
+
+  test("rejects COMPLETE_DONE (non-resumable)", () => {
     expect(isResumeSnapshot({ state: "COMPLETE_DONE" })).toBe(false);
+  });
+
+  test("rejects EXT_PASSWORD_SETUP (non-resumable)", () => {
+    expect(isResumeSnapshot({ state: "EXT_PASSWORD_SETUP" })).toBe(false);
+  });
+
+  test("rejects WELCOME (non-resumable)", () => {
+    expect(isResumeSnapshot({ state: "WELCOME" })).toBe(false);
+  });
+
+  test("rejects non-string email field", () => {
+    expect(isResumeSnapshot({ state: "EMAIL_ENTRY", email: 42 })).toBe(false);
+  });
+
+  test("rejects non-string password field", () => {
+    expect(isResumeSnapshot({ state: "EMAIL_ENTRY", password: true })).toBe(false);
   });
 
   test("rejects non-objects", () => {
     expect(isResumeSnapshot(null)).toBe(false);
     expect(isResumeSnapshot("x")).toBe(false);
+    expect(isResumeSnapshot(42)).toBe(false);
+    expect(isResumeSnapshot(undefined)).toBe(false);
   });
 });
 
 describe("persistOnboardingResumeSnapshot", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   test("writes safe state to session storage", async () => {
     vi.mocked(browser.storage.session!.set).mockResolvedValue(undefined);
     await persistOnboardingResumeSnapshot({
@@ -61,5 +95,101 @@ describe("persistOnboardingResumeSnapshot", () => {
       password: "p",
     });
     expect(browser.storage.session!.remove).toHaveBeenCalled();
+  });
+
+  test("WELCOME (non-resumable) clears the session key", async () => {
+    vi.mocked(browser.storage.session!.remove).mockResolvedValue(undefined);
+    await persistOnboardingResumeSnapshot({
+      state: "WELCOME",
+      email: "",
+      password: "",
+    });
+    expect(browser.storage.session!.remove).toHaveBeenCalled();
+    expect(browser.storage.session!.set).not.toHaveBeenCalled();
+  });
+
+  test("CREDENTIAL_ERROR maps safe state to PASSWORD_ENTRY before saving", async () => {
+    vi.mocked(browser.storage.session!.set).mockResolvedValue(undefined);
+    await persistOnboardingResumeSnapshot({
+      state: "CREDENTIAL_ERROR",
+      email: "e@login.cuny.edu",
+      password: "p",
+    });
+    expect(browser.storage.session!.set).toHaveBeenCalledWith({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: expect.objectContaining({
+        state: "PASSWORD_ENTRY",
+      }),
+    });
+  });
+
+  test("storage error in save is swallowed (no thrown exception)", async () => {
+    vi.mocked(browser.storage.session!.set).mockRejectedValue(new Error("quota"));
+    await expect(
+      persistOnboardingResumeSnapshot({
+        state: "EMAIL_ENTRY",
+        email: "e@login.cuny.edu",
+        password: "p",
+      })
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe("loadResumeSnapshotFromSession", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("returns snapshot when session contains a valid resumable entry", async () => {
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: "GUIDED_MANAGE",
+        email: "load@login.cuny.edu",
+        password: "pw",
+      },
+    });
+    const result = await loadResumeSnapshotFromSession();
+    expect(result).toEqual({
+      state: "GUIDED_MANAGE",
+      email: "load@login.cuny.edu",
+      password: "pw",
+    });
+  });
+
+  test("returns null when session key is absent", async () => {
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({});
+    const result = await loadResumeSnapshotFromSession();
+    expect(result).toBeNull();
+  });
+
+  test("returns null when stored value fails isResumeSnapshot (non-resumable state)", async () => {
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: { state: "COMPLETE_DONE" },
+    });
+    const result = await loadResumeSnapshotFromSession();
+    expect(result).toBeNull();
+  });
+
+  test("returns null and does not throw when storage.get rejects", async () => {
+    vi.mocked(browser.storage.session!.get).mockRejectedValue(new Error("storage unavailable"));
+    await expect(loadResumeSnapshotFromSession()).resolves.toBeNull();
+  });
+});
+
+describe("clearResumeSnapshotSession", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("calls storage.session.remove with the snapshot key", async () => {
+    vi.mocked(browser.storage.session!.remove).mockResolvedValue(undefined);
+    await clearResumeSnapshotSession();
+    expect(browser.storage.session!.remove).toHaveBeenCalledWith(
+      ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY
+    );
+  });
+
+  test("does not throw when storage.remove rejects", async () => {
+    vi.mocked(browser.storage.session!.remove).mockRejectedValue(new Error("remove error"));
+    await expect(clearResumeSnapshotSession()).resolves.toBeUndefined();
   });
 });

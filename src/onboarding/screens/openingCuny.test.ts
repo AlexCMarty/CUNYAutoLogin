@@ -201,3 +201,109 @@ describe("mountOpeningCunyScreen", () => {
     ).toBeNull();
   });
 });
+
+describe("mountOpeningCunyScreen — copy strings", () => {
+  let root: HTMLElement;
+
+  beforeEach(() => {
+    sendMessageMock.mockReset();
+    tabsCreateMock.mockReset();
+    sendMessageMock.mockResolvedValue({ ok: true });
+    tabsCreateMock.mockResolvedValue({ id: 1 });
+    document.body.innerHTML = "";
+    window.location.hash = "";
+    root = document.createElement("div");
+    document.body.appendChild(root);
+  });
+
+  test("headline copy is pinned", () => {
+    const { ctx } = buildCtx(root);
+    mountOpeningCunyScreen(ctx);
+    const h2 = root.querySelector("h2");
+    expect(h2?.textContent).toContain("Opening your CUNY portal");
+  });
+
+  test("directional line copy is rendered", () => {
+    const { ctx } = buildCtx(root);
+    mountOpeningCunyScreen(ctx);
+    const directional = root.querySelector(".onboarding-directional");
+    expect(directional?.textContent).toContain("Watch the new tab");
+  });
+
+  test("reassurance copy mentions not taking you anywhere unexpected", () => {
+    const { ctx } = buildCtx(root);
+    mountOpeningCunyScreen(ctx);
+    const reassurance = root.querySelector(".onboarding-reassurance");
+    expect(reassurance?.textContent).toContain("unexpected");
+  });
+
+  test("waiting label copy is rendered", () => {
+    const { ctx } = buildCtx(root);
+    mountOpeningCunyScreen(ctx);
+    const waiting = root.querySelector("[data-onboarding-opening-waiting='true']");
+    expect(waiting?.textContent).toContain("Nothing to do yet");
+  });
+});
+
+describe("mountOpeningCunyScreen — unmount detaches back handler", () => {
+  let root: HTMLElement;
+
+  beforeEach(() => {
+    sendMessageMock.mockReset();
+    tabsCreateMock.mockReset();
+    sendMessageMock.mockResolvedValue({ ok: true });
+    tabsCreateMock.mockResolvedValue({ id: 1 });
+    document.body.innerHTML = "";
+    window.location.hash = "";
+    root = document.createElement("div");
+    document.body.appendChild(root);
+  });
+
+  test("back button no longer dispatches after unmount", async () => {
+    const { ctx, dispatch } = buildCtx(root);
+    const handle = mountOpeningCunyScreen(ctx);
+    await flush();
+    const back = root.querySelector<HTMLButtonElement>("[data-onboarding-opening-back='true']")!;
+    handle.unmount();
+    back.click();
+    expect(dispatch).not.toHaveBeenCalledWith("BACK");
+  });
+});
+
+describe("mountOpeningCunyScreen — staging retry when first stage fails", () => {
+  let root: HTMLElement;
+
+  beforeEach(() => {
+    sendMessageMock.mockReset();
+    tabsCreateMock.mockReset();
+    tabsCreateMock.mockResolvedValue({ id: 1 });
+    document.body.innerHTML = "";
+    window.location.hash = "";
+    root = document.createElement("div");
+    document.body.appendChild(root);
+  });
+
+  afterEach(() => {
+    window.location.hash = "";
+  });
+
+  test("retries STAGE_ONBOARDING_CREDENTIALS when the first staging message fails", async () => {
+    // logout succeeds, stage fails, tab opens, then retry
+    sendMessageMock
+      .mockResolvedValueOnce({ ok: true })          // LOGOUT
+      .mockRejectedValueOnce(new Error("SW down"))  // STAGE (first attempt — fails)
+      .mockResolvedValueOnce({ ok: true });          // STAGE (retry)
+
+    const { ctx } = buildCtx(root, "student@login.cuny.edu", "pw");
+    mountOpeningCunyScreen(ctx);
+    // The async IIFE has 4 awaited steps: LOGOUT, STAGE, tab, retry STAGE.
+    // Each needs a microtask turn; flush 6 times to be safe.
+    for (let i = 0; i < 6; i++) await Promise.resolve();
+
+    // The retry should fire a second STAGE_ONBOARDING_CREDENTIALS message
+    const stageCalls = sendMessageMock.mock.calls.filter(
+      (call) => (call[0] as { type?: string }).type === "STAGE_ONBOARDING_CREDENTIALS"
+    );
+    expect(stageCalls.length).toBeGreaterThanOrEqual(2);
+  });
+});

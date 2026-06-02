@@ -172,4 +172,62 @@ describe("advance + canTransition", () => {
     expect(advance("COMPLETE_DEMO", "DEMO_REQUESTED")).toBe("COMPLETE_DEMO");
     expect(advance("COMPLETE_DEMO", "DEMO_FINISHED")).toBe("COMPLETE_DONE");
   });
+
+  test("canTransition returns true for valid forward transitions", () => {
+    expect(canTransition("WELCOME", "NEXT")).toBe(true);
+    expect(canTransition("EMAIL_ENTRY", "BACK")).toBe(true);
+    expect(canTransition("BIOMETRIC_OFFER", "BIOMETRIC_ACCEPTED")).toBe(true);
+    expect(canTransition("BIOMETRIC_OFFER", "BIOMETRIC_DECLINED")).toBe(true);
+  });
+
+  test("BIOMETRIC_OFFER forward targets include both BIOMETRIC_PREP and COMPLETE_DEMO", () => {
+    const targets = forwardTargetsFor("BIOMETRIC_OFFER");
+    expect(targets).toContain("BIOMETRIC_PREP");
+    expect(targets).toContain("COMPLETE_DEMO");
+    expect(targets.length).toBe(2);
+  });
+
+  test("forwardTargetsFor excludes the COMPLETE_DEMO self-loop", () => {
+    const targets = forwardTargetsFor("COMPLETE_DEMO");
+    expect(targets).not.toContain("COMPLETE_DEMO");
+    expect(targets).toContain("COMPLETE_DONE");
+    expect(targets.length).toBe(1);
+  });
+
+  test("forwardTargetsFor returns no duplicates", () => {
+    for (const state of ONBOARDING_STATES) {
+      const targets = forwardTargetsFor(state);
+      const unique = new Set(targets);
+      expect(unique.size).toBe(targets.length);
+    }
+  });
+
+  test("isAtTerminal returns false for all non-terminal states", () => {
+    for (const state of ONBOARDING_STATES) {
+      if (state === "COMPLETE_DONE") continue;
+      expect(isAtTerminal(state)).toBe(false);
+    }
+  });
+
+  test("advance returns null for post-commit states with BACK", () => {
+    for (const state of [
+      "VERIFY_LOGIN_CODE",
+      "SET_DEFAULT",
+      "EXT_PASSWORD_SETUP",
+      "BIOMETRIC_OFFER",
+      "COMPLETE_DEMO",
+      "COMPLETE_DONE",
+    ] as const) {
+      expect(advance(state, "BACK")).toBeNull();
+    }
+  });
+
+  test("BIOMETRIC_PREP BACK returns to BIOMETRIC_OFFER", () => {
+    expect(advance("BIOMETRIC_PREP", "BACK")).toBe("BIOMETRIC_OFFER");
+    expect(backStateFor("BIOMETRIC_PREP")).toBe("BIOMETRIC_OFFER");
+  });
+
+  test("CREDENTIAL_ERROR CREDENTIAL_ERROR_ROUTE_TO_EMAIL routes to EMAIL_ENTRY", () => {
+    expect(advance("CREDENTIAL_ERROR", "CREDENTIAL_ERROR_ROUTE_TO_EMAIL")).toBe("EMAIL_ENTRY");
+  });
 });

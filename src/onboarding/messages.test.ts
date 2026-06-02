@@ -6,6 +6,10 @@ import {
   OVERLAY_ACTIONS,
   VERIFY_STATUSES,
   hasOnboardingMessageType,
+  isAutoFillResponse,
+  isClearOnboardingCredentials,
+  isLogoutCunySessionsAck,
+  isLogoutCunySessionsRequest,
   isOnboardingCredentialError,
   isOnboardingCunyTabMissing,
   isOnboardingMessage,
@@ -14,6 +18,8 @@ import {
   isOnboardingStageDetected,
   isOnboardingTabReattached,
   isOnboardingVerifyStatus,
+  isPersistOnboardingResumeSnapshot,
+  isStageOnboardingCredentials,
   normalizeAutoFillOtpContext,
   type OnboardingMessageType,
 } from "./messages";
@@ -376,5 +382,279 @@ describe("normalizeAutoFillOtpContext", () => {
     expect(normalizeAutoFillOtpContext("other")).toBeUndefined();
     expect(normalizeAutoFillOtpContext(42)).toBeUndefined();
     expect(normalizeAutoFillOtpContext(null)).toBeUndefined();
+  });
+});
+
+// ──── isAutoFillResponse ──────────────────────────────────────────────────────
+
+describe("isAutoFillResponse", () => {
+  test("success=true payload is accepted", () => {
+    expect(isAutoFillResponse({ success: true, payload: {} })).toBe(true);
+  });
+
+  test("success=false payload is accepted", () => {
+    expect(
+      isAutoFillResponse({ success: false, reason: "no_vault" })
+    ).toBe(true);
+  });
+
+  test("object without success field → false", () => {
+    expect(isAutoFillResponse({ reason: "no_vault" })).toBe(false);
+  });
+
+  test("null → false", () => {
+    expect(isAutoFillResponse(null)).toBe(false);
+  });
+
+  test("non-object → false", () => {
+    expect(isAutoFillResponse("yes")).toBe(false);
+    expect(isAutoFillResponse(1)).toBe(false);
+  });
+});
+
+// ──── isLogoutCunySessionsRequest ─────────────────────────────────────────────
+
+describe("isLogoutCunySessionsRequest", () => {
+  test("correct type string → true", () => {
+    expect(isLogoutCunySessionsRequest({ type: "LOGOUT_CUNY_SESSIONS" })).toBe(true);
+  });
+
+  test("wrong type string → false", () => {
+    expect(isLogoutCunySessionsRequest({ type: "OTHER" })).toBe(false);
+  });
+
+  test("null / non-object → false", () => {
+    expect(isLogoutCunySessionsRequest(null)).toBe(false);
+    expect(isLogoutCunySessionsRequest("LOGOUT_CUNY_SESSIONS")).toBe(false);
+  });
+});
+
+// ──── isLogoutCunySessionsAck ──────────────────────────────────────────────────
+
+describe("isLogoutCunySessionsAck", () => {
+  test("ok=true is accepted", () => {
+    expect(isLogoutCunySessionsAck({ ok: true })).toBe(true);
+  });
+
+  test("ok=false is accepted", () => {
+    expect(isLogoutCunySessionsAck({ ok: false })).toBe(true);
+  });
+
+  test("non-boolean ok → false", () => {
+    expect(isLogoutCunySessionsAck({ ok: "yes" })).toBe(false);
+    expect(isLogoutCunySessionsAck({ ok: 1 })).toBe(false);
+  });
+
+  test("missing ok field → false", () => {
+    expect(isLogoutCunySessionsAck({})).toBe(false);
+  });
+
+  test("null → false", () => {
+    expect(isLogoutCunySessionsAck(null)).toBe(false);
+  });
+});
+
+// ──── isStageOnboardingCredentials ────────────────────────────────────────────
+
+describe("isStageOnboardingCredentials", () => {
+  test("valid full payload → true", () => {
+    expect(
+      isStageOnboardingCredentials({
+        type: "STAGE_ONBOARDING_CREDENTIALS",
+        email: "a@login.cuny.edu",
+        password: "pw",
+      })
+    ).toBe(true);
+  });
+
+  test("missing email → false", () => {
+    expect(
+      isStageOnboardingCredentials({
+        type: "STAGE_ONBOARDING_CREDENTIALS",
+        password: "pw",
+      })
+    ).toBe(false);
+  });
+
+  test("missing password → false", () => {
+    expect(
+      isStageOnboardingCredentials({
+        type: "STAGE_ONBOARDING_CREDENTIALS",
+        email: "a@login.cuny.edu",
+      })
+    ).toBe(false);
+  });
+
+  test("wrong type → false", () => {
+    expect(
+      isStageOnboardingCredentials({
+        type: "OTHER",
+        email: "a@login.cuny.edu",
+        password: "pw",
+      })
+    ).toBe(false);
+  });
+
+  test("null / non-object → false", () => {
+    expect(isStageOnboardingCredentials(null)).toBe(false);
+    expect(isStageOnboardingCredentials(42)).toBe(false);
+  });
+});
+
+// ──── isClearOnboardingCredentials ────────────────────────────────────────────
+
+describe("isClearOnboardingCredentials", () => {
+  test("correct type → true", () => {
+    expect(isClearOnboardingCredentials({ type: "CLEAR_ONBOARDING_CREDENTIALS" })).toBe(true);
+  });
+
+  test("wrong type → false", () => {
+    expect(isClearOnboardingCredentials({ type: "OTHER" })).toBe(false);
+  });
+
+  test("null / non-object → false", () => {
+    expect(isClearOnboardingCredentials(null)).toBe(false);
+    expect(isClearOnboardingCredentials("CLEAR_ONBOARDING_CREDENTIALS")).toBe(false);
+  });
+});
+
+// ──── isPersistOnboardingResumeSnapshot ───────────────────────────────────────
+
+describe("isPersistOnboardingResumeSnapshot", () => {
+  test("valid full payload with resumable state → true", () => {
+    expect(
+      isPersistOnboardingResumeSnapshot({
+        type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+        state: "ALLOW_GATE",
+        email: "a@login.cuny.edu",
+        password: "pw",
+      })
+    ).toBe(true);
+  });
+
+  test("non-resumable state → false (isOnboardingState still accepts it but isResumeSnapshot would reject — guard checks isOnboardingState only)", () => {
+    // isPersistOnboardingResumeSnapshot only checks isOnboardingState, not resumability
+    expect(
+      isPersistOnboardingResumeSnapshot({
+        type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+        state: "WELCOME",
+        email: "",
+        password: "",
+      })
+    ).toBe(true);
+  });
+
+  test("missing state → false", () => {
+    expect(
+      isPersistOnboardingResumeSnapshot({
+        type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+        email: "a@login.cuny.edu",
+        password: "pw",
+      })
+    ).toBe(false);
+  });
+
+  test("unknown state string → false", () => {
+    expect(
+      isPersistOnboardingResumeSnapshot({
+        type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+        state: "NOT_A_STATE",
+        email: "a@login.cuny.edu",
+        password: "pw",
+      })
+    ).toBe(false);
+  });
+
+  test("missing email → false", () => {
+    expect(
+      isPersistOnboardingResumeSnapshot({
+        type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+        state: "ALLOW_GATE",
+        password: "pw",
+      })
+    ).toBe(false);
+  });
+
+  test("null → false", () => {
+    expect(isPersistOnboardingResumeSnapshot(null)).toBe(false);
+  });
+});
+
+// ──── isOnboardingOverlayCommand (targetSpec branch) ─────────────────────────
+
+describe("isOnboardingOverlayCommand targetSpec", () => {
+  test("valid css targetSpec → true", () => {
+    expect(
+      isOnboardingOverlayCommand({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        targetSpec: { type: "css", selector: "#allow-btn" },
+      })
+    ).toBe(true);
+  });
+
+  test("valid a11y targetSpec → true", () => {
+    expect(
+      isOnboardingOverlayCommand({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        targetSpec: { type: "a11y", text: "Allow" },
+      })
+    ).toBe(true);
+  });
+
+  test("targetSpec with unknown type → false", () => {
+    expect(
+      isOnboardingOverlayCommand({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        targetSpec: { type: "xpath", expression: "//button" },
+      })
+    ).toBe(false);
+  });
+
+  test("targetSpec with css type but missing selector → false", () => {
+    expect(
+      isOnboardingOverlayCommand({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        targetSpec: { type: "css" },
+      })
+    ).toBe(false);
+  });
+
+  test("targetSpec with a11y type but missing text → false", () => {
+    expect(
+      isOnboardingOverlayCommand({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        targetSpec: { type: "a11y" },
+      })
+    ).toBe(false);
+  });
+
+  test("non-object targetSpec → false", () => {
+    expect(
+      isOnboardingOverlayCommand({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        targetSpec: "button",
+      })
+    ).toBe(false);
+  });
+
+  test("stepIndex of zero is accepted (boundary: non-negative integer)", () => {
+    expect(
+      isOnboardingOverlayCommand({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        stepIndex: 0,
+      })
+    ).toBe(true);
+  });
+
+  test("non-object payload → false", () => {
+    expect(isOnboardingOverlayCommand(null)).toBe(false);
+    expect(isOnboardingOverlayCommand("show")).toBe(false);
   });
 });

@@ -70,4 +70,18 @@ describe("watchTotpSecretOnEnrollPage", () => {
       secret: "SECOND",
     });
   });
+
+  test("does not update lastPostedSecret and does not throw when sendMessage rejects", async () => {
+    waitForEnrollTotpSecret.mockResolvedValueOnce("NEWSECRET").mockResolvedValueOnce("NEWSECRET");
+    const browser = (await import("webextension-polyfill")).default;
+    vi.mocked(browser.runtime.sendMessage).mockRejectedValueOnce(new Error("port closed"));
+    const { watchTotpSecretOnEnrollPage } = await import("./totpEnrollSecretBridge");
+    // First call: sendMessage throws — secret should NOT be stored as lastPosted
+    await expect(watchTotpSecretOnEnrollPage()).resolves.toBeUndefined();
+    // Second call: same secret — since it was never successfully posted, should try again
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValueOnce(undefined);
+    await watchTotpSecretOnEnrollPage();
+    // Should have been called a second time
+    expect(browser.runtime.sendMessage).toHaveBeenCalledTimes(2);
+  });
 });

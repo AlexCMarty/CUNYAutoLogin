@@ -107,3 +107,53 @@ describe("loadVaultSessionSnapshot", () => {
     expect(snap.sessionPayload).toBeNull();
   });
 });
+
+describe("loadVaultSessionSnapshot — storage error paths", () => {
+  test("local.get returns null for vault key → setup (null treated same as missing)", async () => {
+    const storage = makeStorage({ localGet: { [VAULT_STORAGE_KEY]: null } });
+    const snap = await loadVaultSessionSnapshot(storage);
+    expect(snap.mode).toBe("setup");
+    expect(snap.storedVault).toBeNull();
+  });
+
+  test("session.get rejects → locked (degraded: no master password available)", async () => {
+    const vault = await encryptOk();
+    const storage = {
+      local: { get: vi.fn().mockResolvedValue({ [VAULT_STORAGE_KEY]: vault }) },
+      session: {
+        get: vi.fn().mockRejectedValue(new Error("session read failed")),
+        remove: vi.fn().mockResolvedValue(undefined),
+      },
+    } as SnapshotStorage;
+    const snap = await loadVaultSessionSnapshot(storage);
+    expect(snap.mode).toBe("locked");
+    expect(snap.storedVault).toEqual(vault);
+    expect(snap.sessionMasterPassword).toBeNull();
+    expect(snap.sessionPayload).toBeNull();
+  });
+
+  test("session.remove rejects when clearing bad master → locked without throwing", async () => {
+    const vault = await encryptOk();
+    const storage = {
+      local: { get: vi.fn().mockResolvedValue({ [VAULT_STORAGE_KEY]: vault }) },
+      session: {
+        get: vi.fn().mockResolvedValue({ [SESSION_MASTER_KEY]: "wrong-password" }),
+        remove: vi.fn().mockRejectedValue(new Error("remove failed")),
+      },
+    } as SnapshotStorage;
+    const snap = await loadVaultSessionSnapshot(storage);
+    expect(snap.mode).toBe("locked");
+    expect(snap.sessionMasterPassword).toBeNull();
+  });
+
+  test("storage.session is undefined → locked (no session storage available)", async () => {
+    const vault = await encryptOk();
+    const storage: SnapshotStorage = {
+      local: { get: vi.fn().mockResolvedValue({ [VAULT_STORAGE_KEY]: vault }) },
+    };
+    const snap = await loadVaultSessionSnapshot(storage);
+    expect(snap.mode).toBe("locked");
+    expect(snap.storedVault).toEqual(vault);
+    expect(snap.sessionMasterPassword).toBeNull();
+  });
+});

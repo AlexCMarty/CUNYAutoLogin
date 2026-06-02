@@ -342,7 +342,57 @@ describe("constants", () => {
     expect(PBKDF2_ITERATIONS).toBeGreaterThanOrEqual(310_000);
   });
 
+  test("PBKDF2_ITERATIONS is exactly 310 000", () => {
+    expect(PBKDF2_ITERATIONS).toBe(310_000);
+  });
+
   test('VAULT_STORAGE_KEY is "cunyVault"', () => {
     expect(VAULT_STORAGE_KEY).toBe("cunyVault");
+  });
+});
+
+describe("encryptVault crypto_failed — AES encrypt path", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("encryptVault returns crypto_failed when AES encrypt throws", async () => {
+    vi.spyOn(globalThis.crypto.subtle, "encrypt").mockRejectedValueOnce(
+      new Error("simulated AES-GCM encrypt failure")
+    );
+    expect(unwrapErr(await encryptVault(PAYLOAD, MASTER))).toBe("crypto_failed");
+  });
+});
+
+describe("decryptVault — empty totpSecret is valid", () => {
+  test("totpSecret empty string round-trips successfully", async () => {
+    const payload: VaultPayload = { email: "a@login.cuny.edu", password: "pw", totpSecret: "" };
+    const stored = unwrap(await encryptVault(payload, MASTER));
+    expect(unwrap(await decryptVault(stored, MASTER))).toEqual(payload);
+  });
+});
+
+describe("isStoredVault — additional edge cases", () => {
+  const base: StoredVault = { version: 1, saltB64: "abc", ivB64: "def", ciphertextB64: "ghi" };
+
+  test("ivB64 is a number → false", () => {
+    expect(isStoredVault({ ...base, ivB64: 99 })).toBe(false);
+  });
+
+  test("ciphertextB64 is a number → false", () => {
+    expect(isStoredVault({ ...base, ciphertextB64: 0 })).toBe(false);
+  });
+
+  test("ciphertextB64 is null → false", () => {
+    expect(isStoredVault({ ...base, ciphertextB64: null })).toBe(false);
+  });
+
+  test("version: 0 → false", () => {
+    expect(isStoredVault({ ...base, version: 0 })).toBe(false);
+  });
+
+  test("all fields present but version is undefined → false", () => {
+    const { version: _v, ...noVersion } = base;
+    expect(isStoredVault(noVersion)).toBe(false);
   });
 });

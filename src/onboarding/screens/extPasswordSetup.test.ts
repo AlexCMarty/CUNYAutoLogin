@@ -271,3 +271,153 @@ describe("mountExtPasswordSetupScreen — vault save failure", () => {
     root.remove();
   });
 });
+
+describe("mountExtPasswordSetupScreen — password toggle", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  test("pw toggle button reveals the password field", () => {
+    const { ctx, root } = makeCtx();
+    mountExtPasswordSetupScreen(ctx);
+    const pwInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-input='true']")!;
+    const toggle = root.querySelector<HTMLButtonElement>("[data-onboarding-ext-password-toggle='true']")!;
+    expect(pwInput.type).toBe("password");
+    toggle.click();
+    expect(pwInput.type).toBe("text");
+  });
+
+  test("pw toggle button hides the password field when clicked again", () => {
+    const { ctx, root } = makeCtx();
+    mountExtPasswordSetupScreen(ctx);
+    const pwInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-input='true']")!;
+    const toggle = root.querySelector<HTMLButtonElement>("[data-onboarding-ext-password-toggle='true']")!;
+    toggle.click();
+    toggle.click();
+    expect(pwInput.type).toBe("password");
+  });
+
+  test("pw toggle updates aria-label to Hide password when showing", () => {
+    const { ctx, root } = makeCtx();
+    mountExtPasswordSetupScreen(ctx);
+    const toggle = root.querySelector<HTMLButtonElement>("[data-onboarding-ext-password-toggle='true']")!;
+    toggle.click();
+    expect(toggle.getAttribute("aria-label")).toBe("Hide password");
+  });
+
+  test("confirm toggle reveals the confirm field", () => {
+    const { ctx, root } = makeCtx();
+    mountExtPasswordSetupScreen(ctx);
+    const confirmInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-confirm='true']")!;
+    const toggle = root.querySelector<HTMLButtonElement>("[data-onboarding-ext-password-confirm-toggle='true']")!;
+    expect(confirmInput.type).toBe("password");
+    toggle.click();
+    expect(confirmInput.type).toBe("text");
+  });
+});
+
+describe("mountExtPasswordSetupScreen — keyboard navigation", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  const fireInput = (el: HTMLInputElement, value: string): void => {
+    el.value = value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  test("Enter on pw input moves focus to confirm input", () => {
+    const { ctx, root } = makeCtx();
+    mountExtPasswordSetupScreen(ctx);
+    const pwInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-input='true']")!;
+    const confirmInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-confirm='true']")!;
+    const focusSpy = vi.spyOn(confirmInput, "focus");
+    pwInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(focusSpy).toHaveBeenCalled();
+  });
+
+  test("Enter on confirm input triggers forward button click when enabled", async () => {
+    const { ctx, root, dispatched } = makeCtx();
+    mountExtPasswordSetupScreen(ctx);
+    const pwInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-input='true']")!;
+    const confirmInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-confirm='true']")!;
+    fireInput(pwInput, "Passw0rd!");
+    fireInput(confirmInput, "Passw0rd!");
+    confirmInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await vi.waitFor(() => {
+      expect(dispatched).toContain("EXT_PASSWORD_SAVED");
+    });
+  });
+});
+
+describe("mountExtPasswordSetupScreen — inline same-as-CUNY error from vault save", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
+  test("shows same-as-CUNY message copy when extension password equals CUNY password", async () => {
+    // Simulate the vault save path detecting sameness (snapshot.password matches)
+    const shared = "SharedPass99!";
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const { ctx } = makeCtx(root, { password: shared });
+    mountExtPasswordSetupScreen(ctx);
+
+    const pwInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-input='true']")!;
+    const confirmInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-confirm='true']")!;
+    const forwardBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-ext-password-forward='true']")!;
+    const sameAsCuny = root.querySelector<HTMLElement>("[data-onboarding-ext-password-same-as-cuny='true']")!;
+
+    const fire = (el: HTMLInputElement, value: string): void => {
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+
+    // Enter a different-but-long password so validation passes sync, then manually
+    // override to the shared value to test the vault-path check.
+    fire(pwInput, "DifferentPass99!");
+    fire(confirmInput, "DifferentPass99!");
+
+    // Now set password to the CUNY value directly on the input (bypassing sync validation)
+    pwInput.value = shared;
+    confirmInput.value = shared;
+    // Re-run validation manually via a synthetic input event
+    pwInput.dispatchEvent(new Event("input", { bubbles: true }));
+    confirmInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // At this point forward is disabled by sync validation because same-as-cuny
+    expect(sameAsCuny.hidden).toBe(false);
+    expect(forwardBtn.disabled).toBe(true);
+    root.remove();
+  });
+});
+
+describe("mountExtPasswordSetupScreen — unmount detaches handlers", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  test("unmount detaches input handlers (forward no longer fires)", async () => {
+    const { ctx, root, dispatched } = makeCtx();
+    const handle = mountExtPasswordSetupScreen(ctx);
+    const pwInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-input='true']")!;
+    const confirmInput = root.querySelector<HTMLInputElement>("[data-onboarding-ext-password-confirm='true']")!;
+    const forwardBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-ext-password-forward='true']")!;
+
+    const fire = (el: HTMLInputElement, value: string): void => {
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    fire(pwInput, "Passw0rd!");
+    fire(confirmInput, "Passw0rd!");
+
+    handle.unmount();
+    forwardBtn.click();
+
+    // No dispatch should have fired after unmount
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(dispatched).not.toContain("EXT_PASSWORD_SAVED");
+  });
+});

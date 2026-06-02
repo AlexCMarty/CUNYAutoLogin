@@ -135,3 +135,80 @@ describe("mountAllowGateScreen — interactions", () => {
     expect(dispatched).not.toContain("BACK");
   });
 });
+
+describe("mountAllowGateScreen — copy strings", () => {
+  test("headline copy is pinned", () => {
+    const { ctx } = makeCtx();
+    mountAllowGateScreen(ctx);
+    const h2 = document.querySelector<HTMLElement>("h2")!;
+    expect(h2.textContent).toBe("One tap on the CUNY tab, then we keep going.");
+  });
+
+  test("body copy is pinned", () => {
+    const { ctx } = makeCtx();
+    mountAllowGateScreen(ctx);
+    const body = document.querySelector<HTMLElement>(".onboarding-body")!;
+    expect(body.textContent).toBe("Click Allow on the CUNY tab to continue.");
+  });
+
+  test("directional line copy is pinned", () => {
+    const { ctx } = makeCtx();
+    mountAllowGateScreen(ctx);
+    const directional = document.querySelector<HTMLElement>(".onboarding-directional")!;
+    expect(directional.textContent).toBe("We've highlighted the button on the CUNY tab.");
+  });
+
+  test("waiting label copy mentions the CUNY tab", () => {
+    const { ctx } = makeCtx();
+    mountAllowGateScreen(ctx);
+    const waiting = document.querySelector<HTMLElement>(".onboarding-waiting-label")!;
+    expect(waiting.textContent).toContain("Waiting for you to finish on the CUNY tab");
+  });
+
+  test("recovery message copy mentions the Allow button", () => {
+    const { ctx } = makeCtx();
+    mountAllowGateScreen(ctx);
+    const recovery = document.querySelector<HTMLElement>("[data-onboarding-recovery-message='true']")!;
+    expect(recovery.textContent).toContain("Allow button");
+  });
+
+  test("back button label is 'Back'", () => {
+    const { ctx } = makeCtx();
+    mountAllowGateScreen(ctx);
+    const btn = document.querySelector<HTMLButtonElement>(ALLOW_GATE_BACK_SELECTOR)!;
+    expect(btn.textContent).toBe("Back");
+  });
+});
+
+describe("mountAllowGateScreen — pulse element", () => {
+  test("renders pulse wrap with aria-hidden", () => {
+    const { ctx } = makeCtx();
+    mountAllowGateScreen(ctx);
+    const wrap = document.querySelector<HTMLElement>(".onboarding-pulse-wrap")!;
+    expect(wrap.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  test("renders pulse span inside pulse wrap", () => {
+    const { ctx } = makeCtx();
+    mountAllowGateScreen(ctx);
+    const pulse = document.querySelector(".onboarding-pulse-wrap .onboarding-pulse");
+    expect(pulse).not.toBeNull();
+  });
+});
+
+describe("mountAllowGateScreen — overlay send on show command", () => {
+  test("show overlay includes targetSpec and tooltipText", () => {
+    const { ctx } = makeCtx();
+    mountAllowGateScreen(ctx);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        targetSpec: expect.objectContaining({ type: "css" }),
+        tooltipText: expect.any(String),
+        stepIndex: expect.any(Number),
+        stepTotal: expect.any(Number),
+      })
+    );
+  });
+});

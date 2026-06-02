@@ -1,18 +1,42 @@
 import { describe, expect, test } from "vitest";
 import {
+  BRIGHTSPACE_HOME_URL,
+  CREDENTIAL_ERROR_ELEMENT_ID,
+  CREDENTIAL_ERROR_TEXT_MARKER,
+  CREDENTIAL_INPUT_IDS,
   CREDENTIAL_PAGE_PATH_MARKERS,
+  CUNY_ALLOW_GATE_BTN_SELECTOR,
+  CUNY_LOGIN_ENTRY_URL,
+  ENROLLED_FACTOR_ALIAS_SESSION_KEY,
+  EXTENSION_NAME,
   LOGIN_EMAIL_SUFFIX,
+  MFA_CONSENT_PAGE_PATH_MARKER,
+  OAA_RUI_LOGOUT_URL,
   OAA_RUI_OIDC_ACCESS_DENIED_ERROR,
   OAA_RUI_OIDC_REDIRECT_PATH,
+  PENDING_TOTP_SECRET_SESSION_KEY,
   RUI_MFA_ENROLL_VERIFY_PAGE_URL,
+  SESSION_MASTER_KEY,
   SSO_LOGIN_HOST,
   SSO_LOGIN_ORIGIN,
   SSO_LOGIN_TABS_QUERY_URL_PATTERN,
+  TOTP_ERROR_EMSG_PARAM,
+  TOTP_OTP_INPUT_ID,
+  TOTP_SECRET_LEN_MAX,
+  TOTP_SECRET_LEN_MIN,
+  TOTP_VERIFY_BUTTON_LABEL,
+  WEBAUTHN_RP_ID,
+  isAllowedReopenCunyTabUrl,
+  isBrightspaceUrl,
+  isTrustedContentScriptMessageHostname,
+  matchesCredentialErrorUrl,
   matchesCredentialPage,
+  matchesMfaConsentPage,
   matchesOaaRuiAccessDeniedRedirect,
   matchesRuiMfaEnrollVerifyPage,
   matchesTotpEnrollPage,
   matchesTotpPage,
+  normalizeTotpSecretCandidate,
 } from "./ssoSite";
 
 describe("matchesCredentialPage", () => {
@@ -188,5 +212,258 @@ describe("constants", () => {
 
   test('RUI_MFA_ENROLL_VERIFY_PAGE_URL is "https://ssologin.cuny.edu/oaa/rui/index.html?h_ra=1"', () => {
     expect(RUI_MFA_ENROLL_VERIFY_PAGE_URL).toBe("https://ssologin.cuny.edu/oaa/rui/index.html?h_ra=1");
+  });
+});
+
+describe("additional constants", () => {
+  test('BRIGHTSPACE_HOME_URL is "https://brightspace.cuny.edu/d2l/home"', () => {
+    expect(BRIGHTSPACE_HOME_URL).toBe("https://brightspace.cuny.edu/d2l/home");
+  });
+
+  test('OAA_RUI_LOGOUT_URL is "https://ssologin.cuny.edu/oaa/rui/user/v1/logout"', () => {
+    expect(OAA_RUI_LOGOUT_URL).toBe("https://ssologin.cuny.edu/oaa/rui/user/v1/logout");
+  });
+
+  test('CUNY_LOGIN_ENTRY_URL is "https://ssologin.cuny.edu/oaa/rui"', () => {
+    expect(CUNY_LOGIN_ENTRY_URL).toBe("https://ssologin.cuny.edu/oaa/rui");
+  });
+
+  test('EXTENSION_NAME is "CUNYAutoLogin"', () => {
+    expect(EXTENSION_NAME).toBe("CUNYAutoLogin");
+  });
+
+  test('WEBAUTHN_RP_ID is "ssologin.cuny.edu"', () => {
+    expect(WEBAUTHN_RP_ID).toBe("ssologin.cuny.edu");
+  });
+
+  test('SESSION_MASTER_KEY is "cunySessionMaster"', () => {
+    expect(SESSION_MASTER_KEY).toBe("cunySessionMaster");
+  });
+
+  test('PENDING_TOTP_SECRET_SESSION_KEY is "cunyPendingTotpSecretFromSso"', () => {
+    expect(PENDING_TOTP_SECRET_SESSION_KEY).toBe("cunyPendingTotpSecretFromSso");
+  });
+
+  test('ENROLLED_FACTOR_ALIAS_SESSION_KEY is "cunyEnrolledFactorAlias"', () => {
+    expect(ENROLLED_FACTOR_ALIAS_SESSION_KEY).toBe("cunyEnrolledFactorAlias");
+  });
+
+  test('TOTP_OTP_INPUT_ID is "otpValue|input"', () => {
+    expect(TOTP_OTP_INPUT_ID).toBe("otpValue|input");
+  });
+
+  test('TOTP_VERIFY_BUTTON_LABEL is "Verify"', () => {
+    expect(TOTP_VERIFY_BUTTON_LABEL).toBe("Verify");
+  });
+
+  test('TOTP_ERROR_EMSG_PARAM is "emsg"', () => {
+    expect(TOTP_ERROR_EMSG_PARAM).toBe("emsg");
+  });
+
+  test("TOTP_SECRET_LEN_MIN is 10", () => {
+    expect(TOTP_SECRET_LEN_MIN).toBe(10);
+  });
+
+  test("TOTP_SECRET_LEN_MAX is 128", () => {
+    expect(TOTP_SECRET_LEN_MAX).toBe(128);
+  });
+
+  test('CUNY_ALLOW_GATE_BTN_SELECTOR is \'button[onclick="allow()"]\' ', () => {
+    expect(CUNY_ALLOW_GATE_BTN_SELECTOR).toBe('button[onclick="allow()"]');
+  });
+
+  test('MFA_CONSENT_PAGE_PATH_MARKER is "mfaConsent"', () => {
+    expect(MFA_CONSENT_PAGE_PATH_MARKER).toBe("mfaConsent");
+  });
+
+  test("CREDENTIAL_INPUT_IDS has correct field values", () => {
+    expect(CREDENTIAL_INPUT_IDS.username).toBe("CUNYLoginUsernameDisplay");
+    expect(CREDENTIAL_INPUT_IDS.password).toBe("CUNYLoginPassword");
+    expect(CREDENTIAL_INPUT_IDS.submitButton).toBe("submit");
+  });
+
+  test('CREDENTIAL_ERROR_ELEMENT_ID is "serverError"', () => {
+    expect(CREDENTIAL_ERROR_ELEMENT_ID).toBe("serverError");
+  });
+
+  test('CREDENTIAL_ERROR_TEXT_MARKER is "Incorrect Username or Password"', () => {
+    expect(CREDENTIAL_ERROR_TEXT_MARKER).toBe("Incorrect Username or Password");
+  });
+});
+
+describe("normalizeTotpSecretCandidate", () => {
+  test("valid uppercase Base32 → returned unchanged", () => {
+    expect(normalizeTotpSecretCandidate("JBSWY3DPEHPK3PXP")).toBe("JBSWY3DPEHPK3PXP");
+  });
+
+  test("lowercase → uppercased", () => {
+    expect(normalizeTotpSecretCandidate("jbswy3dpehpk3pxp")).toBe("JBSWY3DPEHPK3PXP");
+  });
+
+  test("spaces stripped", () => {
+    expect(normalizeTotpSecretCandidate("JBSWY3DP EHPK3PXP")).toBe("JBSWY3DPEHPK3PXP");
+  });
+
+  test("trailing padding stripped", () => {
+    expect(normalizeTotpSecretCandidate("JBSWY3DPEHPK3PXP==")).toBe("JBSWY3DPEHPK3PXP");
+  });
+
+  test("exactly 10 chars (lower boundary) → accepted", () => {
+    expect(normalizeTotpSecretCandidate("ABCDEFGHIJ")).toBe("ABCDEFGHIJ");
+  });
+
+  test("exactly 128 chars (upper boundary) → accepted", () => {
+    const secret = "A".repeat(128);
+    expect(normalizeTotpSecretCandidate(secret)).toBe(secret);
+  });
+
+  test("9 chars after normalization → null (below minimum)", () => {
+    expect(normalizeTotpSecretCandidate("ABCDEFGHI")).toBeNull();
+  });
+
+  test("129 chars after normalization → null (above maximum)", () => {
+    expect(normalizeTotpSecretCandidate("A".repeat(129))).toBeNull();
+  });
+
+  test("invalid char '0' → null", () => {
+    expect(normalizeTotpSecretCandidate("ABCDEFGH0J")).toBeNull();
+  });
+
+  test("invalid char '1' → null", () => {
+    expect(normalizeTotpSecretCandidate("ABCDEFGH1J")).toBeNull();
+  });
+
+  test("invalid char '8' → null", () => {
+    expect(normalizeTotpSecretCandidate("ABCDEFGH8J")).toBeNull();
+  });
+
+  test("digits 2-7 are accepted", () => {
+    expect(normalizeTotpSecretCandidate("ABCDE23456")).toBe("ABCDE23456");
+  });
+
+  test("empty string → null", () => {
+    expect(normalizeTotpSecretCandidate("")).toBeNull();
+  });
+
+  test("spaces + lowercase + padding all normalized together", () => {
+    expect(normalizeTotpSecretCandidate("jbswy3dp ehpk3pxp=")).toBe("JBSWY3DPEHPK3PXP");
+  });
+});
+
+describe("isAllowedReopenCunyTabUrl", () => {
+  test("ssologin.cuny.edu https URL → true", () => {
+    expect(isAllowedReopenCunyTabUrl(`${SSO_LOGIN_ORIGIN}/oam/server/obrareq.cgi`)).toBe(true);
+  });
+
+  test("brightspace.cuny.edu https URL → true", () => {
+    expect(isAllowedReopenCunyTabUrl(BRIGHTSPACE_HOME_URL)).toBe(true);
+  });
+
+  test("http scheme → false (not https)", () => {
+    expect(isAllowedReopenCunyTabUrl(`http://${SSO_LOGIN_HOST}/oam/`)).toBe(false);
+  });
+
+  test("different host → false", () => {
+    expect(isAllowedReopenCunyTabUrl("https://example.com/page")).toBe(false);
+  });
+
+  test("URL with userinfo → false", () => {
+    expect(isAllowedReopenCunyTabUrl(`https://user@${SSO_LOGIN_HOST}/`)).toBe(false);
+  });
+
+  test("invalid URL string → false without throwing", () => {
+    expect(isAllowedReopenCunyTabUrl("not a url")).toBe(false);
+  });
+
+  test("empty string → false without throwing", () => {
+    expect(isAllowedReopenCunyTabUrl("")).toBe(false);
+  });
+});
+
+describe("isBrightspaceUrl", () => {
+  test("brightspace.cuny.edu URL → true", () => {
+    expect(isBrightspaceUrl(BRIGHTSPACE_HOME_URL)).toBe(true);
+  });
+
+  test("ssologin.cuny.edu URL → false", () => {
+    expect(isBrightspaceUrl(SSO_LOGIN_ORIGIN)).toBe(false);
+  });
+
+  test("invalid URL → false without throwing", () => {
+    expect(isBrightspaceUrl("not a url")).toBe(false);
+  });
+
+  test("empty string → false without throwing", () => {
+    expect(isBrightspaceUrl("")).toBe(false);
+  });
+
+  test("http brightspace URL → true (scheme not checked)", () => {
+    expect(isBrightspaceUrl("http://brightspace.cuny.edu/d2l/home")).toBe(true);
+  });
+});
+
+describe("isTrustedContentScriptMessageHostname", () => {
+  test("ssologin.cuny.edu → true", () => {
+    expect(isTrustedContentScriptMessageHostname("ssologin.cuny.edu")).toBe(true);
+  });
+
+  test("127.0.0.1 → true (local E2E fixture)", () => {
+    expect(isTrustedContentScriptMessageHostname("127.0.0.1")).toBe(true);
+  });
+
+  test("localhost → true (local E2E fixture)", () => {
+    expect(isTrustedContentScriptMessageHostname("localhost")).toBe(true);
+  });
+
+  test("example.com → false", () => {
+    expect(isTrustedContentScriptMessageHostname("example.com")).toBe(false);
+  });
+
+  test("brightspace.cuny.edu → false (not in trust list)", () => {
+    expect(isTrustedContentScriptMessageHostname("brightspace.cuny.edu")).toBe(false);
+  });
+
+  test("evil-ssologin.cuny.edu → false (not exact match)", () => {
+    expect(isTrustedContentScriptMessageHostname("evil-ssologin.cuny.edu")).toBe(false);
+  });
+
+  test("empty string → false", () => {
+    expect(isTrustedContentScriptMessageHostname("")).toBe(false);
+  });
+});
+
+describe("matchesCredentialErrorUrl", () => {
+  test("URL with auth_cred_submit path → true", () => {
+    expect(matchesCredentialErrorUrl(
+      `${SSO_LOGIN_ORIGIN}/oam/server/auth_cred_submit`
+    )).toBe(true);
+  });
+
+  test("credential page URL → false", () => {
+    expect(matchesCredentialErrorUrl(
+      `${SSO_LOGIN_ORIGIN}/oam/server/obrareq.cgi`
+    )).toBe(false);
+  });
+
+  test("empty string → false", () => {
+    expect(matchesCredentialErrorUrl("")).toBe(false);
+  });
+});
+
+describe("matchesMfaConsentPage", () => {
+  test("URL with mfaConsent path marker → true", () => {
+    expect(matchesMfaConsentPage(
+      `${SSO_LOGIN_ORIGIN}/cunylogin/pages/mfaConsent.jsp`
+    )).toBe(true);
+  });
+
+  test("credential page URL → false", () => {
+    expect(matchesMfaConsentPage(
+      `${SSO_LOGIN_ORIGIN}/oam/server/obrareq.cgi`
+    )).toBe(false);
+  });
+
+  test("empty string → false", () => {
+    expect(matchesMfaConsentPage("")).toBe(false);
   });
 });
