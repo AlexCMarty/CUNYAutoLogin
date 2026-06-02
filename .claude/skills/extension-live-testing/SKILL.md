@@ -5,7 +5,7 @@ description: >-
   explore UI flows, spot-check layouts with screenshots, hunt edge cases, or gather evidence for .map/ updates.
   Uses real CUNY pages and credentials — not fixtures. Use when the user asks to test, verify, explore, reproduce,
   spot-check, screenshot, or validate live extension behavior after unit/E2E tests or alongside docs.
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Extension live testing (CUNYAutoLogin)

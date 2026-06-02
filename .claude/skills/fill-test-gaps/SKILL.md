@@ -10,6 +10,7 @@ triggers:
   - write missing tests
   - improve test coverage
   - find gaps in tests
+disable-model-invocation: false
 ---
 
 # Fill Test Gaps

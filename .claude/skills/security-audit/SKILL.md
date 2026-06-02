@@ -1,7 +1,7 @@
 ---
 name: security-audit
 description: Full security audit for CUNYAutoLogin — credential lifecycle, storage, crypto, logging, message surface, cookies, and git history. Severity-ranked findings with false-positive guardrails.
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Security Audit

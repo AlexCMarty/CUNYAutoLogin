@@ -1,7 +1,7 @@
 ---
 name: doc-alignment
 description: Audit alignment between agent docs and repository reality by treating docs as hypotheses and code as source of truth. Use when the user asks for doc alignment, stale docs checks, trust-but-verify audits, or mismatch reports.
-disable-model-invocation: true
+disable-model-invocation: false
 ---
 
 # Doc Alignment Audit
