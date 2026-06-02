@@ -59,7 +59,7 @@ Both `KEY_FROM_*` screens use the shared `pasteKeyScreen.ts` component. On **Con
 `testLogin.ts` fires three messages immediately on mount (best-effort, errors are dev-only logged):
 1. `LOGOUT_CUNY_SESSIONS` — terminates any existing OAA session.
 2. `STAGE_ONBOARDING_CREDENTIALS` — stages email + password so the content script can fill them.
-3. `browser.tabs.create` — opens `CUNY_LOGIN_ENTRY_URL` (overridable via `#cuny=<url>` in dev mode).
+3. `browser.tabs.create` — opens `BRIGHTSPACE_HOME_URL` (overridable via `#cuny=<url>` in dev mode). Brightspace redirects through SAML (`/oamfed/idp/samlv20`) for credential/TOTP autofill, then lands on Brightspace home — no allow gate.
 
 `TEST_LOGIN` is listed in `CUNY_REATTACHABLE_STATES`, so the tab-reattach resume mechanism works the same way as `OPENING_CUNY`.
 
@@ -69,7 +69,7 @@ The service worker supplies the pasted TOTP secret for the login challenge: when
 
 | Signal | Source | Sidebar action |
 |---|---|---|
-| `allow_gate` stage detected | `handleAllowGate` in render.ts | `TEST_SUCCEEDED` → complete-demo path |
+| `d2lSessionVal` or `d2lSecureSessionVal` cookie set on `brightspace.cuny.edu` | `wireBrightspaceCookieDetection` in render.ts (`cookies.onChanged`) | `TEST_SUCCEEDED` → complete-demo path |
 | `ONBOARDING_CREDENTIAL_ERROR` while in `TEST_LOGIN` | content script | `TEST_BAD_CREDENTIALS` → `TEST_LOGIN_BAD_CREDENTIALS` screen |
 | `ONBOARDING_VERIFY_STATUS { status: "second_failure" }` while in `TEST_LOGIN` | content script TOTP error page | `TEST_BAD_KEY` → `TEST_LOGIN_BAD_KEY` screen |
 

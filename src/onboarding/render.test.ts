@@ -16,6 +16,10 @@ vi.mock("webextension-polyfill", () => ({
     },
     tabs: {
       onRemoved: { addListener: vi.fn(), removeListener: vi.fn() },
+      onUpdated: { addListener: vi.fn(), removeListener: vi.fn() },
+    },
+    cookies: {
+      onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
     },
   },
 }));
@@ -249,6 +253,54 @@ describe("mountOnboarding", () => {
     );
     expect(reopenButton).not.toBeNull();
     expect(reopenButton?.hidden).toBe(false);
+  });
+
+  test("cookies.onChanged d2lSessionVal on brightspace.cuny.edu while in TEST_LOGIN advances to EXT_PASSWORD_SETUP", () => {
+    renderOnboardingRoot();
+    mountOnboarding(document, {
+      qaJump: { controllerInit: { initialState: "TEST_LOGIN" }, qaVariant: undefined },
+    });
+    expect(document.querySelector("[data-onboarding-screen='TEST_LOGIN']")).not.toBeNull();
+
+    const cookieListener = vi.mocked(browser.cookies.onChanged.addListener).mock.calls[0]?.[0];
+    if (typeof cookieListener !== "function") throw new Error("cookies.onChanged listener missing");
+
+    cookieListener({
+      removed: false,
+      cookie: { name: "d2lSessionVal", domain: "brightspace.cuny.edu" },
+    } as never);
+    expect(document.querySelector("[data-onboarding-screen='TEST_LOGIN']")).toBeNull();
+    expect(document.querySelector("[data-onboarding-screen='EXT_PASSWORD_SETUP']")).not.toBeNull();
+  });
+
+  test("cookies.onChanged is ignored when cookie is removed", () => {
+    renderOnboardingRoot();
+    mountOnboarding(document, {
+      qaJump: { controllerInit: { initialState: "TEST_LOGIN" }, qaVariant: undefined },
+    });
+    const cookieListener = vi.mocked(browser.cookies.onChanged.addListener).mock.calls[0]?.[0];
+    if (typeof cookieListener !== "function") throw new Error("cookies.onChanged listener missing");
+
+    cookieListener({
+      removed: true,
+      cookie: { name: "d2lSessionVal", domain: "brightspace.cuny.edu" },
+    } as never);
+    expect(document.querySelector("[data-onboarding-screen='TEST_LOGIN']")).not.toBeNull();
+  });
+
+  test("cookies.onChanged is ignored for non-Brightspace domains", () => {
+    renderOnboardingRoot();
+    mountOnboarding(document, {
+      qaJump: { controllerInit: { initialState: "TEST_LOGIN" }, qaVariant: undefined },
+    });
+    const cookieListener = vi.mocked(browser.cookies.onChanged.addListener).mock.calls[0]?.[0];
+    if (typeof cookieListener !== "function") throw new Error("cookies.onChanged listener missing");
+
+    cookieListener({
+      removed: false,
+      cookie: { name: "d2lSessionVal", domain: "evil.example.com" },
+    } as never);
+    expect(document.querySelector("[data-onboarding-screen='TEST_LOGIN']")).not.toBeNull();
   });
 
   test("bridge ONBOARDING_VERIFY_STATUS(second_failure) reveals verify pause message", () => {

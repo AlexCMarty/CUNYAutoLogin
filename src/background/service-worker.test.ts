@@ -1116,7 +1116,7 @@ describe("LOGOUT_CUNY_SESSIONS", () => {
       },
     ] as never);
     expect(await handler({ type: "LOGOUT_CUNY_SESSIONS" }, EXT_SENDER)).toEqual({ ok: true });
-    expect(vi.mocked(browser.cookies.remove)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(browser.cookies.remove)).toHaveBeenCalledTimes(4);
     expect(vi.mocked(browser.cookies.remove)).toHaveBeenNthCalledWith(1, {
       name: "OAM_ID",
       url: `https://${SSO_LOGIN_HOST}/`,
@@ -1126,6 +1126,14 @@ describe("LOGOUT_CUNY_SESSIONS", () => {
       name: "oaaCtx",
       url: `https://${SSO_LOGIN_HOST}/oaa/`,
       storeId: "0",
+    });
+    expect(vi.mocked(browser.cookies.remove)).toHaveBeenNthCalledWith(3, {
+      name: "d2lSessionVal",
+      url: BRIGHTSPACE_HOME_URL,
+    });
+    expect(vi.mocked(browser.cookies.remove)).toHaveBeenNthCalledWith(4, {
+      name: "d2lSecureSessionVal",
+      url: BRIGHTSPACE_HOME_URL,
     });
   });
 

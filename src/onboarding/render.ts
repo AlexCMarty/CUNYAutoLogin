@@ -39,7 +39,9 @@ import {
   isOnboardingMessage,
 } from "./messages";
 import {
+  BRIGHTSPACE_SESSION_COOKIE_NAMES,
   PENDING_TOTP_SECRET_SESSION_KEY,
+  isBrightspaceCookieDomain,
   isTrustedContentScriptMessageHostname,
 } from "../cuny/ssoSite";
 import { SCREEN_MOUNTS } from "./screenMounts";
@@ -672,6 +674,39 @@ const wireTabCloseDetection = (
   };
 };
 
+// When the Brightspace IdP sets a session cookie the SAML login succeeded.
+// Uses cookies.onChanged so success is detected even when the SSO server-side
+// session was still alive and the credential page was bypassed (no content-script
+// message → activeCunyTabIdRef stays null → tabs.onUpdated guard would never fire).
+const wireBrightspaceCookieDetection = (
+  controller: OnboardingController,
+): () => void => {
+  const cookiesOnChanged = (browser.cookies as unknown as {
+    onChanged?: {
+      addListener?: (listener: (changeInfo: { removed: boolean; cookie: { name: string; domain: string } }) => void) => void;
+      removeListener?: (listener: (changeInfo: { removed: boolean; cookie: { name: string; domain: string } }) => void) => void;
+    };
+  }).onChanged;
+  const onCookieChanged = (changeInfo: { removed: boolean; cookie: { name: string; domain: string } }): void => {
+    if (changeInfo.removed) return;
+    if (!(BRIGHTSPACE_SESSION_COOKIE_NAMES as readonly string[]).includes(changeInfo.cookie.name)) return;
+    if (!isBrightspaceCookieDomain(changeInfo.cookie.domain)) return;
+    dispatchIfState(controller, "TEST_LOGIN", "TEST_SUCCEEDED");
+  };
+  try {
+    cookiesOnChanged?.addListener?.(onCookieChanged);
+  } catch (error) {
+    reportOnboardingFailure("cookies.onChanged.addListener", error);
+  }
+  return () => {
+    try {
+      cookiesOnChanged?.removeListener?.(onCookieChanged);
+    } catch (error) {
+      reportOnboardingFailure("cookies.onChanged.removeListener", error);
+    }
+  };
+};
+
 // Session snapshot lets the student resume without re-entering email/password after a reload.
 const loadAndApplyResumeSnapshot = async (
   setPendingResumeSnapshot: (snapshot: PendingResumeSnapshot) => void,
@@ -718,6 +753,7 @@ type OnboardingUnmountBag = {
   readonly unsubscribe: () => void;
   readonly uninstallBridge: () => void;
   readonly unwireTabClose: () => void;
+  readonly unwireBrightspaceCookie: () => void;
   readonly resumeButton: HTMLButtonElement;
   readonly reopenCunyButton: HTMLButtonElement;
   readonly handleResume: () => void;
@@ -734,6 +770,7 @@ const runOnboardingUnmount = (bag: OnboardingUnmountBag): void => {
   bag.unsubscribe();
   bag.uninstallBridge();
   bag.unwireTabClose();
+  bag.unwireBrightspaceCookie();
   bag.resumeButton.removeEventListener("click", bag.handleResume);
   bag.reopenCunyButton.removeEventListener("click", bag.handleReopenCuny);
   if (!bag.suppressResumeSnapshots) {
@@ -902,6 +939,7 @@ const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
       activeCunyTabIdRef,
       isCunyTabMissingFlag: refs.isCunyTabMissingFlag,
     });
+  const unwireBrightspaceCookie = wireBrightspaceCookieDetection(controller);
 
   repaint();
   if (!suppressResumeSnapshots) {
@@ -912,7 +950,8 @@ const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
   }
 
   const bag: OnboardingUnmountBag = {
-    unsubscribe, uninstallBridge, unwireTabClose, resumeButton, reopenCunyButton,
+    unsubscribe, uninstallBridge, unwireTabClose, unwireBrightspaceCookie,
+    resumeButton, reopenCunyButton,
     handleResume, handleReopenCuny, controller,
     screenHandleRef: refs.screenHandleRef, header, shell, restoreVaultMainWrap,
     suppressResumeSnapshots,

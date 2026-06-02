@@ -569,6 +569,7 @@ const coreMessageRoutes = (
         return { ok: false as const };
       }
       await terminateOaaRuiSessions();
+      await clearBrightspaceSessionCookies();
       return { ok: true as const };
     })(),
   AUTO_FILL_REQUEST: (typedMessage) =>

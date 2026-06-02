@@ -49,6 +49,16 @@ const BRIGHTSPACE_HOST = "brightspace.cuny.edu" as const;
 export const BRIGHTSPACE_HOME_URL =
   `https://${BRIGHTSPACE_HOST}/d2l/home` as const;
 
+/** Brightspace session cookies set by the IdP on successful SAML login. */
+export const BRIGHTSPACE_SESSION_COOKIE_NAMES = [
+  "d2lSessionVal",
+  "d2lSecureSessionVal",
+] as const;
+
+/** True when `domain` is the Brightspace host (bare or dot-prefix form). */
+export const isBrightspaceCookieDomain = (domain: string): boolean =>
+  domain === BRIGHTSPACE_HOST || domain === `.${BRIGHTSPACE_HOST}`;
+
 /** True when `url` is an https URL on the configured Brightspace host. */
 export const isBrightspaceUrl = (url: string): boolean => {
   try {

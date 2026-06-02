@@ -6,10 +6,11 @@
  *   1. Sends LOGOUT_CUNY_SESSIONS to terminate any existing OAA session.
  *   2. Stages email + password via STAGE_ONBOARDING_CREDENTIALS so the
  *      content script can auto-fill them.
- *   3. Opens the CUNY entry URL in a new tab.
+ *   3. Opens Brightspace in a new tab (SAML flow hits ssologin for autofill,
+ *      then redirects back to Brightspace on success — no allow gate).
  *
  * The render bridge in render.ts then drives the result:
- *   - allow_gate stage → TEST_SUCCEEDED
+ *   - Brightspace URL landing in tab → TEST_SUCCEEDED
  *   - ONBOARDING_CREDENTIAL_ERROR while in TEST_LOGIN → TEST_BAD_CREDENTIALS
  *   - ONBOARDING_VERIFY_STATUS second_failure while in TEST_LOGIN → TEST_BAD_KEY
  *
@@ -18,7 +19,7 @@
  */
 
 import browser from "webextension-polyfill";
-import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
+import { BRIGHTSPACE_HOME_URL } from "../../cuny/ssoSite";
 import type { LogoutCunySessionsRequest, StageOnboardingCredentials } from "../messages";
 import { DEV_MODE_NAMES } from "../devModes";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
@@ -33,13 +34,13 @@ const reportTestLoginFailure = (where: string, error: unknown): void => {
 };
 
 const resolveCunyEntryUrl = (): string => {
-  if (!isDevMode() || typeof window === "undefined") return CUNY_LOGIN_ENTRY_URL;
+  if (!isDevMode() || typeof window === "undefined") return BRIGHTSPACE_HOME_URL;
   try {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const override = params.get("cuny");
     if (override && override.length > 0) return override;
   } catch { /* fall through */ }
-  return CUNY_LOGIN_ENTRY_URL;
+  return BRIGHTSPACE_HOME_URL;
 };
 
 const STEPS = [
