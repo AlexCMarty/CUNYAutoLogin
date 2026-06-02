@@ -106,3 +106,51 @@ describe("mountGuidedFactorTypeScreen", () => {
     );
   });
 });
+
+describe("mountGuidedFactorTypeScreen — copy strings", () => {
+  test("headline copy is pinned", () => {
+    const { ctx } = makeCtx();
+    mountGuidedFactorTypeScreen(ctx);
+    const h2 = document.querySelector("h2");
+    expect(h2?.textContent).toBe("Choose Mobile Authenticator.");
+  });
+
+  test("body copy mentions TOTP", () => {
+    const { ctx } = makeCtx();
+    mountGuidedFactorTypeScreen(ctx);
+    const body = document.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("TOTP");
+  });
+
+  test("tab hint is rendered", () => {
+    const { ctx } = makeCtx();
+    mountGuidedFactorTypeScreen(ctx);
+    const hint = document.querySelector(".onboarding-directional");
+    expect(hint?.textContent).toContain("highlighted the next control");
+  });
+});
+
+describe("mountGuidedFactorTypeScreen — overlay a11y targetSpec", () => {
+  test("show overlay uses a11y targetSpec with TOTP menuitem text", () => {
+    const { ctx } = makeCtx();
+    mountGuidedFactorTypeScreen(ctx);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetSpec: expect.objectContaining({
+          type: "a11y",
+          text: "Mobile Authenticator - TOTP",
+        }),
+      })
+    );
+  });
+
+  test("tooltip text matches the TOTP menuitem text", () => {
+    const { ctx } = makeCtx();
+    mountGuidedFactorTypeScreen(ctx);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tooltipText: "Mobile Authenticator - TOTP",
+      })
+    );
+  });
+});

@@ -181,3 +181,50 @@ describe("unmountTotpErrorBanner", () => {
     expect(() => unmountTotpErrorBanner(document)).not.toThrow();
   });
 });
+
+describe("mountCredentialErrorBanner — badge text", () => {
+  test("badge element contains the extension name text", () => {
+    const banner = mountCredentialErrorBanner(document);
+    const badge = banner.querySelector("[data-cunyautologin-banner-badge]");
+    expect(badge?.textContent).toBeTruthy();
+  });
+
+  test("badge aria-hidden is 'false'", () => {
+    const banner = mountCredentialErrorBanner(document);
+    const badge = banner.querySelector("[data-cunyautologin-banner-badge]");
+    expect(badge?.getAttribute("aria-hidden")).toBe("false");
+  });
+});
+
+describe("mountTotpErrorBanner — badge text and retry interaction", () => {
+  test("badge element contains the extension name text", () => {
+    const banner = mountTotpErrorBanner(vi.fn(), document);
+    // Badge is the first span child
+    const badge = banner.querySelector("span");
+    expect(badge?.textContent).toBeTruthy();
+  });
+
+  test("retry button has type='button'", () => {
+    mountTotpErrorBanner(vi.fn(), document);
+    const btn = document.querySelector<HTMLButtonElement>("button");
+    expect(btn?.getAttribute("type")).toBe("button");
+  });
+
+  test("clicking retry on the existing banner (second mountTotpErrorBanner call) still calls original onRetry once", () => {
+    const onRetry1 = vi.fn();
+    const onRetry2 = vi.fn();
+    mountTotpErrorBanner(onRetry1, document);
+    // Second call is a no-op returning the existing element — onRetry2 is never wired
+    mountTotpErrorBanner(onRetry2, document);
+    const btn = document.querySelector<HTMLButtonElement>("button")!;
+    btn.click();
+    expect(onRetry1).toHaveBeenCalledOnce();
+    expect(onRetry2).not.toHaveBeenCalled();
+  });
+
+  test("calling unmountTotpErrorBanner twice does not throw", () => {
+    mountTotpErrorBanner(vi.fn(), document);
+    unmountTotpErrorBanner(document);
+    expect(() => unmountTotpErrorBanner(document)).not.toThrow();
+  });
+});

@@ -102,3 +102,58 @@ describe("mountGuidedManageScreen", () => {
     );
   });
 });
+
+describe("mountGuidedManageScreen — copy strings", () => {
+  test("headline copy is pinned", () => {
+    const { ctx } = makeCtx();
+    mountGuidedManageScreen(ctx);
+    const h2 = document.querySelector("h2");
+    expect(h2?.textContent).toBe("Add a login code on the CUNY tab.");
+  });
+
+  test("body copy mentions Add Authentication Factor", () => {
+    const { ctx } = makeCtx();
+    mountGuidedManageScreen(ctx);
+    const body = document.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("Add Authentication Factor");
+  });
+
+  test("tab hint mentions highlighted control", () => {
+    const { ctx } = makeCtx();
+    mountGuidedManageScreen(ctx);
+    const hint = document.querySelector(".onboarding-directional");
+    expect(hint?.textContent).toContain("highlighted the next control");
+  });
+
+  test("verify-later recovery is hidden initially", () => {
+    const { ctx } = makeCtx();
+    mountGuidedManageScreen(ctx);
+    const el = document.querySelector<HTMLElement>("[data-onboarding-verify-later-recovery='true']")!;
+    expect(el.hidden).toBe(true);
+  });
+});
+
+describe("mountGuidedManageScreen — overlay command details", () => {
+  test("show overlay uses css targetSpec", () => {
+    const { ctx } = makeCtx();
+    mountGuidedManageScreen(ctx);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetSpec: expect.objectContaining({ type: "css" }),
+      })
+    );
+  });
+
+  test("show overlay stepIndex is 2 and stepTotal is 8", () => {
+    const { ctx } = makeCtx();
+    mountGuidedManageScreen(ctx);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        stepIndex: 2,
+        stepTotal: 8,
+      })
+    );
+  });
+});

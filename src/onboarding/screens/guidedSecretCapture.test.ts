@@ -158,3 +158,74 @@ describe("mountGuidedSecretCaptureScreen — DOM removal", () => {
     expect(document.querySelector("[data-onboarding-screen='GUIDED_SECRET_CAPTURE']")).toBeNull();
   });
 });
+
+describe("mountGuidedSecretCaptureScreen — copy strings", () => {
+  test("headline copy is pinned", () => {
+    const { ctx } = makeCtx();
+    mountGuidedSecretCaptureScreen(ctx);
+    const h2 = document.querySelector("h2");
+    expect(h2?.textContent).toBe("Save this login code in the extension.");
+  });
+
+  test("body copy mentions secret key", () => {
+    const { ctx } = makeCtx();
+    mountGuidedSecretCaptureScreen(ctx);
+    const body = document.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("secret key");
+  });
+
+  test("tab hint mentions highlighted control", () => {
+    const { ctx } = makeCtx();
+    mountGuidedSecretCaptureScreen(ctx);
+    const hint = document.querySelector(".onboarding-directional");
+    expect(hint?.textContent).toContain("highlighted the next control");
+  });
+
+  test("secret-confirmed copy mentions captured", () => {
+    const { ctx } = makeCtx();
+    mountGuidedSecretCaptureScreen(ctx);
+    const el = document.querySelector<HTMLElement>("[data-onboarding-secret-confirmed='true']")!;
+    expect(el.textContent).toContain("captured");
+  });
+
+  test("verify-later recovery is hidden initially", () => {
+    const { ctx } = makeCtx();
+    mountGuidedSecretCaptureScreen(ctx);
+    const el = document.querySelector<HTMLElement>("[data-onboarding-verify-later-recovery='true']")!;
+    expect(el.hidden).toBe(true);
+  });
+});
+
+describe("mountGuidedSecretCaptureScreen — polling interval fires", () => {
+  test("polling reveals secret-confirmed when secret appears after mount", async () => {
+    // Secret not available yet on initial call
+    sessionGetMock.mockResolvedValueOnce({});
+    // Secret arrives on second poll
+    sessionGetMock.mockResolvedValue({ [PENDING_TOTP_SECRET_SESSION_KEY]: "JBSWY3DPEHPK3PXP" });
+    const { ctx } = makeCtx();
+    mountGuidedSecretCaptureScreen(ctx);
+    // Drain initial call
+    await Promise.resolve();
+    await Promise.resolve();
+    const elBefore = document.querySelector<HTMLElement>("[data-onboarding-secret-confirmed='true']")!;
+    expect(elBefore.hidden).toBe(true);
+    // Fire the polling interval
+    vi.runOnlyPendingTimers();
+    await Promise.resolve();
+    await Promise.resolve();
+    const elAfter = document.querySelector<HTMLElement>("[data-onboarding-secret-confirmed='true']")!;
+    expect(elAfter.hidden).toBe(false);
+  });
+});
+
+describe("mountGuidedSecretCaptureScreen — overlay a11y targetSpec", () => {
+  test("show overlay uses a11y targetSpec", () => {
+    const { ctx } = makeCtx();
+    mountGuidedSecretCaptureScreen(ctx);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetSpec: expect.objectContaining({ type: "a11y" }),
+      })
+    );
+  });
+});

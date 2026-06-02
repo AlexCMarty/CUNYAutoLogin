@@ -274,3 +274,50 @@ describe("isFillMessage", () => {
     expect(isFillMessage(msg)).toBe(true);
   });
 });
+
+describe("setInputValue — dispatches events with correct properties", () => {
+  test("input event has bubbles=true", () => {
+    const input = document.createElement("input");
+    let bubbles = false;
+    input.addEventListener("input", (ev) => { bubbles = ev.bubbles; });
+    setInputValue(input, "test");
+    expect(bubbles).toBe(true);
+  });
+
+  test("change event has bubbles=true", () => {
+    const input = document.createElement("input");
+    let bubbles = false;
+    input.addEventListener("change", (ev) => { bubbles = ev.bubbles; });
+    setInputValue(input, "test");
+    expect(bubbles).toBe(true);
+  });
+
+  test("value is updated before input event fires", () => {
+    const input = document.createElement("input");
+    let valueAtEvent = "";
+    input.addEventListener("input", () => { valueAtEvent = input.value; });
+    setInputValue(input, "abc");
+    expect(valueAtEvent).toBe("abc");
+  });
+});
+
+describe("simulateKeystrokes — focus and event order", () => {
+  test("deleteContentBackward event fires before insertText events", () => {
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.value = "prior";
+    const inputTypes: string[] = [];
+    input.addEventListener("input", (ev) => inputTypes.push((ev as InputEvent).inputType));
+    simulateKeystrokes(input, "x");
+    expect(inputTypes[0]).toBe("deleteContentBackward");
+    expect(inputTypes[1]).toBe("insertText");
+  });
+
+  test("each character keydown event has correct key property", () => {
+    const input = document.createElement("input");
+    const keys: string[] = [];
+    input.addEventListener("keydown", (ev) => keys.push((ev as KeyboardEvent).key));
+    simulateKeystrokes(input, "XY");
+    expect(keys).toEqual(["X", "Y"]);
+  });
+});

@@ -149,4 +149,97 @@ describe("mountCompleteDemoScreen — unmount clears timers", () => {
     handle.unmount();
     expect(root.querySelector("[data-onboarding-screen='COMPLETE_DEMO']")).toBeNull();
   });
+
+  test("timers cleared on unmount do not fire after removal", () => {
+    const { ctx, dispatched } = makeCtx();
+    const handle = mountCompleteDemoScreen(ctx);
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!;
+    btn.click();
+    // Unmount before timers fire
+    handle.unmount();
+    // Advance all timers — nothing should fire or throw
+    vi.runAllTimers();
+    expect(dispatched.filter((ev) => ev === "DEMO_FINISHED")).toHaveLength(0);
+  });
+});
+
+describe("mountCompleteDemoScreen — animation steps", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  test("renders 5 demo rows (one per DEMO_STEPS entry)", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDemoScreen(ctx);
+    const rows = root.querySelectorAll(".onboarding-demo-row");
+    expect(rows.length).toBe(5);
+  });
+
+  test("first step dot becomes active immediately after Show me click", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDemoScreen(ctx);
+    root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
+    // The first setTimeout fires at stepIdx * 1500ms = 0ms — advance 0ms
+    vi.advanceTimersByTime(0);
+    const dots = root.querySelectorAll<HTMLElement>(".onboarding-demo-dot");
+    expect(dots[0]?.dataset.active).toBe("true");
+  });
+
+  test("Show me hides Skip button", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDemoScreen(ctx);
+    const skipBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-demo-skip='true']")!;
+    root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
+    expect(skipBtn.hidden).toBe(true);
+  });
+
+  test("status element revealed and Done button appears after all steps animate", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDemoScreen(ctx);
+    root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
+    // 5 steps × 1500ms + 1 finish timer at 5 × 1500ms
+    vi.advanceTimersByTime(5 * 1500);
+    const status = root.querySelector<HTMLElement>("[data-onboarding-demo-status='true']")!;
+    expect(status.hidden).toBe(false);
+    const doneBtn = root.querySelector<HTMLButtonElement>("button");
+    expect(doneBtn?.textContent).toContain("Done");
+  });
+
+  test("Done button after animation dispatches DEMO_FINISHED", () => {
+    const { ctx, root, dispatched } = makeCtx();
+    mountCompleteDemoScreen(ctx);
+    root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
+    vi.advanceTimersByTime(5 * 1500);
+    // The done button replaces the show/skip buttons
+    const actions = root.querySelector<HTMLElement>(".onboarding-actions")!;
+    const doneBtn = actions.querySelector<HTMLButtonElement>("button")!;
+    doneBtn.click();
+    expect(dispatched).toContain("DEMO_FINISHED");
+  });
+
+  test("all dots are marked done after animation completes", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDemoScreen(ctx);
+    root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
+    vi.advanceTimersByTime(5 * 1500);
+    const dots = root.querySelectorAll<HTMLElement>(".onboarding-demo-dot");
+    dots.forEach((dot) => {
+      expect(dot.dataset.done).toBe("true");
+      expect(dot.dataset.active).toBe("false");
+    });
+  });
+});
+
+describe("mountCompleteDemoScreen — copy strings", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  test("body copy is pinned", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDemoScreen(ctx);
+    const body = root.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("Next time you need to sign in to CUNY");
+  });
 });

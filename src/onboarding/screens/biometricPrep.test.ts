@@ -193,3 +193,100 @@ describe("mountBiometricPrepScreen — unmount", () => {
     expect(document.querySelector("[data-onboarding-screen='BIOMETRIC_PREP']")).toBeNull();
   });
 });
+
+describe("mountBiometricPrepScreen — unsupported_browser error", () => {
+  test("enters fallback mode and changes Continue to 'Continue anyway'", async () => {
+    enrollBiometricMock.mockResolvedValue(err("unsupported_browser"));
+    const { ctx } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
+    btn.click();
+    await flush();
+    expect(btn.textContent).toBe("Continue anyway");
+    expect(btn.disabled).toBe(false);
+  });
+
+  test("shows browser-unsupported error message copy", async () => {
+    enrollBiometricMock.mockResolvedValue(err("unsupported_browser"));
+    const { ctx } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
+    btn.click();
+    await flush();
+    const status = document.querySelector<HTMLElement>(".onboarding-subtext")!;
+    expect(status.textContent).toContain("support biometric unlock");
+  });
+});
+
+describe("mountBiometricPrepScreen — user_cancelled error message copy", () => {
+  test("shows retry message for user_cancelled", async () => {
+    enrollBiometricMock.mockResolvedValue(err("user_cancelled"));
+    const { ctx } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
+    btn.click();
+    await flush();
+    const status = document.querySelector<HTMLElement>(".onboarding-subtext")!;
+    expect(status.textContent).toContain("Didn't catch that");
+  });
+});
+
+describe("mountBiometricPrepScreen — storage.session.get rejects", () => {
+  test("shows error and enters fallback mode when storage.session throws", async () => {
+    sessionGetMock.mockRejectedValue(new Error("unavailable"));
+    const { ctx } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
+    btn.click();
+    await flush();
+    const status = document.querySelector<HTMLElement>(".onboarding-subtext")!;
+    expect(status.hidden).toBe(false);
+    expect(btn.textContent).toBe("Continue anyway");
+  });
+});
+
+describe("mountBiometricPrepScreen — go back button hidden during enrollment", () => {
+  test("back button is hidden while enrollment runs", async () => {
+    let resolveEnroll!: (v: ReturnType<typeof ok>) => void;
+    enrollBiometricMock.mockReturnValue(new Promise((res) => { resolveEnroll = res; }));
+    const { ctx } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+    const continueBtn = document.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
+    const backBtn = document.querySelector<HTMLButtonElement>("[data-onboarding-back='true']")!;
+    continueBtn.click();
+    await Promise.resolve();
+    expect(backBtn.hidden).toBe(true);
+    resolveEnroll(ok(undefined));
+    await flush();
+  });
+});
+
+describe("mountBiometricPrepScreen — copy strings", () => {
+  test("headline copy is pinned", () => {
+    const { ctx } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+    const h2 = document.querySelector("h2");
+    expect(h2?.textContent).toBe("Set up biometric unlock");
+  });
+
+  test("body copy mentions browser prompts twice", () => {
+    const { ctx } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+    const body = document.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("twice");
+  });
+
+  test("Continue button initial text is 'Continue'", () => {
+    const { ctx } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-biometric-prep-continue='true']")!;
+    expect(btn.textContent).toBe("Continue");
+  });
+
+  test("back button initial text is 'Go back'", () => {
+    const { ctx } = makeCtx();
+    mountBiometricPrepScreen(ctx);
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-back='true']")!;
+    expect(btn.textContent).toBe("Go back");
+  });
+});

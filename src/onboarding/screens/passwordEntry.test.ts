@@ -160,4 +160,123 @@ describe("mountPasswordEntryScreen", () => {
     const input = root.querySelector<HTMLInputElement>(PASSWORD_INPUT_SELECTOR);
     expect(input?.value).toBe("already-typed");
   });
+
+  test("credential error is visible when snapshot.credentialError is non-null at mount", () => {
+    const controller = createOnboardingController({
+      initialState: "PASSWORD_ENTRY",
+      initialCredentialError: { culprit: "password" },
+    });
+    const ctx: OnboardingScreenContext = {
+      doc: document,
+      root,
+      dispatch: controller.dispatch,
+      getSnapshot: controller.getSnapshot,
+      setEmail: controller.setEmail,
+      setPassword: controller.setPassword,
+      setCredentialError: controller.setCredentialError,
+    };
+    mountPasswordEntryScreen(ctx);
+    const errEl = root.querySelector<HTMLElement>("[data-onboarding-password-credential-error='true']")!;
+    expect(errEl.hidden).toBe(false);
+  });
+
+  test("credential error is hidden when snapshot.credentialError is null at mount", () => {
+    const { ctx } = buildCtx(root);
+    mountPasswordEntryScreen(ctx);
+    const errEl = root.querySelector<HTMLElement>("[data-onboarding-password-credential-error='true']")!;
+    expect(errEl.hidden).toBe(true);
+  });
+
+  test("typing in input clears the visible credential error", () => {
+    const controller = createOnboardingController({
+      initialState: "PASSWORD_ENTRY",
+      initialPassword: "old",
+      initialCredentialError: { culprit: "password" },
+    });
+    const ctx: OnboardingScreenContext = {
+      doc: document,
+      root,
+      dispatch: controller.dispatch,
+      getSnapshot: controller.getSnapshot,
+      setEmail: controller.setEmail,
+      setPassword: controller.setPassword,
+      setCredentialError: controller.setCredentialError,
+    };
+    mountPasswordEntryScreen(ctx);
+    const input = root.querySelector<HTMLInputElement>(PASSWORD_INPUT_SELECTOR)!;
+    const errEl = root.querySelector<HTMLElement>("[data-onboarding-password-credential-error='true']")!;
+    expect(errEl.hidden).toBe(false);
+    setValue(input, "new-value");
+    expect(errEl.hidden).toBe(true);
+  });
+
+  test("Enter key on non-empty input dispatches NEXT", () => {
+    const { ctx, dispatch } = buildCtx(root);
+    mountPasswordEntryScreen(ctx);
+    const input = root.querySelector<HTMLInputElement>(PASSWORD_INPUT_SELECTOR)!;
+    setValue(input, "mypassword");
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(dispatch).toHaveBeenCalledWith("NEXT");
+  });
+
+  test("Enter key on empty input does not dispatch NEXT", () => {
+    const { ctx, dispatch } = buildCtx(root);
+    mountPasswordEntryScreen(ctx);
+    const input = root.querySelector<HTMLInputElement>(PASSWORD_INPUT_SELECTOR)!;
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  test("unmount removes the screen container from the DOM", () => {
+    const { ctx } = buildCtx(root);
+    const handle = mountPasswordEntryScreen(ctx);
+    handle.unmount();
+    expect(root.querySelector("[data-onboarding-screen='PASSWORD_ENTRY']")).toBeNull();
+  });
+
+  test("unmount detaches forward click handler", () => {
+    const { ctx, dispatch } = buildCtx(root);
+    const handle = mountPasswordEntryScreen(ctx);
+    const input = root.querySelector<HTMLInputElement>(PASSWORD_INPUT_SELECTOR)!;
+    const forward = root.querySelector<HTMLButtonElement>(PASSWORD_FORWARD_SELECTOR)!;
+    setValue(input, "password123");
+    handle.unmount();
+    forward.click();
+    expect(dispatch).not.toHaveBeenCalledWith("NEXT");
+  });
+
+  test("unmount detaches back click handler", () => {
+    const { ctx, dispatch } = buildCtx(root);
+    const handle = mountPasswordEntryScreen(ctx);
+    const back = root.querySelector<HTMLButtonElement>(PASSWORD_BACK_SELECTOR)!;
+    handle.unmount();
+    back.click();
+    expect(dispatch).not.toHaveBeenCalledWith("BACK");
+  });
+
+  test("credential error element has role='alert'", () => {
+    const { ctx } = buildCtx(root);
+    mountPasswordEntryScreen(ctx);
+    const errEl = root.querySelector<HTMLElement>("[data-onboarding-password-credential-error='true']")!;
+    expect(errEl.getAttribute("role")).toBe("alert");
+  });
+
+  test("credential error copy is pinned", () => {
+    const controller = createOnboardingController({
+      initialState: "PASSWORD_ENTRY",
+      initialCredentialError: { culprit: "password" },
+    });
+    const ctx: OnboardingScreenContext = {
+      doc: document,
+      root,
+      dispatch: controller.dispatch,
+      getSnapshot: controller.getSnapshot,
+      setEmail: controller.setEmail,
+      setPassword: controller.setPassword,
+      setCredentialError: controller.setCredentialError,
+    };
+    mountPasswordEntryScreen(ctx);
+    const errEl = root.querySelector<HTMLElement>("[data-onboarding-password-credential-error='true']")!;
+    expect(errEl.textContent).toContain("didn't work");
+  });
 });

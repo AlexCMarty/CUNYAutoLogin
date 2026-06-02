@@ -229,3 +229,91 @@ describe("tooltip anchor placement", () => {
     expect(tooltip?.style.left).toBe("50px");
   });
 });
+
+// ─── A11y target — button fallback ───────────────────────────────────────────
+
+describe("A11y target — button fallback when no menuitem matches", () => {
+  test("highlights a button when no menuitem matches but button text matches", () => {
+    const btn = document.createElement("button");
+    btn.textContent = "Set as Default";
+    document.body.appendChild(btn);
+    showOverlay(A11Y_TARGET, "Click it", 1, 1, vi.fn());
+    expect(btn.getAttribute("data-cuny-autologin-highlight")).toBe("true");
+  });
+
+  test("does not highlight a disabled button (oj-disabled class)", () => {
+    const btn = document.createElement("button");
+    btn.textContent = "Set as Default";
+    btn.classList.add("oj-disabled");
+    document.body.appendChild(btn);
+    const onNotFound = vi.fn();
+    showOverlay(A11Y_TARGET, "Click it", 1, 1, onNotFound);
+    expect(btn.hasAttribute("data-cuny-autologin-highlight")).toBe(false);
+    vi.advanceTimersByTime(OVERLAY_TARGET_TIMEOUT_MS);
+    expect(onNotFound).toHaveBeenCalledTimes(1);
+  });
+
+  test("prefers oj-option host element over raw menuitem for highlight", () => {
+    const host = document.createElement("oj-option");
+    const item = document.createElement("span");
+    item.setAttribute("role", "menuitem");
+    item.textContent = "Set as Default";
+    host.appendChild(item);
+    document.body.appendChild(host);
+    showOverlay(A11Y_TARGET, "Click it", 1, 1, vi.fn());
+    // The oj-option host should be highlighted, not the inner span
+    expect(host.getAttribute("data-cuny-autologin-highlight")).toBe("true");
+    expect(item.hasAttribute("data-cuny-autologin-highlight")).toBe(false);
+  });
+});
+
+// ─── CSS target disabled via ancestor ────────────────────────────────────────
+
+describe("CSS target — oj-disabled ancestor makes target invisible", () => {
+  test("does not render overlay when CSS target is inside an oj-disabled ancestor", () => {
+    const wrapper = document.createElement("div");
+    wrapper.classList.add("oj-disabled");
+    const btn = document.createElement("button");
+    btn.className = "allow";
+    wrapper.appendChild(btn);
+    document.body.appendChild(wrapper);
+    const onNotFound = vi.fn();
+    showOverlay(CSS_TARGET, "Click Allow", 1, 1, onNotFound);
+    vi.advanceTimersByTime(OVERLAY_TARGET_TIMEOUT_MS);
+    expect(onNotFound).toHaveBeenCalledTimes(1);
+    expect(document.querySelector("[data-cuny-autologin-overlay='true']")).toBeNull();
+  });
+});
+
+// ─── hideOverlay idempotency ──────────────────────────────────────────────────
+
+describe("hideOverlay idempotency", () => {
+  test("calling hideOverlay twice does not throw", () => {
+    addAllowButton();
+    showOverlay(CSS_TARGET, "Click Allow", 1, 1, vi.fn());
+    hideOverlay();
+    expect(() => hideOverlay()).not.toThrow();
+  });
+
+  test("calling hideOverlay without prior showOverlay does not throw", () => {
+    expect(() => hideOverlay()).not.toThrow();
+  });
+});
+
+// ─── Allow overlay fast-fail — Allow present but factor-panel absent ──────────
+
+describe("Allow overlay — no fast-fail when factor-panel is absent", () => {
+  test("renders normally for allow-gate selector when factor-panel is absent", () => {
+    const btn = document.createElement("button");
+    btn.setAttribute("onclick", "allow()");
+    document.body.appendChild(btn);
+    showOverlay(
+      { type: "css", selector: 'button[onclick="allow()"]' },
+      "Allow",
+      1,
+      1,
+      vi.fn()
+    );
+    expect(document.querySelector("[data-cuny-autologin-overlay='true']")).not.toBeNull();
+  });
+});

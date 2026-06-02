@@ -116,4 +116,92 @@ describe("mountBiometricOfferScreen — unmount", () => {
     handle.unmount();
     expect(document.querySelector("[data-onboarding-screen='BIOMETRIC_OFFER']")).toBeNull();
   });
+
+  test("unmount before async completes still removes container", () => {
+    // Unmount synchronously, before the IIFE resolves
+    Object.defineProperty(globalThis, "PublicKeyCredential", {
+      value: {
+        isUserVerifyingPlatformAuthenticatorAvailable: vi.fn().mockResolvedValue(true),
+      },
+      writable: true,
+      configurable: true,
+    });
+    const { ctx } = makeCtx();
+    const handle = mountBiometricOfferScreen(ctx);
+    handle.unmount();
+    expect(document.querySelector("[data-onboarding-screen='BIOMETRIC_OFFER']")).toBeNull();
+  });
+});
+
+describe("mountBiometricOfferScreen — copy strings when authenticator available", () => {
+  beforeEach(() => {
+    Object.defineProperty(globalThis, "PublicKeyCredential", {
+      value: {
+        isUserVerifyingPlatformAuthenticatorAvailable: vi.fn().mockResolvedValue(true),
+      },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    try {
+      delete (globalThis as Record<string, unknown>)["PublicKeyCredential"];
+    } catch {
+      // Non-configurable — leave
+    }
+  });
+
+  test("headline copy is pinned", async () => {
+    const { ctx } = makeCtx();
+    mountBiometricOfferScreen(ctx);
+    await flush();
+    const h2 = document.querySelector("h2");
+    expect(h2?.textContent).toBe("Unlock faster with Face ID or fingerprint.");
+  });
+
+  test("body copy mentions biometrics", async () => {
+    const { ctx } = makeCtx();
+    mountBiometricOfferScreen(ctx);
+    await flush();
+    const body = document.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("biometrics");
+  });
+
+  test("Use button text is pinned", async () => {
+    const { ctx } = makeCtx();
+    mountBiometricOfferScreen(ctx);
+    await flush();
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-biometric-use='true']")!;
+    expect(btn.textContent).toBe("Use Face ID / Fingerprint");
+  });
+
+  test("Skip button text is pinned", async () => {
+    const { ctx } = makeCtx();
+    mountBiometricOfferScreen(ctx);
+    await flush();
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-biometric-skip='true']")!;
+    expect(btn.textContent).toBe("Type my password each time");
+  });
+});
+
+describe("mountBiometricOfferScreen — isUserVerifyingPlatformAuthenticatorAvailable rejects", () => {
+  test("dispatches BIOMETRIC_DECLINED when the availability check throws", async () => {
+    Object.defineProperty(globalThis, "PublicKeyCredential", {
+      value: {
+        isUserVerifyingPlatformAuthenticatorAvailable: vi.fn().mockRejectedValue(new Error("not allowed")),
+      },
+      writable: true,
+      configurable: true,
+    });
+    const { ctx, dispatched } = makeCtx();
+    mountBiometricOfferScreen(ctx);
+    await flush();
+    expect(dispatched).toContain("BIOMETRIC_DECLINED");
+    try {
+      delete (globalThis as Record<string, unknown>)["PublicKeyCredential"];
+    } catch {
+      // Non-configurable — leave
+    }
+  });
 });

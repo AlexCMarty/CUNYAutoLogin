@@ -206,4 +206,98 @@ describe("mountEmailEntryScreen", () => {
     input.dispatchEvent(new Event("blur"));
     expect(hint.hidden).toBe(true);
   });
+
+  test("credential error is visible when snapshot.credentialError is non-null at mount", () => {
+    const controller = createOnboardingController({
+      initialState: "EMAIL_ENTRY",
+      initialCredentialError: { culprit: "email" },
+    });
+    const ctx: OnboardingScreenContext = {
+      doc: document,
+      root,
+      dispatch: controller.dispatch,
+      getSnapshot: controller.getSnapshot,
+      setEmail: controller.setEmail,
+      setPassword: controller.setPassword,
+      setCredentialError: controller.setCredentialError,
+    };
+    mountEmailEntryScreen(ctx);
+    const errEl = root.querySelector<HTMLElement>("[data-onboarding-email-credential-error='true']")!;
+    expect(errEl.hidden).toBe(false);
+  });
+
+  test("credential error is hidden when snapshot.credentialError is null at mount", () => {
+    const { ctx } = buildCtx(root);
+    mountEmailEntryScreen(ctx);
+    const errEl = root.querySelector<HTMLElement>("[data-onboarding-email-credential-error='true']")!;
+    expect(errEl.hidden).toBe(true);
+  });
+
+  test("typing in input clears the visible credential error", () => {
+    const controller = createOnboardingController({
+      initialState: "EMAIL_ENTRY",
+      initialEmail: "jane@login.cuny.edu",
+      initialCredentialError: { culprit: "email" },
+    });
+    const ctx: OnboardingScreenContext = {
+      doc: document,
+      root,
+      dispatch: controller.dispatch,
+      getSnapshot: controller.getSnapshot,
+      setEmail: controller.setEmail,
+      setPassword: controller.setPassword,
+      setCredentialError: controller.setCredentialError,
+    };
+    mountEmailEntryScreen(ctx);
+    const input = root.querySelector<HTMLInputElement>(EMAIL_INPUT_SELECTOR)!;
+    const errEl = root.querySelector<HTMLElement>("[data-onboarding-email-credential-error='true']")!;
+    expect(errEl.hidden).toBe(false);
+    setValue(input, "jane.doe@login.cuny.edu");
+    expect(errEl.hidden).toBe(true);
+  });
+
+  test("Enter key on valid email dispatches NEXT", () => {
+    const { ctx, dispatch } = buildCtx(root);
+    mountEmailEntryScreen(ctx);
+    const input = root.querySelector<HTMLInputElement>(EMAIL_INPUT_SELECTOR)!;
+    setValue(input, "jane.doe@login.cuny.edu");
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(dispatch).toHaveBeenCalledWith("NEXT");
+  });
+
+  test("Enter key on invalid email does not dispatch NEXT", () => {
+    const { ctx, dispatch } = buildCtx(root);
+    mountEmailEntryScreen(ctx);
+    const input = root.querySelector<HTMLInputElement>(EMAIL_INPUT_SELECTOR)!;
+    setValue(input, "not-valid@example.com");
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(dispatch).not.toHaveBeenCalledWith("NEXT");
+  });
+
+  test("unmount removes the screen container from the DOM", () => {
+    const { ctx } = buildCtx(root);
+    const handle = mountEmailEntryScreen(ctx);
+    handle.unmount();
+    expect(root.querySelector("[data-onboarding-screen='EMAIL_ENTRY']")).toBeNull();
+  });
+
+  test("unmount detaches forward click handler", () => {
+    const { ctx, dispatch } = buildCtx(root);
+    const handle = mountEmailEntryScreen(ctx);
+    const input = root.querySelector<HTMLInputElement>(EMAIL_INPUT_SELECTOR)!;
+    const forward = root.querySelector<HTMLButtonElement>(EMAIL_FORWARD_SELECTOR)!;
+    setValue(input, "jane@login.cuny.edu");
+    handle.unmount();
+    forward.click();
+    expect(dispatch).not.toHaveBeenCalledWith("NEXT");
+  });
+
+  test("unmount detaches back click handler", () => {
+    const { ctx, dispatch } = buildCtx(root);
+    const handle = mountEmailEntryScreen(ctx);
+    const back = root.querySelector<HTMLButtonElement>(EMAIL_BACK_SELECTOR)!;
+    handle.unmount();
+    back.click();
+    expect(dispatch).not.toHaveBeenCalledWith("BACK");
+  });
 });

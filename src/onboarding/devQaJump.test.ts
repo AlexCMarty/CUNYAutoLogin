@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, test, vi } from "vitest";
 
 vi.mock("webextension-polyfill", () => ({ default: {} }));
@@ -6,6 +7,7 @@ import {
   QA_DEFAULT_EMAIL,
   QA_DEFAULT_PASSWORD,
   parseDevQaOnboardingJumpFromHash,
+  tryParseDevQaOnboardingJumpFromWindow,
 } from "./devQaJump";
 
 describe("parseDevQaOnboardingJumpFromHash", () => {
@@ -63,7 +65,9 @@ describe("parseDevQaOnboardingJumpFromHash", () => {
     );
     expect(parsed?.controllerInit.initialCredentialError).toEqual({ culprit: "email" });
   });
+});
 
+describe("parseDevQaOnboardingJumpFromHash — edge cases", () => {
   test("ignores invalid qaCred and warns", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const parsed = parseDevQaOnboardingJumpFromHash(
@@ -89,6 +93,53 @@ describe("parseDevQaOnboardingJumpFromHash", () => {
       parseDevQaOnboardingJumpFromHash("#qa=CREDENTIAL_ERROR", "development")
     ).toBeNull();
     warn.mockRestore();
+  });
+
+  test("returns null for empty qa param value", () => {
+    expect(parseDevQaOnboardingJumpFromHash("#qa=", "development")).toBeNull();
+  });
+
+  test("qaEmail / qaPassword whitespace-only falls back to defaults", () => {
+    const parsed = parseDevQaOnboardingJumpFromHash(
+      "#qa=WELCOME&qaEmail=   &qaPassword=   ",
+      "development"
+    );
+    expect(parsed?.controllerInit.initialEmail).toBe(QA_DEFAULT_EMAIL);
+    expect(parsed?.controllerInit.initialPassword).toBe(QA_DEFAULT_PASSWORD);
+  });
+
+  test("hash without leading # is still parsed correctly", () => {
+    const parsed = parseDevQaOnboardingJumpFromHash("qa=WELCOME", "development");
+    expect(parsed?.controllerInit.initialState).toBe("WELCOME");
+  });
+
+  test("no qa param at all returns null", () => {
+    expect(parseDevQaOnboardingJumpFromHash("", "development")).toBeNull();
+    expect(parseDevQaOnboardingJumpFromHash("#", "development")).toBeNull();
+  });
+});
+
+describe("tryParseDevQaOnboardingJumpFromWindow", () => {
+  test("returns null in non-dev mode even when window is defined", () => {
+    expect(tryParseDevQaOnboardingJumpFromWindow("production")).toBeNull();
+  });
+
+  test("reads window.location.hash and returns result in dev mode", () => {
+    // jsdom sets window.location.hash from the test URL; override it.
+    Object.defineProperty(window, "location", {
+      value: { hash: "#qa=WELCOME" },
+      configurable: true,
+    });
+    const result = tryParseDevQaOnboardingJumpFromWindow("development");
+    expect(result?.controllerInit.initialState).toBe("WELCOME");
+  });
+
+  test("returns null when hash has no qa param", () => {
+    Object.defineProperty(window, "location", {
+      value: { hash: "" },
+      configurable: true,
+    });
+    expect(tryParseDevQaOnboardingJumpFromWindow("development")).toBeNull();
   });
 });
 

@@ -97,3 +97,55 @@ describe("mountOaaSpaHomeScreen", () => {
     );
   });
 });
+
+describe("mountOaaSpaHomeScreen — copy strings", () => {
+  test("headline copy is pinned", () => {
+    const { ctx } = makeCtx();
+    mountOaaSpaHomeScreen(ctx);
+    const h2 = document.querySelector("h2");
+    expect(h2?.textContent).toBe("Open your login settings on the CUNY tab.");
+  });
+
+  test("body copy mentions Manage", () => {
+    const { ctx } = makeCtx();
+    mountOaaSpaHomeScreen(ctx);
+    const body = document.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("Manage");
+  });
+
+  test("loading label text mentions factors list", () => {
+    const { ctx } = makeCtx();
+    mountOaaSpaHomeScreen(ctx);
+    const loading = document.querySelector("[data-onboarding-oaa-home-loading='true']");
+    expect(loading?.textContent).toContain("factors list");
+  });
+
+  test("tab hint text mentions highlighted control", () => {
+    const { ctx } = makeCtx();
+    mountOaaSpaHomeScreen(ctx);
+    const hint = document.querySelector(".onboarding-directional");
+    expect(hint?.textContent).toContain("highlighted the next control");
+  });
+});
+
+describe("mountOaaSpaHomeScreen — overlay command details", () => {
+  test("show overlay uses css targetSpec", () => {
+    const { ctx } = makeCtx();
+    mountOaaSpaHomeScreen(ctx);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetSpec: expect.objectContaining({ type: "css" }),
+      })
+    );
+  });
+
+  test("tooltip text is 'Click Manage'", () => {
+    const { ctx } = makeCtx();
+    mountOaaSpaHomeScreen(ctx);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tooltipText: "Click Manage",
+      })
+    );
+  });
+});

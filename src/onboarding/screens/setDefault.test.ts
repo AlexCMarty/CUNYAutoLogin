@@ -141,3 +141,67 @@ describe("mountSetDefaultScreen — unmount", () => {
     );
   });
 });
+
+describe("mountSetDefaultScreen — alias from session used in recovery text", () => {
+  test("recovery message uses stored alias when session has one", async () => {
+    const storedAlias = "CUNYAutoLogin-a3f2";
+    sessionGetMock.mockResolvedValue({ [ENROLLED_FACTOR_ALIAS_SESSION_KEY]: storedAlias });
+    const { ctx } = makeCtx();
+    mountSetDefaultScreen(ctx);
+    await Promise.resolve();
+    await Promise.resolve();
+    const recovery = document.querySelector<HTMLElement>("[data-onboarding-recovery-message='true']")!;
+    expect(recovery.textContent).toContain(storedAlias);
+  });
+
+  test("overlay CSS selector includes stored alias when session has one", async () => {
+    const storedAlias = "CUNYAutoLogin-b5c9";
+    sessionGetMock.mockResolvedValue({ [ENROLLED_FACTOR_ALIAS_SESSION_KEY]: storedAlias });
+    const { ctx } = makeCtx();
+    mountSetDefaultScreen(ctx);
+    await Promise.resolve();
+    await Promise.resolve();
+    // The overlay call from the async IIFE should include the alias in the CSS selector
+    const showCalls = sendMessageMock.mock.calls.filter(
+      (call) => (call[0] as { action?: string }).action === "show" &&
+        (call[0] as { stepIndex?: number }).stepIndex === 7
+    );
+    expect(showCalls.length).toBeGreaterThanOrEqual(1);
+    const payload = showCalls[showCalls.length - 1]![0] as {
+      targetSpec?: { selector?: string };
+    };
+    expect(payload.targetSpec?.selector).toContain(storedAlias);
+  });
+});
+
+describe("mountSetDefaultScreen — showSetDefaultOptionOverlay step details", () => {
+  test("overlay targetSpec is a11y targeting 'Set as Default'", () => {
+    showSetDefaultOptionOverlay();
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetSpec: expect.objectContaining({
+          type: "a11y",
+          text: "Set as Default",
+        }),
+      })
+    );
+  });
+
+  test("overlay tooltip is 'Click Set as Default'", () => {
+    showSetDefaultOptionOverlay();
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tooltipText: "Click Set as Default",
+      })
+    );
+  });
+});
+
+describe("mountSetDefaultScreen — copy strings", () => {
+  test("body copy mentions Set as Default", () => {
+    const { ctx } = makeCtx();
+    mountSetDefaultScreen(ctx);
+    const body = document.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("Set as Default");
+  });
+});

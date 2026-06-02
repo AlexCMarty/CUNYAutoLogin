@@ -169,4 +169,85 @@ describe("createOnboardingController", () => {
     expect(logSpy).not.toHaveBeenCalled();
     logSpy.mockRestore();
   });
+
+  test("initialState, initialEmail, initialPassword, initialCredentialError are all honoured", () => {
+    const controller = createOnboardingController({
+      initialState: "BIOMETRIC_OFFER",
+      initialEmail: "init@login.cuny.edu",
+      initialPassword: "initpw",
+      initialCredentialError: { culprit: "email" },
+    });
+    expect(controller.getSnapshot()).toEqual({
+      state: "BIOMETRIC_OFFER",
+      email: "init@login.cuny.edu",
+      password: "initpw",
+      credentialError: { culprit: "email" },
+      advancedKeyFlow: false,
+    });
+  });
+
+  test("setState transitions to a new state and notifies subscribers", () => {
+    const controller = createOnboardingController();
+    const listener = vi.fn();
+    controller.subscribe(listener);
+    controller.setState("GUIDED_MANAGE");
+    expect(controller.getSnapshot().state).toBe("GUIDED_MANAGE");
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  test("setState is a no-op when the target state equals the current state", () => {
+    const controller = createOnboardingController({ initialState: "EMAIL_ENTRY" });
+    const listener = vi.fn();
+    controller.subscribe(listener);
+    controller.setState("EMAIL_ENTRY");
+    expect(listener).not.toHaveBeenCalled();
+    expect(controller.getSnapshot().state).toBe("EMAIL_ENTRY");
+  });
+
+  test("setPassword same-value short-circuits and does not notify", () => {
+    const controller = createOnboardingController({ initialPassword: "same" });
+    const listener = vi.fn();
+    controller.subscribe(listener);
+    controller.setPassword("same");
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  test("setPassword with a new value notifies subscribers", () => {
+    const controller = createOnboardingController({ initialPassword: "old" });
+    const listener = vi.fn();
+    controller.subscribe(listener);
+    controller.setPassword("new");
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(controller.getSnapshot().password).toBe("new");
+  });
+
+  test("multiple subscribers all receive the same snapshot", () => {
+    const controller = createOnboardingController();
+    const firstSub = vi.fn();
+    const secondSub = vi.fn();
+    controller.subscribe(firstSub);
+    controller.subscribe(secondSub);
+    controller.dispatch("NEXT");
+    expect(firstSub).toHaveBeenCalledTimes(1);
+    expect(secondSub).toHaveBeenCalledTimes(1);
+    expect(firstSub.mock.calls[0]?.[0]).toEqual(secondSub.mock.calls[0]?.[0]);
+  });
+
+  test("dispatch DEMO_REQUESTED self-loop on COMPLETE_DEMO does not notify (next === state)", () => {
+    const controller = createOnboardingController({ initialState: "COMPLETE_DEMO" });
+    const listener = vi.fn();
+    controller.subscribe(listener);
+    controller.dispatch("DEMO_REQUESTED");
+    expect(listener).not.toHaveBeenCalled();
+    expect(controller.getSnapshot().state).toBe("COMPLETE_DEMO");
+  });
+
+  test("setCredentialError null-to-null short-circuits and does not notify", () => {
+    const controller = createOnboardingController();
+    const listener = vi.fn();
+    controller.subscribe(listener);
+    // credentialError starts as null, setting to null again is a no-op
+    controller.setCredentialError(null);
+    expect(listener).not.toHaveBeenCalled();
+  });
 });

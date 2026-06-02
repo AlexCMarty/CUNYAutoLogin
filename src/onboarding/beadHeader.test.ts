@@ -19,15 +19,15 @@ import {
   mountBeadHeader,
 } from "./beadHeader";
 
-describe("mountBeadHeader", () => {
-  let host: HTMLElement;
+let host: HTMLElement;
 
-  beforeEach(() => {
-    document.body.innerHTML = "";
-    host = document.createElement("div");
-    document.body.appendChild(host);
-  });
+beforeEach(() => {
+  document.body.innerHTML = "";
+  host = document.createElement("div");
+  document.body.appendChild(host);
+});
 
+describe("mountBeadHeader — rendering and state", () => {
   test("renders five beads with locked labels from state.ts", () => {
     const { renderFor } = mountBeadHeader(document, host);
     renderFor("WELCOME");
@@ -87,5 +87,69 @@ describe("mountBeadHeader", () => {
     renderFor("EMAIL_ENTRY");
     const stillFirstBead = host.querySelector(BEAD_ITEM_SELECTOR);
     expect(firstBead).toBe(stillFirstBead);
+  });
+});
+
+describe("mountBeadHeader — bead attributes", () => {
+  test("each bead element has data-bead-stage matching its 1-based index", () => {
+    const { renderFor } = mountBeadHeader(document, host);
+    renderFor("WELCOME");
+    const beads = Array.from(
+      host.querySelectorAll<HTMLElement>(BEAD_ITEM_SELECTOR)
+    );
+    beads.forEach((bead, index) => {
+      expect(bead.dataset.beadStage).toBe(String(index + 1));
+    });
+  });
+
+  test("non-active beads have aria-current=false", () => {
+    const { renderFor } = mountBeadHeader(document, host);
+    renderFor("WELCOME");
+    const beads = Array.from(
+      host.querySelectorAll<HTMLElement>(BEAD_ITEM_SELECTOR)
+    );
+    // Bead 1 is active on WELCOME; beads 2-5 should have aria-current=false
+    for (let i = 1; i < beads.length; i++) {
+      expect(beads[i]?.getAttribute("aria-current")).toBe("false");
+    }
+  });
+
+  test("active bead has aria-current=step", () => {
+    const { renderFor } = mountBeadHeader(document, host);
+    renderFor("WELCOME");
+    const beads = Array.from(
+      host.querySelectorAll<HTMLElement>(BEAD_ITEM_SELECTOR)
+    );
+    expect(beads[0]?.getAttribute("aria-current")).toBe("step");
+  });
+
+  test("dot element has --bead-stage CSS custom property set", () => {
+    const { renderFor } = mountBeadHeader(document, host);
+    renderFor("WELCOME");
+    const beads = Array.from(
+      host.querySelectorAll<HTMLElement>(BEAD_ITEM_SELECTOR)
+    );
+    beads.forEach((bead, index) => {
+      const dot = bead.querySelector<HTMLElement>(".onboarding-bead-dot");
+      expect(dot?.style.getPropertyValue("--bead-stage")).toBe(`"${index + 1}"`);
+    });
+  });
+
+  test("all beads 1-4 are completed and bead 5 is active on COMPLETE_DONE", () => {
+    const { renderFor } = mountBeadHeader(document, host);
+    renderFor("COMPLETE_DONE");
+    const beads = Array.from(
+      host.querySelectorAll<HTMLElement>(BEAD_ITEM_SELECTOR)
+    );
+    for (let i = 0; i < 4; i++) {
+      expect(beads[i]?.dataset.beadStatus).toBe("completed");
+    }
+    expect(beads[4]?.dataset.beadStatus).toBe("active");
+  });
+
+  test("header element has aria-label Setup progress", () => {
+    mountBeadHeader(document, host);
+    const header = host.querySelector<HTMLElement>(BEAD_HEADER_SELECTOR);
+    expect(header?.getAttribute("aria-label")).toBe("Setup progress");
   });
 });

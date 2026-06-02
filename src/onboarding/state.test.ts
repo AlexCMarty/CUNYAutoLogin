@@ -149,4 +149,24 @@ describe("resume policy", () => {
       expect(isResumableState(state)).toBe(safeResumeStateFor(state) !== null);
     }
   });
+
+  test("WELCOME is not resumable (maps to null)", () => {
+    expect(safeResumeStateFor("WELCOME")).toBeNull();
+    expect(isResumableState("WELCOME")).toBe(false);
+  });
+
+  test("BIOMETRIC_OFFER and BIOMETRIC_PREP resume in-place", () => {
+    expect(safeResumeStateFor("BIOMETRIC_OFFER")).toBe("BIOMETRIC_OFFER");
+    expect(safeResumeStateFor("BIOMETRIC_PREP")).toBe("BIOMETRIC_PREP");
+  });
+
+  test("OPENING_CUNY and CUNY_TOTP resume in-place", () => {
+    expect(safeResumeStateFor("OPENING_CUNY")).toBe("OPENING_CUNY");
+    expect(safeResumeStateFor("CUNY_TOTP")).toBe("CUNY_TOTP");
+  });
+
+  test("EMAIL_ENTRY and PASSWORD_ENTRY resume in-place", () => {
+    expect(safeResumeStateFor("EMAIL_ENTRY")).toBe("EMAIL_ENTRY");
+    expect(safeResumeStateFor("PASSWORD_ENTRY")).toBe("PASSWORD_ENTRY");
+  });
 });

@@ -60,4 +60,16 @@ describe("content bootstrap", () => {
     await import("./content");
     expect(vi.mocked(startMfaEnrollVerifyOtpPolling)).not.toHaveBeenCalled();
   });
+
+  test("sends ONBOARDING_CONTENT_SCRIPT_READY on startup", async () => {
+    await import("./content");
+    expect(vi.mocked(browser.runtime.sendMessage)).toHaveBeenCalledWith({
+      type: "ONBOARDING_CONTENT_SCRIPT_READY",
+    });
+  });
+
+  test("startup is resilient to sendMessage rejection", async () => {
+    vi.mocked(browser.runtime.sendMessage).mockRejectedValue(new Error("disconnected"));
+    await expect(import("./content")).resolves.toBeDefined();
+  });
 });

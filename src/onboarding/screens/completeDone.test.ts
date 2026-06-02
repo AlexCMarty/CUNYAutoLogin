@@ -137,3 +137,44 @@ describe("mountCompleteDoneScreen dismissal", () => {
     expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("mountCompleteDoneScreen — feature card", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  test("renders 3 feature rows", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDoneScreen(ctx);
+    const rows = root.querySelectorAll(".onboarding-feature-row");
+    expect(rows.length).toBe(3);
+  });
+
+  test("first feature title is 'Stays on this device'", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDoneScreen(ctx);
+    const titles = root.querySelectorAll(".onboarding-feature-title");
+    expect(titles[0]?.textContent).toBe("Stays on this device");
+  });
+
+  test("second feature title is 'Locked behind your password'", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDoneScreen(ctx);
+    const titles = root.querySelectorAll(".onboarding-feature-title");
+    expect(titles[1]?.textContent).toBe("Locked behind your password");
+  });
+
+  test("third feature title is 'Works on your CUNY sign-in'", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDoneScreen(ctx);
+    const titles = root.querySelectorAll(".onboarding-feature-title");
+    expect(titles[2]?.textContent).toBe("Works on your CUNY sign-in");
+  });
+
+  test("feature card container has class onboarding-feature-card", () => {
+    const { ctx, root } = makeCtx();
+    mountCompleteDoneScreen(ctx);
+    expect(root.querySelector(".onboarding-feature-card")).not.toBeNull();
+  });
+});

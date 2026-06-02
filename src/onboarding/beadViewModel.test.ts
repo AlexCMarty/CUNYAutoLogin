@@ -80,7 +80,9 @@ describe("beadViewModelForState", () => {
     const active = models.find((bead) => bead.status === "active");
     expect(active?.stage).toBe(3);
   });
+});
 
+describe("beadViewModelForState — extended state coverage", () => {
   test("exactly one active bead for any onboarding state", () => {
     const states: OnboardingState[] = [
       "WELCOME", "EMAIL_ENTRY", "PASSWORD_ENTRY", "OPENING_CUNY",
@@ -91,6 +93,50 @@ describe("beadViewModelForState", () => {
       const models = beadViewModelForState(state);
       const activeCount = models.filter((bead) => bead.status === "active").length;
       expect(activeCount, `state ${state} should have exactly one active bead`).toBe(1);
+    }
+  });
+
+  test("CUNY_TOTP and CREDENTIAL_ERROR map to bead 2 (active)", () => {
+    for (const state of ["CUNY_TOTP", "CREDENTIAL_ERROR"] as const) {
+      const models = beadViewModelForState(state);
+      const active = models.find((bead) => bead.status === "active");
+      expect(active?.stage, `${state} should have bead 2 active`).toBe(2);
+    }
+  });
+
+  test("BIOMETRIC_OFFER and BIOMETRIC_PREP have bead 4 active and beads 1-3 completed", () => {
+    for (const state of ["BIOMETRIC_OFFER", "BIOMETRIC_PREP"] as const) {
+      const models = beadViewModelForState(state);
+      const active = models.find((bead) => bead.status === "active");
+      expect(active?.stage, `${state} active bead`).toBe(4);
+      const completed = models.filter((bead) => bead.status === "completed");
+      expect(completed.map((bead) => bead.stage), `${state} completed beads`).toEqual([1, 2, 3]);
+    }
+  });
+
+  test("COMPLETE_DEMO has bead 5 active and beads 1-4 completed", () => {
+    const models = beadViewModelForState("COMPLETE_DEMO");
+    const active = models.find((bead) => bead.status === "active");
+    expect(active?.stage).toBe(5);
+    const completed = models.filter((bead) => bead.status === "completed");
+    expect(completed.map((bead) => bead.stage)).toEqual([1, 2, 3, 4]);
+  });
+
+  test("all bead-3 states (GUIDED_*) have bead 3 active and beads 1-2 completed", () => {
+    const bead3States: OnboardingState[] = [
+      "GUIDED_MANAGE",
+      "GUIDED_ADD_FACTOR",
+      "GUIDED_FACTOR_TYPE",
+      "GUIDED_SECRET_CAPTURE",
+      "VERIFY_LOGIN_CODE",
+      "SET_DEFAULT",
+    ];
+    for (const state of bead3States) {
+      const models = beadViewModelForState(state);
+      const active = models.find((bead) => bead.status === "active");
+      expect(active?.stage, `${state} active bead`).toBe(3);
+      const completed = models.filter((bead) => bead.status === "completed");
+      expect(completed.map((bead) => bead.stage), `${state} completed beads`).toEqual([1, 2]);
     }
   });
 });

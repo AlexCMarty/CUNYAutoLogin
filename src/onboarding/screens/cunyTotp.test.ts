@@ -87,3 +87,59 @@ describe("mountCunyTotpScreen — interactions", () => {
     expect(dispatched).not.toContain("BACK");
   });
 });
+
+describe("mountCunyTotpScreen — copy strings", () => {
+  test("body copy mentions six-digit code", () => {
+    const { ctx } = makeCtx();
+    mountCunyTotpScreen(ctx);
+    const body = document.querySelector(".onboarding-body");
+    expect(body?.textContent).toContain("six-digit code");
+  });
+
+  test("waiting label copy mentions CUNY tab", () => {
+    const { ctx } = makeCtx();
+    mountCunyTotpScreen(ctx);
+    const waiting = document.querySelector(".onboarding-waiting-label");
+    expect(waiting?.textContent).toContain("CUNY tab");
+  });
+
+  test("back button text is 'Back'", () => {
+    const { ctx } = makeCtx();
+    mountCunyTotpScreen(ctx);
+    const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-cuny-totp-back='true']")!;
+    expect(btn.textContent).toBe("Back");
+  });
+});
+
+describe("mountCunyTotpScreen — step card structure", () => {
+  test("first step number marker is data-step-status='active'", () => {
+    const { ctx } = makeCtx();
+    mountCunyTotpScreen(ctx);
+    const nums = document.querySelectorAll<HTMLElement>(".onboarding-step-num");
+    expect(nums[0]?.dataset.stepStatus).toBe("active");
+  });
+
+  test("subsequent step number markers are data-step-status='pending'", () => {
+    const { ctx } = makeCtx();
+    mountCunyTotpScreen(ctx);
+    const nums = document.querySelectorAll<HTMLElement>(".onboarding-step-num");
+    for (let i = 1; i < nums.length; i++) {
+      expect(nums[i]?.dataset.stepStatus).toBe("pending");
+    }
+  });
+
+  test("step titles are rendered", () => {
+    const { ctx } = makeCtx();
+    mountCunyTotpScreen(ctx);
+    const titles = document.querySelectorAll(".onboarding-step-title");
+    expect(titles.length).toBe(3);
+    expect(titles[0]?.textContent).toContain("authenticator");
+  });
+
+  test("pulse wrap is aria-hidden", () => {
+    const { ctx } = makeCtx();
+    mountCunyTotpScreen(ctx);
+    const wrap = document.querySelector<HTMLElement>(".onboarding-pulse-wrap")!;
+    expect(wrap.getAttribute("aria-hidden")).toBe("true");
+  });
+});

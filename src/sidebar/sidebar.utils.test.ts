@@ -8,6 +8,7 @@ import {
   hideTotpSecretSourceHint,
   showTotpSecretSourceHint,
   applyPendingTotpFromPage,
+  clearPendingTotpFromSession,
   effectiveTotpSecretForSave,
   MIN_MASTER_PASSWORD_LENGTH,
   type SidebarDom,
@@ -112,6 +113,14 @@ describe("decryptStatusMessage", () => {
       "Wrong extension password or corrupted vault."
     );
   });
+
+  test("invalid_payload → generic could not decrypt message", () => {
+    expect(decryptStatusMessage("invalid_payload")).toBe("Could not decrypt vault.");
+  });
+
+  test("crypto_failed → generic could not decrypt message", () => {
+    expect(decryptStatusMessage("crypto_failed")).toBe("Could not decrypt vault.");
+  });
 });
 
 describe("setStatus", () => {
@@ -122,6 +131,23 @@ describe("setStatus", () => {
   test("sets textContent on #status element", () => {
     setStatus("Something went wrong.");
     expect(document.getElementById("status")?.textContent).toBe("Something went wrong.");
+  });
+
+  test("ok=true adds the ok CSS class", () => {
+    setStatus("Saved.", true);
+    expect(document.getElementById("status")?.classList.contains("ok")).toBe(true);
+  });
+
+  test("ok=false (default) removes the ok CSS class", () => {
+    const el = document.getElementById("status")!;
+    el.classList.add("ok");
+    setStatus("Error.");
+    expect(el.classList.contains("ok")).toBe(false);
+  });
+
+  test("does not throw when #status element is absent", () => {
+    document.body.innerHTML = "";
+    expect(() => setStatus("no element")).not.toThrow();
   });
 });
 
@@ -174,5 +200,66 @@ describe("applyPendingTotpFromPage", () => {
     expect(els.totpSecret.value).toBe("NEWSECRET");
     expect(removeSpy).toHaveBeenCalledWith(PENDING_TOTP_SECRET_SESSION_KEY);
     expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(false);
+  });
+
+  test("no secret in session → totp field unchanged, hint stays hidden", async () => {
+    const els = makeMinimalEls("EXISTINGSECRET");
+    mockSessionGet(undefined);
+    mockSessionRemove();
+
+    await applyPendingTotpFromPage(els);
+
+    expect(els.totpSecret.value).toBe("EXISTINGSECRET");
+    expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(true);
+  });
+
+  test("session secret matches existing field value → clears session but does not show hint", async () => {
+    // Current field value normalised to uppercase, no spaces
+    const els = makeMinimalEls("JBSWY3DPEHPK3PXP");
+    mockSessionGet("JBSWY3DPEHPK3PXP");
+    const removeSpy = mockSessionRemove();
+
+    await applyPendingTotpFromPage(els);
+
+    // Value unchanged, session cleared, hint stays hidden
+    expect(els.totpSecret.value).toBe("JBSWY3DPEHPK3PXP");
+    expect(removeSpy).toHaveBeenCalledWith(PENDING_TOTP_SECRET_SESSION_KEY);
+    expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(true);
+  });
+
+  test("session.get throws → does not throw and field is unchanged", async () => {
+    const els = makeMinimalEls("SAFESECRET");
+    vi.spyOn(browser.storage.session, "get").mockRejectedValue(new Error("storage unavailable"));
+
+    await expect(applyPendingTotpFromPage(els)).resolves.toBeUndefined();
+    expect(els.totpSecret.value).toBe("SAFESECRET");
+  });
+});
+
+describe("clearPendingTotpFromSession", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("calls storage.session.remove with the pending TOTP key", async () => {
+    const removeSpy = vi
+      .spyOn(browser.storage.session, "remove")
+      .mockResolvedValue();
+
+    await clearPendingTotpFromSession();
+
+    expect(removeSpy).toHaveBeenCalledWith(PENDING_TOTP_SECRET_SESSION_KEY);
+  });
+
+  test("does not throw when storage.session.remove rejects", async () => {
+    vi.spyOn(browser.storage.session, "remove").mockRejectedValue(
+      new Error("session unavailable")
+    );
+
+    await expect(clearPendingTotpFromSession()).resolves.toBeUndefined();
   });
 });

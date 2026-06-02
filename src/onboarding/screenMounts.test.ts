@@ -64,4 +64,39 @@ describe("SCREEN_MOUNTS", () => {
   test("BIOMETRIC_PREP state has a mount function", () => {
     expect(typeof SCREEN_MOUNTS.BIOMETRIC_PREP).toBe("function");
   });
+
+  test("CREDENTIAL_ERROR is explicitly absent from SCREEN_MOUNTS", () => {
+    expect(SCREEN_MOUNTS.CREDENTIAL_ERROR).toBeUndefined();
+  });
+
+  test("every state with a bead-3 guided screen has a mount function", () => {
+    const guidedStates = [
+      "OAA_SPA_HOME",
+      "GUIDED_MANAGE",
+      "GUIDED_ADD_FACTOR",
+      "GUIDED_FACTOR_TYPE",
+      "GUIDED_SECRET_CAPTURE",
+      "VERIFY_LOGIN_CODE",
+      "SET_DEFAULT",
+    ] as const;
+    for (const state of guidedStates) {
+      expect(typeof SCREEN_MOUNTS[state], `${state} should have a mount`).toBe("function");
+    }
+  });
+
+  test("credential-entry states (EMAIL_ENTRY, PASSWORD_ENTRY) have mount functions", () => {
+    expect(typeof SCREEN_MOUNTS.EMAIL_ENTRY).toBe("function");
+    expect(typeof SCREEN_MOUNTS.PASSWORD_ENTRY).toBe("function");
+  });
+
+  test("early-login states (OPENING_CUNY, CUNY_TOTP, ALLOW_GATE) have mount functions", () => {
+    expect(typeof SCREEN_MOUNTS.OPENING_CUNY).toBe("function");
+    expect(typeof SCREEN_MOUNTS.CUNY_TOTP).toBe("function");
+    expect(typeof SCREEN_MOUNTS.ALLOW_GATE).toBe("function");
+  });
+
+  test("EXT_PASSWORD_SETUP and COMPLETE_DEMO have mount functions", () => {
+    expect(typeof SCREEN_MOUNTS.EXT_PASSWORD_SETUP).toBe("function");
+    expect(typeof SCREEN_MOUNTS.COMPLETE_DEMO).toBe("function");
+  });
 });
