@@ -15,6 +15,7 @@ const makeCtx = (email = ""): OnboardingScreenContext => {
       email,
       password: "",
       credentialError: null,
+      advancedKeyFlow: false,
     }),
     setEmail: vi.fn(),
     setPassword: vi.fn(),

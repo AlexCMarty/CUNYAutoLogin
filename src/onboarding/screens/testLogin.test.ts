@@ -33,6 +33,7 @@ const makeCtx = (qaVariant?: string): OnboardingScreenContext => {
       email: "",
       password: "",
       credentialError: null,
+      advancedKeyFlow: false,
     }),
     setEmail: vi.fn(),
     setPassword: vi.fn(),
@@ -119,6 +120,7 @@ describe("mountTestLoginScreen", () => {
         email: "student@login.cuny.edu",
         password: "secret123",
         credentialError: null,
+        advancedKeyFlow: false,
       }),
     };
     mountTestLoginScreen(ctx);

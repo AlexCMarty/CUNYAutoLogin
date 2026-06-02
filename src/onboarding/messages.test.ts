@@ -14,6 +14,7 @@ import {
   isOnboardingStageDetected,
   isOnboardingTabReattached,
   isOnboardingVerifyStatus,
+  isPersistOnboardingResumeSnapshot,
   normalizeAutoFillOtpContext,
   type OnboardingMessageType,
 } from "./messages";
@@ -376,5 +377,26 @@ describe("normalizeAutoFillOtpContext", () => {
     expect(normalizeAutoFillOtpContext("other")).toBeUndefined();
     expect(normalizeAutoFillOtpContext(42)).toBeUndefined();
     expect(normalizeAutoFillOtpContext(null)).toBeUndefined();
+  });
+});
+
+describe("isPersistOnboardingResumeSnapshot", () => {
+  const base = {
+    type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+    state: "BIOMETRIC_OFFER",
+    email: "e@login.cuny.edu",
+    password: "p",
+  };
+
+  test("accepts a snapshot without advancedKeyFlow (backward compatible)", () => {
+    expect(isPersistOnboardingResumeSnapshot(base)).toBe(true);
+  });
+
+  test("accepts a boolean advancedKeyFlow", () => {
+    expect(isPersistOnboardingResumeSnapshot({ ...base, advancedKeyFlow: true })).toBe(true);
+  });
+
+  test("rejects a non-boolean advancedKeyFlow", () => {
+    expect(isPersistOnboardingResumeSnapshot({ ...base, advancedKeyFlow: "yes" })).toBe(false);
   });
 });

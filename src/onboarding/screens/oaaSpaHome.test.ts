@@ -20,7 +20,7 @@ const makeCtx = (): { ctx: OnboardingScreenContext; root: HTMLElement } => {
   const ctx: OnboardingScreenContext = {
     doc: document,
     root,
-    getSnapshot: () => ({ state: "OAA_SPA_HOME", email: "", password: "", credentialError: null }),
+    getSnapshot: () => ({ state: "OAA_SPA_HOME", email: "", password: "", credentialError: null, advancedKeyFlow: false }),
     setEmail: vi.fn(),
     setPassword: vi.fn(),
     setCredentialError: vi.fn(),

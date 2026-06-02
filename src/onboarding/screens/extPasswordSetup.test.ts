@@ -66,6 +66,7 @@ const makeCtx = (
       email: snapshotOverrides?.email ?? "student@login.cuny.edu",
       password: snapshotOverrides?.password ?? "cunyPass1!",
       credentialError: null,
+      advancedKeyFlow: false,
     }),
     setEmail: vi.fn(),
     setPassword: vi.fn(),

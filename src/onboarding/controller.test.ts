@@ -10,6 +10,7 @@ describe("createOnboardingController", () => {
       email: "",
       password: "",
       credentialError: null,
+      advancedKeyFlow: false,
     });
   });
 
@@ -50,6 +51,7 @@ describe("createOnboardingController", () => {
       email: "jane.doe@login.cuny.edu",
       password: "s3cret",
       credentialError: null,
+      advancedKeyFlow: false,
     });
   });
 
@@ -106,6 +108,58 @@ describe("createOnboardingController", () => {
     controller.dispatch("BACK");
     controller.dispatch("VERIFY_SUCCEEDED");
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ["KEY_FROM_OTHER_DEVICE"],
+    ["KEY_FROM_AUTH_APP"],
+  ] as const)(
+    "reaching TEST_LOGIN from %s sets advancedKeyFlow",
+    (origin) => {
+      const controller = createOnboardingController({ initialState: origin });
+      expect(controller.getSnapshot().advancedKeyFlow).toBe(false);
+      controller.dispatch("KEY_CONFIRMED");
+      expect(controller.getSnapshot().state).toBe("TEST_LOGIN");
+      expect(controller.getSnapshot().advancedKeyFlow).toBe(true);
+    }
+  );
+
+  test.each([
+    ["BIOMETRIC_OFFER", "BIOMETRIC_DECLINED"],
+    ["BIOMETRIC_PREP", "BIOMETRIC_PREP_DONE"],
+  ] as const)(
+    "key-flow %s/%s skips COMPLETE_DEMO and lands on COMPLETE_DONE",
+    (state, event) => {
+      const controller = createOnboardingController({
+        initialState: state,
+        initialAdvancedKeyFlow: true,
+      });
+      controller.dispatch(event);
+      expect(controller.getSnapshot().state).toBe("COMPLETE_DONE");
+    }
+  );
+
+  test.each([
+    ["BIOMETRIC_OFFER", "BIOMETRIC_DECLINED"],
+    ["BIOMETRIC_PREP", "BIOMETRIC_PREP_DONE"],
+  ] as const)(
+    "guided %s/%s still routes to COMPLETE_DEMO",
+    (state, event) => {
+      const controller = createOnboardingController({ initialState: state });
+      controller.dispatch(event);
+      expect(controller.getSnapshot().state).toBe("COMPLETE_DEMO");
+    }
+  );
+
+  test("setAdvancedKeyFlow updates the snapshot and notifies, short-circuiting identical values", () => {
+    const controller = createOnboardingController();
+    const listener = vi.fn();
+    controller.subscribe(listener);
+    controller.setAdvancedKeyFlow(true);
+    expect(controller.getSnapshot().advancedKeyFlow).toBe(true);
+    expect(listener).toHaveBeenCalledTimes(1);
+    controller.setAdvancedKeyFlow(true);
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
   test("state transitions do not emit dev logs outside development/e2e modes", () => {

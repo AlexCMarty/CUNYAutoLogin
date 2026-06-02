@@ -24,7 +24,7 @@ const makeCtx = (): { ctx: OnboardingScreenContext; root: HTMLElement } => {
   const ctx: OnboardingScreenContext = {
     doc: document,
     root,
-    getSnapshot: () => ({ state: "COMPLETE_DONE", email: "", password: "", credentialError: null }),
+    getSnapshot: () => ({ state: "COMPLETE_DONE", email: "", password: "", credentialError: null, advancedKeyFlow: false }),
     setEmail: vi.fn(),
     setPassword: vi.fn(),
     setCredentialError: vi.fn(),

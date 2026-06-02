@@ -34,6 +34,11 @@ describe("isResumeSnapshot", () => {
     expect(isResumeSnapshot(null)).toBe(false);
     expect(isResumeSnapshot("x")).toBe(false);
   });
+
+  test("accepts a boolean advancedKeyFlow and rejects a non-boolean one", () => {
+    expect(isResumeSnapshot({ state: "BIOMETRIC_OFFER", advancedKeyFlow: true })).toBe(true);
+    expect(isResumeSnapshot({ state: "BIOMETRIC_OFFER", advancedKeyFlow: "yes" })).toBe(false);
+  });
 });
 
 describe("persistOnboardingResumeSnapshot", () => {
@@ -49,6 +54,24 @@ describe("persistOnboardingResumeSnapshot", () => {
         state: "ALLOW_GATE",
         email: "e@login.cuny.edu",
         password: "p",
+      },
+    });
+  });
+
+  test("persists advancedKeyFlow when set", async () => {
+    vi.mocked(browser.storage.session!.set).mockResolvedValue(undefined);
+    await persistOnboardingResumeSnapshot({
+      state: "BIOMETRIC_OFFER",
+      email: "e@login.cuny.edu",
+      password: "p",
+      advancedKeyFlow: true,
+    });
+    expect(browser.storage.session!.set).toHaveBeenCalledWith({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: "BIOMETRIC_OFFER",
+        email: "e@login.cuny.edu",
+        password: "p",
+        advancedKeyFlow: true,
       },
     });
   });

@@ -79,6 +79,7 @@ type PendingResumeSnapshot = {
   readonly state: OnboardingState;
   readonly email: string;
   readonly password: string;
+  readonly advancedKeyFlow: boolean;
 };
 
 const isDevMode = (): boolean =>
@@ -718,6 +719,7 @@ const loadAndApplyResumeSnapshot = async (
     state: snapshot.state,
     email: snapshot.email ?? "",
     password: snapshot.password ?? "",
+    advancedKeyFlow: snapshot.advancedKeyFlow ?? false,
   });
   repaintInterruptionActions();
 };
@@ -780,6 +782,7 @@ const runOnboardingUnmount = (bag: OnboardingUnmountBag): void => {
       state: snap.state,
       email: snap.email,
       password: snap.password,
+      advancedKeyFlow: snap.advancedKeyFlow,
     };
     void browser.runtime
       .sendMessage(message)
@@ -859,6 +862,7 @@ const registerSidebarInterruptionBindings = ({
     if (!latch.snapshot) return;
     controller.setEmail(latch.snapshot.email);
     controller.setPassword(latch.snapshot.password);
+    controller.setAdvancedKeyFlow(latch.snapshot.advancedKeyFlow);
     controller.setState(latch.snapshot.state);
     latch.snapshot = null;
     repaint();

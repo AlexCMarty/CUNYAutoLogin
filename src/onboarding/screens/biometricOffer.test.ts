@@ -10,7 +10,7 @@ const makeCtx = (): { ctx: OnboardingScreenContext; root: HTMLElement; dispatche
   const ctx: OnboardingScreenContext = {
     doc: document,
     root,
-    getSnapshot: () => ({ state: "BIOMETRIC_OFFER", email: "", password: "", credentialError: null }),
+    getSnapshot: () => ({ state: "BIOMETRIC_OFFER", email: "", password: "", credentialError: null, advancedKeyFlow: false }),
     setEmail: vi.fn(),
     setPassword: vi.fn(),
     setCredentialError: vi.fn(),

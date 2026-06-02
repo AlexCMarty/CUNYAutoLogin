@@ -38,6 +38,12 @@ export type OnboardingSnapshot = {
   readonly email: string;
   readonly password: string;
   readonly credentialError: OnboardingCredentialErrorInfo | null;
+  /**
+   * True once the student entered the advanced "use your existing key" branch
+   * (i.e. reached `TEST_LOGIN`). Such users already watched a real auto-login,
+   * so the completion flow skips `COMPLETE_DEMO` and lands on `COMPLETE_DONE`.
+   */
+  readonly advancedKeyFlow: boolean;
 };
 
 type OnboardingSnapshotListener = (snapshot: OnboardingSnapshot) => void;
@@ -49,6 +55,7 @@ export type OnboardingController = {
   readonly setEmail: (value: string) => void;
   readonly setPassword: (value: string) => void;
   readonly setCredentialError: (error: OnboardingCredentialErrorInfo | null) => void;
+  readonly setAdvancedKeyFlow: (value: boolean) => void;
   readonly subscribe: (listener: OnboardingSnapshotListener) => () => void;
 };
 
@@ -57,6 +64,7 @@ export type OnboardingControllerInit = {
   readonly initialEmail?: string;
   readonly initialPassword?: string;
   readonly initialCredentialError?: OnboardingCredentialErrorInfo | null;
+  readonly initialAdvancedKeyFlow?: boolean;
 };
 
 export const createOnboardingController = (
@@ -67,6 +75,7 @@ export const createOnboardingController = (
   let password = init.initialPassword ?? "";
   let credentialError: OnboardingCredentialErrorInfo | null =
     init.initialCredentialError ?? null;
+  let advancedKeyFlow = init.initialAdvancedKeyFlow ?? false;
   const listeners = new Set<OnboardingSnapshotListener>();
 
   const snapshot = (): OnboardingSnapshot => ({
@@ -74,6 +83,7 @@ export const createOnboardingController = (
     email,
     password,
     credentialError,
+    advancedKeyFlow,
   });
 
   const notify = (): void => {
@@ -91,8 +101,16 @@ export const createOnboardingController = (
       notify();
     },
     dispatch: (event) => {
-      const next = advance(state, event);
+      let next = advance(state, event);
       if (next === null) return;
+      // Entering the advanced "use your existing key" proof step marks the flow
+      // so the completion path can later skip the redundant sign-in demo.
+      if (next === "TEST_LOGIN") advancedKeyFlow = true;
+      // Key-flow users already saw a real auto-login in TEST_LOGIN, so skip the
+      // "Show me" demo and go straight to the final screen. The static table
+      // still maps BIOMETRIC_* → COMPLETE_DEMO; the override lives here so the
+      // table stays purely declarative.
+      if (next === "COMPLETE_DEMO" && advancedKeyFlow) next = "COMPLETE_DONE";
       if (next === state) return;
       const previousState = state;
       state = next;
@@ -121,6 +139,11 @@ export const createOnboardingController = (
         return;
       }
       credentialError = error;
+      notify();
+    },
+    setAdvancedKeyFlow: (value) => {
+      if (advancedKeyFlow === value) return;
+      advancedKeyFlow = value;
       notify();
     },
     subscribe: (listener) => {

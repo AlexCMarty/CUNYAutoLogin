@@ -17,6 +17,7 @@ export type OnboardingResumeSnapshot = {
   readonly state: OnboardingState;
   readonly email?: string;
   readonly password?: string;
+  readonly advancedKeyFlow?: boolean;
 };
 
 export const isResumeSnapshot = (
@@ -35,6 +36,12 @@ export const isResumeSnapshot = (
   if (record.email !== undefined && typeof record.email !== "string") return false;
   if (record.password !== undefined && typeof record.password !== "string")
     return false;
+  if (
+    record.advancedKeyFlow !== undefined &&
+    typeof record.advancedKeyFlow !== "boolean"
+  ) {
+    return false;
+  }
   return true;
 };
 
@@ -90,6 +97,7 @@ export async function persistOnboardingResumeSnapshot(snapshot: {
   readonly state: OnboardingState;
   readonly email: string;
   readonly password: string;
+  readonly advancedKeyFlow?: boolean;
 }): Promise<void> {
   const safeState = safeResumeStateFor(snapshot.state);
   if (!safeState) {
@@ -100,5 +108,6 @@ export async function persistOnboardingResumeSnapshot(snapshot: {
     state: safeState,
     email: snapshot.email,
     password: snapshot.password,
+    advancedKeyFlow: snapshot.advancedKeyFlow,
   });
 }

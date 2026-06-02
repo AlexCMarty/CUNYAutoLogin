@@ -104,6 +104,7 @@ export type PersistOnboardingResumeSnapshot = {
   readonly state: OnboardingState;
   readonly email: string;
   readonly password: string;
+  readonly advancedKeyFlow?: boolean;
 };
 
 export type OnboardingCredentialsAck = { readonly ok: boolean };
@@ -160,7 +161,9 @@ export const isPersistOnboardingResumeSnapshot = (
     typeof record.email === "string" &&
     typeof record.password === "string" &&
     typeof record.state === "string" &&
-    isOnboardingState(record.state)
+    isOnboardingState(record.state) &&
+    (record.advancedKeyFlow === undefined ||
+      typeof record.advancedKeyFlow === "boolean")
   );
 };
 

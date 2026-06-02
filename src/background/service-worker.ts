@@ -554,6 +554,7 @@ const coreMessageRoutes = (
           state: validMessage.state,
           email: validMessage.email,
           password: validMessage.password,
+          advancedKeyFlow: validMessage.advancedKeyFlow,
         });
         return { ok: true as const };
       },

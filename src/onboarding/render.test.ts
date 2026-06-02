@@ -215,6 +215,39 @@ describe("mountOnboarding", () => {
     });
   });
 
+  test("resume at BIOMETRIC_OFFER with advancedKeyFlow skips the demo and lands on COMPLETE_DONE", async () => {
+    vi.mocked(browser.storage.session.get).mockResolvedValue({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: "BIOMETRIC_OFFER",
+        email: "resume@login.cuny.edu",
+        advancedKeyFlow: true,
+      },
+    });
+    renderOnboardingRoot();
+    mountOnboarding(document);
+    await expect
+      .poll(
+        () =>
+          document
+            .querySelector<HTMLButtonElement>(ONBOARDING_RESUME_BUTTON_SELECTOR)
+            ?.hidden
+      )
+      .toBe(false);
+    document
+      .querySelector<HTMLButtonElement>(ONBOARDING_RESUME_BUTTON_SELECTOR)
+      ?.click();
+    // jsdom has no platform authenticator, so BIOMETRIC_OFFER auto-declines.
+    // With advancedKeyFlow restored, that must skip COMPLETE_DEMO.
+    await expect
+      .poll(() =>
+        document.querySelector("[data-onboarding-screen='COMPLETE_DONE']")
+      )
+      .not.toBeNull();
+    expect(
+      document.querySelector("[data-onboarding-screen='COMPLETE_DEMO']")
+    ).toBeNull();
+  });
+
   test("closing tracked CUNY tab shows reopen button in guided states", () => {
     renderOnboardingRoot();
     mountOnboarding(document);
