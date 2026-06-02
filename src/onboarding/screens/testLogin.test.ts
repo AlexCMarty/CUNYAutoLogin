@@ -1,5 +1,22 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, test, vi } from "vitest";
+// testLogin.ts imports webextension-polyfill at module scope. In jsdom we
+// replace it with a stub so we can assert on browser.tabs.create and
+// browser.runtime.sendMessage without pulling in the real polyfill.
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+const { sendMessageMock, tabsCreateMock } = vi.hoisted(() => ({
+  sendMessageMock: vi.fn<(message: unknown) => Promise<unknown>>(),
+  tabsCreateMock: vi.fn<
+    (options: { url: string; active?: boolean }) => Promise<unknown>
+  >(),
+}));
+
+vi.mock("webextension-polyfill", () => ({
+  default: {
+    runtime: { sendMessage: sendMessageMock },
+    tabs: { create: tabsCreateMock },
+  },
+}));
 
 import { mountTestLoginScreen } from "./testLogin";
 import type { OnboardingScreenContext } from "./screenContext";
@@ -23,6 +40,20 @@ const makeCtx = (qaVariant?: string): OnboardingScreenContext => {
     dispatch: vi.fn(),
   };
 };
+
+// waitForMicrotasks — the mount schedules an async IIFE for the side effects.
+const flush = async (): Promise<void> => {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+};
+
+beforeEach(() => {
+  sendMessageMock.mockReset();
+  tabsCreateMock.mockReset();
+  sendMessageMock.mockResolvedValue({ ok: true });
+  tabsCreateMock.mockResolvedValue({ id: 42 });
+});
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -78,5 +109,37 @@ describe("mountTestLoginScreen", () => {
     expect(
       document.querySelector("[data-onboarding-screen='TEST_LOGIN']")
     ).toBeNull();
+  });
+
+  test("on mount: sends LOGOUT_CUNY_SESSIONS, then stages credentials, then opens CUNY tab", async () => {
+    const ctx: OnboardingScreenContext = {
+      ...makeCtx(),
+      getSnapshot: () => ({
+        state: "TEST_LOGIN",
+        email: "student@login.cuny.edu",
+        password: "secret123",
+        credentialError: null,
+      }),
+    };
+    mountTestLoginScreen(ctx);
+    await flush();
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(2);
+    expect(sendMessageMock).toHaveBeenNthCalledWith(1, { type: "LOGOUT_CUNY_SESSIONS" });
+    expect(sendMessageMock).toHaveBeenNthCalledWith(2, {
+      type: "STAGE_ONBOARDING_CREDENTIALS",
+      email: "student@login.cuny.edu",
+      password: "secret123",
+    });
+    expect(tabsCreateMock).toHaveBeenCalledTimes(1);
+    expect((tabsCreateMock.mock.calls[0]?.[0] as { active: boolean }).active).toBe(true);
+  });
+
+  test("on mount: recovers silently if sendMessage rejects", async () => {
+    sendMessageMock.mockRejectedValue(new Error("SW down"));
+    expect(() => mountTestLoginScreen(makeCtx())).not.toThrow();
+    await flush();
+    // tabs.create is still attempted even if sendMessage failed
+    expect(tabsCreateMock).toHaveBeenCalledTimes(1);
   });
 });

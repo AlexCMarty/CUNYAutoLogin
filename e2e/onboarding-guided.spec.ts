@@ -57,8 +57,12 @@ async function setupToAllowGate(
   );
   await walkToPasswordEntry(page);
 
-  const tabPromise = context.waitForEvent("page");
   await page.locator("[data-onboarding-password-forward='true']").click();
+  await expect(page.locator("[data-onboarding-screen='CHOOSE_SETUP_PATH']")).toBeVisible({
+    timeout: 5_000,
+  });
+  const tabPromise = context.waitForEvent("page");
+  await page.locator("[data-onboarding-choice='guided']").click();
   const cunyTab = await tabPromise;
   await cunyTab.waitForLoadState("domcontentloaded");
 

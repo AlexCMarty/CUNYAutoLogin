@@ -188,6 +188,12 @@ describe("mountOnboarding", () => {
     passwordInput.value = "pw-after-resume";
     passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
     passwordForward.click();
+    // PASSWORD_ENTRY → CHOOSE_SETUP_PATH: pick the guided path to proceed.
+    const guidedCard = document.querySelector<HTMLButtonElement>(
+      "[data-onboarding-choice='guided']"
+    );
+    if (!guidedCard) throw new Error("CHOOSE_SETUP_PATH guided card missing");
+    guidedCard.click();
     await expect
       .poll(() =>
         vi.mocked(browser.runtime.sendMessage).mock.calls.some(
@@ -224,6 +230,12 @@ describe("mountOnboarding", () => {
     passwordInput.value = "pw";
     passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
     passwordForward.click();
+    // PASSWORD_ENTRY → CHOOSE_SETUP_PATH: pick guided to continue to OPENING_CUNY.
+    const guidedCard = document.querySelector<HTMLButtonElement>(
+      "[data-onboarding-choice='guided']"
+    );
+    if (!guidedCard) throw new Error("CHOOSE_SETUP_PATH guided card missing");
+    guidedCard.click();
     bridgeListener(
       { type: "ONBOARDING_STAGE_DETECTED", stage: "allow_gate" },
       trustedOnboardingBridgeSender(123),

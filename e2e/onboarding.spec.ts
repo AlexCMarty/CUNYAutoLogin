@@ -171,8 +171,12 @@ test.describe("onboarding screens 1-3", () => {
       `chrome-extension://${extensionId}/sidebar.html${onboardingHashWith(CREDENTIAL_FIXTURE_URL)}`
     );
     await walkToPasswordEntry(page);
-    const tabPromise = context.waitForEvent("page");
     await page.locator("[data-onboarding-password-input='true']").press("Enter");
+    await expect(page.locator("[data-onboarding-screen='CHOOSE_SETUP_PATH']")).toBeVisible({
+      timeout: 5_000,
+    });
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-choice='guided']").click();
     const cunyTab = await tabPromise;
     await expect(
       page.locator("[data-onboarding-screen='OPENING_CUNY']")
@@ -207,8 +211,12 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
     );
     await walkToPasswordEntry(page);
 
-    const tabPromise = context.waitForEvent("page");
     await page.locator("[data-onboarding-password-forward='true']").click();
+    await expect(page.locator("[data-onboarding-screen='CHOOSE_SETUP_PATH']")).toBeVisible({
+      timeout: 5_000,
+    });
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-choice='guided']").click();
     const cunyTab = await tabPromise;
     await cunyTab.waitForLoadState("domcontentloaded");
 
@@ -239,8 +247,12 @@ test.describe("onboarding screen 4 — opening CUNY", () => {
     );
     await walkToPasswordEntry(page);
 
-    const tabPromise = context.waitForEvent("page");
     await page.locator("[data-onboarding-password-forward='true']").click();
+    await expect(page.locator("[data-onboarding-screen='CHOOSE_SETUP_PATH']")).toBeVisible({
+      timeout: 5_000,
+    });
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-choice='guided']").click();
     const cunyTab = await tabPromise;
 
     // Navigate the CUNY tab directly to the success variant of /auth_cred_submit.
@@ -316,8 +328,12 @@ test.describe("onboarding — wrong credentials", () => {
     );
     await walkToPasswordEntry(page);
 
-    const tabPromise = context.waitForEvent("page");
     await page.locator("[data-onboarding-password-forward='true']").click();
+    await expect(page.locator("[data-onboarding-screen='CHOOSE_SETUP_PATH']")).toBeVisible({
+      timeout: 5_000,
+    });
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-choice='guided']").click();
     const cunyTab = await tabPromise;
     await cunyTab.waitForLoadState("domcontentloaded");
 
@@ -365,8 +381,12 @@ test.describe("onboarding — wrong credentials", () => {
     );
     await walkToPasswordEntry(page);
 
-    const tabPromise = context.waitForEvent("page");
     await page.locator("[data-onboarding-password-forward='true']").click();
+    await expect(page.locator("[data-onboarding-screen='CHOOSE_SETUP_PATH']")).toBeVisible({
+      timeout: 5_000,
+    });
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-choice='guided']").click();
     const cunyTab = await tabPromise;
     await cunyTab.waitForLoadState("domcontentloaded");
 
@@ -399,8 +419,12 @@ test.describe("onboarding — wrong credentials", () => {
       )}`
     );
     await walkToPasswordEntry(page);
-    const tabPromise = context.waitForEvent("page");
     await page.locator("[data-onboarding-password-forward='true']").click();
+    await expect(page.locator("[data-onboarding-screen='CHOOSE_SETUP_PATH']")).toBeVisible({
+      timeout: 5_000,
+    });
+    const tabPromise = context.waitForEvent("page");
+    await page.locator("[data-onboarding-choice='guided']").click();
     const cunyTab = await tabPromise;
     await cunyTab.waitForLoadState("domcontentloaded");
 

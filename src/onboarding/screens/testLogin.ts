@@ -1,15 +1,46 @@
 /**
- * TEST_LOGIN — a real Brightspace auto-login that proves the pasted key works
+ * TEST_LOGIN — a real CUNY auto-login that proves the pasted key works
  * (bead 3). Reuses the COMPLETE_DEMO checklist look (row/dot/text classes).
  *
- * VISUALS-ONLY PASS: this renders a single static frame — no live sign-in, no
- * animation, no timers. `qaVariant=success` shows the signed-in frame; the
- * default shows the in-progress frame (filling password). The wiring pass will
- * drive the steps from real auto-fill progress and dispatch
- * TEST_SUCCEEDED / TEST_BAD_CREDENTIALS / TEST_BAD_KEY (advanced-key-flow.md §6–7).
+ * On mount this screen:
+ *   1. Sends LOGOUT_CUNY_SESSIONS to terminate any existing OAA session.
+ *   2. Stages email + password via STAGE_ONBOARDING_CREDENTIALS so the
+ *      content script can auto-fill them.
+ *   3. Opens the CUNY entry URL in a new tab.
+ *
+ * The render bridge in render.ts then drives the result:
+ *   - allow_gate stage → TEST_SUCCEEDED
+ *   - ONBOARDING_CREDENTIAL_ERROR while in TEST_LOGIN → TEST_BAD_CREDENTIALS
+ *   - ONBOARDING_VERIFY_STATUS second_failure while in TEST_LOGIN → TEST_BAD_KEY
+ *
+ * `qaVariant=success` shows the signed-in frame; default shows the
+ * in-progress frame.
  */
 
+import browser from "webextension-polyfill";
+import { CUNY_LOGIN_ENTRY_URL } from "../../cuny/ssoSite";
+import type { LogoutCunySessionsRequest, StageOnboardingCredentials } from "../messages";
+import { DEV_MODE_NAMES } from "../devModes";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
+
+const isDevMode = (): boolean =>
+  (DEV_MODE_NAMES as readonly string[]).includes(import.meta.env.MODE);
+
+const reportTestLoginFailure = (where: string, error: unknown): void => {
+  if (!isDevMode()) return;
+  // eslint-disable-next-line no-console
+  console.warn(`[onboarding/test-login] ${where} failed:`, error);
+};
+
+const resolveCunyEntryUrl = (): string => {
+  if (!isDevMode() || typeof window === "undefined") return CUNY_LOGIN_ENTRY_URL;
+  try {
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const override = params.get("cuny");
+    if (override && override.length > 0) return override;
+  } catch { /* fall through */ }
+  return CUNY_LOGIN_ENTRY_URL;
+};
 
 const STEPS = [
   "Opening Brightspace",
@@ -61,7 +92,7 @@ const buildChecklist = (doc: Document, success: boolean): HTMLElement => {
 export const mountTestLoginScreen: ScreenMount = (
   ctx: OnboardingScreenContext
 ) => {
-  const { doc, root, qaVariant } = ctx;
+  const { doc, root, qaVariant, getSnapshot } = ctx;
   const success = qaVariant === "success";
 
   const container = doc.createElement("section");
@@ -100,6 +131,26 @@ export const mountTestLoginScreen: ScreenMount = (
   }
 
   root.appendChild(container);
+
+  const snapshot = getSnapshot();
+  const logoutPayload: LogoutCunySessionsRequest = { type: "LOGOUT_CUNY_SESSIONS" };
+  const stagePayload: StageOnboardingCredentials = {
+    type: "STAGE_ONBOARDING_CREDENTIALS",
+    email: snapshot.email,
+    password: snapshot.password,
+  };
+  const cunyUrl = resolveCunyEntryUrl();
+  void (async () => {
+    try { await browser.runtime.sendMessage(logoutPayload); } catch (err) {
+      reportTestLoginFailure("LOGOUT_CUNY_SESSIONS", err);
+    }
+    try { await browser.runtime.sendMessage(stagePayload); } catch (err) {
+      reportTestLoginFailure("STAGE_ONBOARDING_CREDENTIALS", err);
+    }
+    try { await browser.tabs.create({ url: cunyUrl, active: true }); } catch (err) {
+      reportTestLoginFailure("tabs.create", err);
+    }
+  })();
 
   return {
     unmount: () => {

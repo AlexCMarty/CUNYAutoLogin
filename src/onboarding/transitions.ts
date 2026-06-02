@@ -74,15 +74,10 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
     BACK: "WELCOME",
   }),
   PASSWORD_ENTRY: Object.freeze({
-    // NOTE: live target is still OPENING_CUNY. The advanced fork lands here
-    // (NEXT → CHOOSE_SETUP_PATH) in a later wiring pass; left unchanged for now
-    // so this visuals-only pass does not alter the working flow.
-    NEXT: "OPENING_CUNY",
+    NEXT: "CHOOSE_SETUP_PATH",
     BACK: "EMAIL_ENTRY",
   }),
   // ── Advanced "use your existing key" branch (advanced-key-flow.md §4) ──────
-  // Declarative graph only — reachable via dev #qa= jumps, not from the live
-  // flow yet. Nothing dispatches these events on this pass.
   CHOOSE_SETUP_PATH: Object.freeze({
     CHOOSE_GUIDED: "OPENING_CUNY",
     CHOOSE_REUSE_KEY: "KEY_FROM_OTHER_DEVICE",

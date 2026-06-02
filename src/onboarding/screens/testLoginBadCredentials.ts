@@ -5,8 +5,7 @@
  * student to check both (advanced-key-flow.md §7). "Signing in as <email>"
  * echoes the staged email so they can spot a wrong address.
  *
- * VISUALS-ONLY PASS: buttons are inert. The wiring pass dispatches
- * RETRY_CREDENTIALS (→ PASSWORD_ENTRY) and EDIT_EMAIL (→ EMAIL_ENTRY).
+ * Dispatches RETRY_CREDENTIALS (→ PASSWORD_ENTRY) and EDIT_EMAIL (→ EMAIL_ENTRY).
  */
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
@@ -23,7 +22,7 @@ const SAMPLE_EMAIL = "jane.doe12@login.cuny.edu";
 export const mountTestLoginBadCredentialsScreen: ScreenMount = (
   ctx: OnboardingScreenContext
 ) => {
-  const { doc, root, getSnapshot } = ctx;
+  const { doc, root, getSnapshot, dispatch } = ctx;
   const email = getSnapshot().email.trim() || SAMPLE_EMAIL;
 
   const container = doc.createElement("section");
@@ -73,8 +72,19 @@ export const mountTestLoginBadCredentialsScreen: ScreenMount = (
   container.appendChild(actions);
   root.appendChild(container);
 
+  const handleRetry = (): void => {
+    dispatch("RETRY_CREDENTIALS");
+  };
+  const handleEditEmail = (): void => {
+    dispatch("EDIT_EMAIL");
+  };
+  retry.addEventListener("click", handleRetry);
+  editEmail.addEventListener("click", handleEditEmail);
+
   return {
     unmount: () => {
+      retry.removeEventListener("click", handleRetry);
+      editEmail.removeEventListener("click", handleEditEmail);
       container.remove();
     },
   };

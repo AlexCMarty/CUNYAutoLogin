@@ -354,7 +354,7 @@ const handleClearOnboardingCredentials = (
 
 const readVaultCredentials = async (
   masterPassword: string,
-  enrollSecretOverride: string | null
+  totpSecretOverride: string | null
 ): Promise<AutoFillResponse | null> => {
   let localResult: Record<string, unknown>;
   try {
@@ -368,8 +368,8 @@ const readVaultCredentials = async (
   return decResult.match<AutoFillResponse>(
     (payload) => ({
       success: true,
-      payload: enrollSecretOverride !== null
-        ? { ...payload, totpSecret: enrollSecretOverride }
+      payload: totpSecretOverride !== null
+        ? { ...payload, totpSecret: totpSecretOverride }
         : payload,
     }),
     () => ({ success: false, reason: "decrypt_error" })
@@ -377,7 +377,7 @@ const readVaultCredentials = async (
 };
 
 const readStagedCredentials = async (
-  enrollSecretOverride: string | null
+  totpSecretOverride: string | null
 ): Promise<AutoFillResponse | null> => {
   if (!stagedOnboardingCredentials) return null;
   // Staged credentials are only for the pre-vault onboarding flow. If a vault
@@ -394,9 +394,7 @@ const readStagedCredentials = async (
     payload: {
       email: stagedOnboardingCredentials.email,
       password: stagedOnboardingCredentials.password,
-      // Login challenge (`otpValue|input`) must never consume the staged enroll
-      // secret — only `otp|input` opts in via otpContext.
-      totpSecret: enrollSecretOverride ?? "",
+      totpSecret: totpSecretOverride ?? "",
     },
   };
 };
@@ -437,13 +435,22 @@ const resolveAutoFillResponse = async (
     pendingTotpSecret.length > 0
       ? pendingTotpSecret
       : null;
+  const loginTotpOverride: string | null =
+    (otpContext === "login_totp" || otpContext === undefined) &&
+    stagedOnboardingCredentials !== null &&
+    enrollSecretOverride === null &&
+    typeof pendingTotpSecret === "string" &&
+    pendingTotpSecret.length > 0
+      ? pendingTotpSecret
+      : null;
+  const totpSecretOverride = enrollSecretOverride ?? loginTotpOverride;
 
   if (typeof masterPassword === "string") {
-    const vaultResult = await readVaultCredentials(masterPassword, enrollSecretOverride);
+    const vaultResult = await readVaultCredentials(masterPassword, totpSecretOverride);
     if (vaultResult !== null) return vaultResult;
   }
 
-  const stagedResult = await readStagedCredentials(enrollSecretOverride);
+  const stagedResult = await readStagedCredentials(totpSecretOverride);
   if (stagedResult !== null) return stagedResult;
 
   if (typeof masterPassword !== "string") {

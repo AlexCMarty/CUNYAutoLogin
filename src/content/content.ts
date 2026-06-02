@@ -15,7 +15,7 @@ import {
   type FillMessage,
 } from "./content.utils";
 import { startRuiOnboardingObservers } from "./ruiOnboarding";
-import { isAutoFillResponse, type AutoFillRequest } from "../onboarding/messages";
+import { isAutoFillResponse, type AutoFillRequest, type OnboardingVerifyStatus } from "../onboarding/messages";
 import {
   announceCunyTotpChallenge,
   handleAutoFillFailureCredentialError,
@@ -49,6 +49,11 @@ async function main(payload: FillMessage["payload"]): Promise<void> {
     if (payload.totpSecret.length > 0) {
       const emsg = new URLSearchParams(window.location.search).get(TOTP_ERROR_EMSG_PARAM);
       if (emsg !== null) {
+        const verifyFailMsg: OnboardingVerifyStatus = {
+          type: "ONBOARDING_VERIFY_STATUS",
+          status: "second_failure",
+        };
+        void browser.runtime.sendMessage(verifyFailMsg).catch(() => undefined);
         mountTotpErrorBanner(() => {
           void (async () => {
             const result = await fillTotp(payload.totpSecret);

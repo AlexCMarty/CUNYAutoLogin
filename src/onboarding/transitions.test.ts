@@ -56,6 +56,7 @@ describe("forward chain", () => {
       { from: "WELCOME", event: "NEXT" },
       { from: "EMAIL_ENTRY", event: "NEXT" },
       { from: "PASSWORD_ENTRY", event: "NEXT" },
+      { from: "CHOOSE_SETUP_PATH", event: "CHOOSE_GUIDED" },
       { from: "OPENING_CUNY", event: "CREDENTIALS_ACCEPTED" },
       { from: "CUNY_TOTP", event: "TOTP_DONE" },
       { from: "ALLOW_GATE", event: "ALLOW_CLICKED" },

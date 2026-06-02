@@ -6,11 +6,8 @@
  *   • I've used CUNYAutoLogin before — reuse a key from another device.
  *   • I use a 2FA app — import a key from Bitwarden/Aegis/Ente/…
  *
- * VISUALS-ONLY PASS: the choice cards and Back are rendered with their final
- * markup and `data-onboarding-choice` hooks, but they do NOT dispatch yet — the
- * fork is reachable only via dev `#qa=CHOOSE_SETUP_PATH`. The wiring pass will
- * dispatch CHOOSE_GUIDED / CHOOSE_REUSE_KEY / CHOOSE_IMPORT_KEY / BACK
- * (see advanced-key-flow.md §4) and route PASSWORD_ENTRY's NEXT here.
+ * Dispatches CHOOSE_GUIDED / CHOOSE_REUSE_KEY / CHOOSE_IMPORT_KEY / BACK
+ * (see advanced-key-flow.md §4).
  */
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
@@ -98,7 +95,7 @@ const buildChoiceCard = (doc: Document, spec: ChoiceSpec): HTMLButtonElement => 
 export const mountChooseSetupPathScreen: ScreenMount = (
   ctx: OnboardingScreenContext
 ) => {
-  const { doc, root } = ctx;
+  const { doc, root, dispatch } = ctx;
 
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "CHOOSE_SETUP_PATH";
@@ -138,8 +135,27 @@ export const mountChooseSetupPathScreen: ScreenMount = (
 
   root.appendChild(container);
 
+  const backBtn = container.querySelector<HTMLButtonElement>('[data-onboarding-choose-back]');
+  const choiceCards = container.querySelectorAll<HTMLButtonElement>('[data-onboarding-choice]');
+
+  const handleBack = (): void => {
+    dispatch("BACK");
+  };
+  const handleChoiceClick = (event: Event): void => {
+    const card = event.currentTarget as HTMLButtonElement;
+    const choice = card.dataset.onboardingChoice;
+    if (choice === "guided") dispatch("CHOOSE_GUIDED");
+    else if (choice === "reuse") dispatch("CHOOSE_REUSE_KEY");
+    else if (choice === "import") dispatch("CHOOSE_IMPORT_KEY");
+  };
+
+  backBtn?.addEventListener("click", handleBack);
+  choiceCards.forEach((card) => card.addEventListener("click", handleChoiceClick));
+
   return {
     unmount: () => {
+      backBtn?.removeEventListener("click", handleBack);
+      choiceCards.forEach((card) => card.removeEventListener("click", handleChoiceClick));
       container.remove();
     },
   };

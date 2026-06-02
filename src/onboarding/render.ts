@@ -171,6 +171,7 @@ const renderActiveScreen = (
   screenHost: HTMLElement,
   doc: Document,
   currentHandle: ScreenHandle | null,
+  keyEntryOriginRef: { value: "KEY_FROM_OTHER_DEVICE" | "KEY_FROM_AUTH_APP" | null },
   qaVariant?: string
 ): ScreenHandle => {
   currentHandle?.unmount();
@@ -184,7 +185,16 @@ const renderActiveScreen = (
     setEmail: controller.setEmail,
     setPassword: controller.setPassword,
     setCredentialError: controller.setCredentialError,
-    dispatch: controller.dispatch,
+    dispatch: (event) => {
+      if (
+        event === "RETRY_KEY" &&
+        controller.getSnapshot().state === "TEST_LOGIN_BAD_KEY"
+      ) {
+        controller.setState(keyEntryOriginRef.value ?? "KEY_FROM_OTHER_DEVICE");
+        return;
+      }
+      controller.dispatch(event);
+    },
   };
   return mount(ctx);
 };
@@ -253,6 +263,7 @@ const handleAllowGate = (controller: OnboardingController): void => {
     controller.dispatch("CREDENTIALS_ACCEPTED");
   }
   dispatchIfState(controller, "CUNY_TOTP", "TOTP_DONE");
+  dispatchIfState(controller, "TEST_LOGIN", "TEST_SUCCEEDED");
 };
 
 const handleAllowButtonClicked = (controller: OnboardingController): void => {
@@ -400,6 +411,10 @@ export const applyOnboardingMessage = (
   message: OnboardingMessage
 ): void => {
   if (message.type === "ONBOARDING_CREDENTIAL_ERROR") {
+    if (controller.getSnapshot().state === "TEST_LOGIN") {
+      controller.dispatch("TEST_BAD_CREDENTIALS");
+      return;
+    }
     controller.setCredentialError({ culprit: message.culprit });
     controller.dispatch("CREDENTIAL_ERROR_DETECTED");
     if (message.culprit === "email") {
@@ -442,6 +457,23 @@ const showFirstVisible = (
 ): void => {
   const el = screenHost.querySelector<HTMLElement>(selector);
   if (el) el.hidden = false;
+};
+
+const handleVerifyStatusMessage = (
+  controller: OnboardingController,
+  screenHost: HTMLElement,
+  status: unknown
+): void => {
+  if (status === "success") {
+    dispatchIfState(controller, "VERIFY_LOGIN_CODE", "VERIFY_SUCCEEDED");
+  } else if (status === "second_failure") {
+    showFirstVisible(screenHost, "[data-onboarding-verify-pause='true']");
+    dispatchIfState(controller, "TEST_LOGIN", "TEST_BAD_KEY");
+  }
+  // "pending" / "first_failure" need no sidebar action — the OTP-field overlay from
+  // mountVerifyLoginCodeScreen stays anchored and the user clicks
+  // "Verify and Save" themselves. The success transition is driven by
+  // the factors_list_after_enroll stage, not by this message.
 };
 
 const installRuntimeMessageBridge = (
@@ -504,18 +536,7 @@ const installRuntimeMessageBridge = (
         }
       },
       ONBOARDING_VERIFY_STATUS: (typedMessage) => {
-        if (typedMessage.status === "success") {
-          const state = controller.getSnapshot().state;
-          if (state === "VERIFY_LOGIN_CODE") {
-            controller.dispatch("VERIFY_SUCCEEDED");
-          }
-        } else if (typedMessage.status === "second_failure") {
-          showFirstVisible(screenHost, "[data-onboarding-verify-pause='true']");
-        }
-        // "pending" needs no sidebar action — the OTP-field overlay from
-        // mountVerifyLoginCodeScreen stays anchored and the user clicks
-        // "Verify and Save" themselves. The success transition is driven by
-        // the factors_list_after_enroll stage, not by this message.
+        handleVerifyStatusMessage(controller, screenHost, typedMessage.status);
       },
     });
   };
@@ -668,6 +689,7 @@ const loadAndApplyResumeSnapshot = async (
 
 const CUNY_REATTACHABLE_STATES: ReadonlySet<OnboardingState> = new Set([
   "OPENING_CUNY",
+  "TEST_LOGIN",
   "ALLOW_GATE",
   "OAA_SPA_HOME",
   "GUIDED_MANAGE",
@@ -736,7 +758,8 @@ const runOnboardingUnmount = (bag: OnboardingUnmountBag): void => {
 const subscribeOnboardingController = (
   controller: OnboardingController,
   repaint: () => void,
-  suppressResumeSnapshots: boolean
+  suppressResumeSnapshots: boolean,
+  keyEntryOriginRef: { value: "KEY_FROM_OTHER_DEVICE" | "KEY_FROM_AUTH_APP" | null }
 ): (() => void) => {
   let lastState: OnboardingState = controller.getSnapshot().state;
   let resumeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -747,6 +770,9 @@ const subscribeOnboardingController = (
     }
   };
   const innerUnsubscribe = controller.subscribe((snapshot) => {
+    if (snapshot.state === "KEY_FROM_OTHER_DEVICE" || snapshot.state === "KEY_FROM_AUTH_APP") {
+      keyEntryOriginRef.value = snapshot.state;
+    }
     if (!suppressResumeSnapshots) {
       clearResumeDebounceTimer();
       if (snapshot.state !== lastState) {
@@ -826,7 +852,8 @@ type LifecycleRefs = {
 
 const buildRepaintCallbacks = (
   model: OnboardingMountModel,
-  refs: LifecycleRefs
+  refs: LifecycleRefs,
+  keyEntryOriginRef: { value: "KEY_FROM_OTHER_DEVICE" | "KEY_FROM_AUTH_APP" | null }
 ): { repaint: () => void; repaintInterruptionActions: () => void } => {
   const { controller, resumeButton, reopenCunyButton, header, screenHost, doc } = model;
   const repaintInterruptionActions = (): void => {
@@ -838,7 +865,7 @@ const buildRepaintCallbacks = (
   const repaint = (): void => {
     header.renderFor(controller.getSnapshot().state);
     refs.screenHandleRef.current = renderActiveScreen(
-      controller, screenHost, doc, refs.screenHandleRef.current, model.qaVariant
+      controller, screenHost, doc, refs.screenHandleRef.current, keyEntryOriginRef, model.qaVariant
     );
     repaintInterruptionActions();
   };
@@ -848,6 +875,7 @@ const buildRepaintCallbacks = (
 const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
   const { controller, screenHost, resumeButton, reopenCunyButton, shell, header,
     restoreVaultMainWrap, suppressResumeSnapshots } = model;
+  const keyEntryOriginRef: { value: "KEY_FROM_OTHER_DEVICE" | "KEY_FROM_AUTH_APP" | null } = { value: null };
   const refs: LifecycleRefs = {
     screenHandleRef: { current: null },
     resumeLatch: { snapshot: null },
@@ -855,9 +883,9 @@ const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
   };
   const activeCunyTabIdRef = { value: null as number | null };
 
-  const { repaint, repaintInterruptionActions } = buildRepaintCallbacks(model, refs);
+  const { repaint, repaintInterruptionActions } = buildRepaintCallbacks(model, refs, keyEntryOriginRef);
 
-  const unsubscribe = subscribeOnboardingController(controller, repaint, suppressResumeSnapshots);
+  const unsubscribe = subscribeOnboardingController(controller, repaint, suppressResumeSnapshots, keyEntryOriginRef);
   const uninstallBridge = installRuntimeMessageBridge(controller, screenHost, (tabId) => {
     activeCunyTabIdRef.value = tabId;
     refs.isCunyTabMissingFlag.value = false;

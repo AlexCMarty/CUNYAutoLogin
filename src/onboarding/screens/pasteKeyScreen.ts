@@ -4,21 +4,21 @@
  * validation, and layout; only the headline/body and the instruction-accordion
  * copy differ (advanced-key-flow.md §2). Parameterised by `PasteKeyCopy`.
  *
- * Local field interactivity (this pass):
+ * Local field interactivity:
  *   • The instruction accordion is a native <details> — opens/closes for free.
  *   • The Secret-key input validates live against the SAME Base32 normaliser the
  *     content script uses (`normalizeTotpSecretCandidate`, ssoSite.ts) — no
  *     second validator. Valid → the green "✓ valid key" line shows and Confirm
  *     enables; empty/invalid → the grey hint shows and Confirm stays disabled.
- *
- * NOT wired this pass: Back and Confirm do not navigate (no dispatch). The
- * wiring pass dispatches KEY_CONFIRMED / BACK and stages the secret.
+ *   • Confirm stages the normalised key to session storage and dispatches
+ *     KEY_CONFIRMED; Back dispatches BACK.
  *
  * Dev/QA `qaVariant`: `open` renders with the accordion expanded; `valid`
  * prefills a sample key so capture-sidebar can grab the valid/enabled look.
  */
 
-import { normalizeTotpSecretCandidate } from "../../cuny/ssoSite";
+import browser from "webextension-polyfill";
+import { normalizeTotpSecretCandidate, PENDING_TOTP_SECRET_SESSION_KEY } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext, ScreenHandle } from "./screenContext";
 
 /** A single instruction line, optionally with bolded fragments. */
@@ -93,27 +93,14 @@ const buildAccordion = (
   return details;
 };
 
-export const mountPasteKeyScreen = (
-  ctx: OnboardingScreenContext,
-  copy: PasteKeyCopy
-): ScreenHandle => {
-  const { doc, root, qaVariant } = ctx;
-  const accordionOpen = qaVariant === "open";
+type KeyField = {
+  readonly fieldWrap: HTMLDivElement;
+  readonly input: HTMLInputElement;
+  readonly ok: HTMLParagraphElement;
+  readonly hint: HTMLParagraphElement;
+};
 
-  const container = doc.createElement("section");
-  container.dataset.onboardingScreen = copy.state;
-  container.className = `onboarding-screen ${copy.screenModifier}`;
-
-  const headline = doc.createElement("h2");
-  headline.className = "onboarding-headline";
-  headline.textContent = copy.headline;
-
-  const body = doc.createElement("p");
-  body.className = "onboarding-body";
-  body.textContent = copy.body;
-
-  const accordion = buildAccordion(doc, copy, accordionOpen);
-
+const buildKeyField = (doc: Document): KeyField => {
   const fieldWrap = doc.createElement("div");
   const label = doc.createElement("label");
   label.className = "onboarding-field-label";
@@ -143,7 +130,16 @@ export const mountPasteKeyScreen = (
   fieldWrap.appendChild(input);
   fieldWrap.appendChild(ok);
   fieldWrap.appendChild(hint);
+  return { fieldWrap, input, ok, hint };
+};
 
+type KeyActions = {
+  readonly actions: HTMLDivElement;
+  readonly back: HTMLButtonElement;
+  readonly confirm: HTMLButtonElement;
+};
+
+const buildKeyActions = (doc: Document): KeyActions => {
   const actions = doc.createElement("div");
   actions.className = "onboarding-actions";
   const back = doc.createElement("button");
@@ -158,9 +154,33 @@ export const mountPasteKeyScreen = (
   confirm.textContent = CONFIRM_LABEL;
   actions.appendChild(back);
   actions.appendChild(confirm);
+  return { actions, back, confirm };
+};
+
+export const mountPasteKeyScreen = (
+  ctx: OnboardingScreenContext,
+  copy: PasteKeyCopy
+): ScreenHandle => {
+  const { doc, root, qaVariant, dispatch } = ctx;
+
+  const container = doc.createElement("section");
+  container.dataset.onboardingScreen = copy.state;
+  container.className = `onboarding-screen ${copy.screenModifier}`;
+
+  const headline = doc.createElement("h2");
+  headline.className = "onboarding-headline";
+  headline.textContent = copy.headline;
+
+  const bodyEl = doc.createElement("p");
+  bodyEl.className = "onboarding-body";
+  bodyEl.textContent = copy.body;
+
+  const accordion = buildAccordion(doc, copy, qaVariant === "open");
+  const { fieldWrap, input, ok, hint } = buildKeyField(doc);
+  const { actions, back, confirm } = buildKeyActions(doc);
 
   container.appendChild(headline);
-  container.appendChild(body);
+  container.appendChild(bodyEl);
   container.appendChild(accordion);
   container.appendChild(fieldWrap);
   container.appendChild(actions);
@@ -175,16 +195,32 @@ export const mountPasteKeyScreen = (
   const handleInput = (): void => refreshValidity();
   input.addEventListener("input", handleInput);
 
-  if (qaVariant === "valid") {
-    input.value = QA_VALID_SAMPLE_KEY;
-  }
+  if (qaVariant === "valid") input.value = QA_VALID_SAMPLE_KEY;
   refreshValidity();
+
+  const handleBack = (): void => { dispatch("BACK"); };
+  const handleConfirm = (): void => {
+    const normalized = normalizeTotpSecretCandidate(input.value);
+    if (!normalized) return;
+    void (async () => {
+      try {
+        await browser.storage.session.set({ [PENDING_TOTP_SECRET_SESSION_KEY]: normalized });
+      } catch {
+        // best-effort; if session write fails we still attempt the login
+      }
+      dispatch("KEY_CONFIRMED");
+    })();
+  };
+  back.addEventListener("click", handleBack);
+  confirm.addEventListener("click", handleConfirm);
 
   root.appendChild(container);
 
   return {
     unmount: () => {
       input.removeEventListener("input", handleInput);
+      back.removeEventListener("click", handleBack);
+      confirm.removeEventListener("click", handleConfirm);
       container.remove();
     },
   };

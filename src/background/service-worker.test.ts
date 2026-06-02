@@ -862,7 +862,7 @@ describe("AUTO_FILL_REQUEST onboarding fallback", () => {
     await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER);
   });
 
-  test("no vault + staged onboarding credentials + pending secret + login_totp context → returns empty totpSecret", async () => {
+  test("no vault + staged onboarding credentials + pending secret + login_totp context → returns pending secret as totpSecret", async () => {
     vi.mocked(isStoredVault).mockReturnValue(false);
     vi.mocked(browser.storage.session!.get).mockResolvedValue({
       [PENDING_TOTP_SECRET_SESSION_KEY]: "ABCDEFGHIJ",
@@ -879,7 +879,7 @@ describe("AUTO_FILL_REQUEST onboarding fallback", () => {
       payload: {
         email: "onboard@login.cuny.edu",
         password: "pending",
-        totpSecret: "",
+        totpSecret: "ABCDEFGHIJ",
       },
     });
     await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER);

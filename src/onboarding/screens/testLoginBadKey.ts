@@ -3,9 +3,8 @@
  * invalid code (bead 3). Usually a typo or a character clipped off the end
  * (advanced-key-flow.md §7).
  *
- * VISUALS-ONLY PASS: buttons are inert. The wiring pass dispatches RETRY_KEY
- * (→ back to whichever paste page the user started on, resolved from
- * keyEntryOrigin) and SWITCH_TO_GUIDED (→ OPENING_CUNY, enroll fresh).
+ * Dispatches RETRY_KEY (→ back to whichever paste page the user started on,
+ * resolved from keyEntryOrigin) and SWITCH_TO_GUIDED (→ OPENING_CUNY, enroll fresh).
  */
 
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
@@ -20,7 +19,7 @@ const SWITCH_LABEL = "Set up a new code instead";
 export const mountTestLoginBadKeyScreen: ScreenMount = (
   ctx: OnboardingScreenContext
 ) => {
-  const { doc, root } = ctx;
+  const { doc, root, dispatch } = ctx;
 
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "TEST_LOGIN_BAD_KEY";
@@ -68,8 +67,19 @@ export const mountTestLoginBadKeyScreen: ScreenMount = (
   container.appendChild(actions);
   root.appendChild(container);
 
+  const handleRetry = (): void => {
+    dispatch("RETRY_KEY");
+  };
+  const handleSwitchGuided = (): void => {
+    dispatch("SWITCH_TO_GUIDED");
+  };
+  retry.addEventListener("click", handleRetry);
+  switchGuided.addEventListener("click", handleSwitchGuided);
+
   return {
     unmount: () => {
+      retry.removeEventListener("click", handleRetry);
+      switchGuided.removeEventListener("click", handleSwitchGuided);
       container.remove();
     },
   };

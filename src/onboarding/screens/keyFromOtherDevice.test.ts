@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+vi.mock("webextension-polyfill", () => ({
+  default: {
+    storage: { session: { set: vi.fn().mockResolvedValue(undefined) } },
+  },
+}));
+
 import { mountKeyFromOtherDeviceScreen } from "./keyFromOtherDevice";
 import type { OnboardingScreenContext } from "./screenContext";
 
