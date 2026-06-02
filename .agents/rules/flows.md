@@ -40,14 +40,48 @@ After TOTP factor enrollment, the IdP requires a one-time verification code. Pag
 
 Polling instead of `MutationObserver` because the Oracle SPA re-renders in ways that made observers flaky.
 
+## Advanced key flow (PASSWORD_ENTRY fork)
+
+After `PASSWORD_ENTRY`, `NEXT` routes to `CHOOSE_SETUP_PATH` instead of directly to `OPENING_CUNY`. The fork screen offers three cards:
+
+- **Guided (new setup)** → `CHOOSE_GUIDED` → `OPENING_CUNY` (original path)
+- **Reuse key from another device** → `CHOOSE_REUSE_KEY` → `KEY_FROM_OTHER_DEVICE`
+- **Import from a 2FA app** → `CHOOSE_IMPORT_KEY` → `KEY_FROM_AUTH_APP`
+
+Both `KEY_FROM_*` screens use the shared `pasteKeyScreen.ts` component. On **Confirm**:
+1. The normalised TOTP secret is written to `storage.session` under `PENDING_TOTP_SECRET_SESSION_KEY`.
+2. `KEY_CONFIRMED` is dispatched → `TEST_LOGIN`.
+
+`render.ts` tracks which paste screen was entered via `keyEntryOriginRef` (set on each state transition through `subscribeOnboardingController`). When the user hits **Back** on `TEST_LOGIN_BAD_KEY`, `RETRY_KEY` is dispatched and render.ts redirects to the recorded origin screen (`KEY_FROM_OTHER_DEVICE` or `KEY_FROM_AUTH_APP`) rather than dispatching via the transition table.
+
+### TEST_LOGIN on-mount behaviour
+
+`testLogin.ts` fires three messages immediately on mount (best-effort, errors are dev-only logged):
+1. `LOGOUT_CUNY_SESSIONS` — terminates any existing OAA session.
+2. `STAGE_ONBOARDING_CREDENTIALS` — stages email + password so the content script can fill them.
+3. `browser.tabs.create` — opens `CUNY_LOGIN_ENTRY_URL` (overridable via `#cuny=<url>` in dev mode).
+
+`TEST_LOGIN` is listed in `CUNY_REATTACHABLE_STATES`, so the tab-reattach resume mechanism works the same way as `OPENING_CUNY`.
+
+The service worker supplies the pasted TOTP secret for the login challenge: when `AUTO_FILL_REQUEST` arrives with `otpContext === "login_totp"` (or undefined) while staged credentials are present and no `enrollSecretOverride` is set, `resolveAutoFillResponse` reads `PENDING_TOTP_SECRET_SESSION_KEY` from session storage and injects it as `totpSecretOverride`.
+
+### TEST_LOGIN result signals
+
+| Signal | Source | Sidebar action |
+|---|---|---|
+| `allow_gate` stage detected | `handleAllowGate` in render.ts | `TEST_SUCCEEDED` → complete-demo path |
+| `ONBOARDING_CREDENTIAL_ERROR` while in `TEST_LOGIN` | content script | `TEST_BAD_CREDENTIALS` → `TEST_LOGIN_BAD_CREDENTIALS` screen |
+| `ONBOARDING_VERIFY_STATUS { status: "second_failure" }` while in `TEST_LOGIN` | content script TOTP error page | `TEST_BAD_KEY` → `TEST_LOGIN_BAD_KEY` screen |
+
 ## Onboarding message bridge
 
 `onboarding/render.ts` registers `runtime.onMessage` routing known `ONBOARDING_*` messages through `applyOnboardingMessage(controller, message)`:
 
-- `ONBOARDING_CREDENTIAL_ERROR { culprit }` → routes sidebar to `EMAIL_ENTRY` (culprit === "email") or `PASSWORD_ENTRY` (default) with an inline red banner. Content script emits this when the credential-error DOM marker is present.
-- `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advances `OPENING_CUNY` to `ALLOW_GATE`.
+- `ONBOARDING_CREDENTIAL_ERROR { culprit }` → if state is `TEST_LOGIN`, dispatches `TEST_BAD_CREDENTIALS`; otherwise routes to `EMAIL_ENTRY` or `PASSWORD_ENTRY` with an inline red banner.
+- `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advances `OPENING_CUNY` or `TEST_LOGIN` to their respective next state (`CREDENTIALS_ACCEPTED`/`TOTP_DONE` or `TEST_SUCCEEDED`).
 - `ONBOARDING_REOPEN_CUNY_TAB` → service worker opens `CUNY_LOGIN_ENTRY_URL` in a new tab.
-- `ONBOARDING_OVERLAY_COMMAND` / `ONBOARDING_VERIFY_STATUS` / `ONBOARDING_TAB_REATTACHED` → validated and ack-only via service worker; sidebar handlers wired in `onboarding/render.ts`.
+- `ONBOARDING_VERIFY_STATUS { status }` → `"success"` advances `VERIFY_LOGIN_CODE` to `VERIFY_SUCCEEDED`; `"second_failure"` advances `TEST_LOGIN` to `TEST_BAD_KEY` (or shows pause banner on `VERIFY_LOGIN_CODE`).
+- `ONBOARDING_OVERLAY_COMMAND` / `ONBOARDING_TAB_REATTACHED` → validated and ack-only via service worker; sidebar handlers wired in `onboarding/render.ts`.
 
 On sidebar unmount, `mountOnboarding` fires `CLEAR_ONBOARDING_CREDENTIALS`.
 

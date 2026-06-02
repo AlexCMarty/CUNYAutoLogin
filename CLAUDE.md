@@ -1,6 +1,6 @@
 # CUNYAutoLogin
 
-MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storage.local` via PBKDF2 + AES-GCM, auto-fills `ssologin.cuny.edu` via content script, guides students through a 19-state onboarding flow.
+MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storage.local` via PBKDF2 + AES-GCM, auto-fills `ssologin.cuny.edu` via content script, guides students through a 25-state onboarding flow.
 
 ## Hard rules — never violate
 
@@ -29,7 +29,7 @@ npm run capture-sidebar -- --qa-vault-locked   # vault locked UI
 npm run capture-sidebar -- --qa-vault-unlocked # vault unlocked / management UI
 npm run capture-sidebar -- --capture-all       # all 31 visual states, one PNG each (needs build:e2e or build:dev — production ignores #qa= hashes)
 # Credential-error variants: &qaCred=email on EMAIL_ENTRY, &qaCred=password on PASSWORD_ENTRY
-# Advanced key-flow states (visuals only): CHOOSE_SETUP_PATH, KEY_FROM_OTHER_DEVICE, KEY_FROM_AUTH_APP, TEST_LOGIN, TEST_LOGIN_BAD_CREDENTIALS, TEST_LOGIN_BAD_KEY; &qaVariant=open|valid (KEY_FROM_*), &qaVariant=success (TEST_LOGIN)
+# Advanced key-flow states: CHOOSE_SETUP_PATH, KEY_FROM_OTHER_DEVICE, KEY_FROM_AUTH_APP, TEST_LOGIN, TEST_LOGIN_BAD_CREDENTIALS, TEST_LOGIN_BAD_KEY; &qaVariant=open|valid (KEY_FROM_*), &qaVariant=success (TEST_LOGIN)
 npm run typecheck   # tsc --noEmit
 ```
 

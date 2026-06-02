@@ -38,7 +38,7 @@ src/
                                 onboarding shell (.onboarding-shell, .onboarding-bead-header, …),
                                 screens (.onboarding-screen, .onboarding-headline, …),
                                 and password-input wrappers (.onboarding-input-wrap/toggle).
-  onboarding/state.ts           19-state enum, bead mapping, resume policy
+  onboarding/state.ts           25-state enum, bead mapping, resume policy
   onboarding/transitions.ts     Declarative TRANSITION_TABLE + advance / backStateFor
   onboarding/controller.ts      createOnboardingController — closure-only state; subscribe/dispatch
   onboarding/messages.ts        Wire contract + is* guards for all onboarding messages
@@ -50,7 +50,10 @@ src/
                                 oaaSpaHome, guidedManage, guidedAddFactor, guidedFactorType,
                                 guidedSecretCapture, verifyLoginCode, setDefault, extPasswordSetup,
                                 completeDemo, completeDone,
-                                biometricOffer, biometricPrep.
+                                biometricOffer, biometricPrep,
+                                chooseSetupPath, keyFromOtherDevice, keyFromAuthApp,
+                                testLogin, testLoginBadCredentials, testLoginBadKey.
+                                pasteKeyScreen.ts — shared paste-key UI for KEY_FROM_* screens.
                                 CREDENTIAL_ERROR is an onboarding state (not a separate file): inline UX
                                 lives in emailEntry.ts / passwordEntry.ts.
                                 guidedCommon.ts — shared guided-flow helpers
