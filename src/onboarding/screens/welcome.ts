@@ -41,7 +41,6 @@ export const mountWelcomeScreen: ScreenMount = (
 
   const headline = doc.createElement("h2");
   headline.className = "onboarding-headline";
-  headline.style.fontSize = "26px";
   headline.textContent = SCREEN_HEADLINE;
 
   const body = doc.createElement("p");

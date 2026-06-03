@@ -48,7 +48,8 @@ body {
   font-size: 13px;
   color: var(--clr-text);
   background: var(--clr-bg);
-  min-width: 300px;
+  /* No min-width: Firefox's revamped sidebar opens panels at 240 CSS px. The
+     layout is fluid down to ~200px; a hard floor here would clip content. */
 }
 
 /* ═══════════════════════════════════════
@@ -100,7 +101,7 @@ body {
 .vault-wrap {
   display: flex;
   flex-direction: column;
-  padding: 22px 18px 18px;
+  padding: 22px clamp(12px, 4vw, 18px) 18px;
   gap: 14px;
   min-height: 100vh;
 }
@@ -155,7 +156,7 @@ body {
 .vault-greeting {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: 22px;
+  font-size: clamp(18px, 6vw, 22px);
   font-weight: 600;
   letter-spacing: -0.3px;
   color: var(--clr-text);
@@ -370,7 +371,7 @@ body[data-vault-ui="sidebar-management"] #totp-secret-field {
   display: flex;
   list-style: none;
   margin: 0;
-  padding: 16px 16px 12px;
+  padding: 16px clamp(8px, 3vw, 16px) 12px;
   background: var(--clr-bg);
   position: sticky;
   top: 0;
@@ -380,6 +381,10 @@ body[data-vault-ui="sidebar-management"] #totp-secret-field {
 
 .onboarding-bead {
   flex: 1;
+  /* Without this, flex default min-width:auto stops a bead shrinking below its
+     label's intrinsic width, forcing the 5-bead row wider than a 240px panel.
+     min-width:0 lets the labels wrap (word-break/hyphens below) instead. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -466,7 +471,7 @@ body[data-vault-ui="sidebar-management"] #totp-secret-field {
 }
 
 .onboarding-screen {
-  padding: 22px 18px 18px;
+  padding: 22px clamp(12px, 4vw, 18px) 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -477,21 +482,27 @@ body[data-vault-ui="sidebar-management"] #totp-secret-field {
     margin-top: auto;
   }
 
-  & .onboarding-back { flex: 1; }
-  & .onboarding-cta  { flex: 2; }
+  & .onboarding-back { flex: 1; min-width: 0; }
+  & .onboarding-cta  { flex: 2; min-width: 0; }
 }
 
 /* ── Typography ── */
 
 .onboarding-headline {
   font-family: var(--font-heading);
-  font-size: 22px;
+  font-size: clamp(18px, 6vw, 22px);
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.3px;
   color: var(--clr-text);
   margin: 0;
   text-wrap: balance;
+}
+
+/* WELCOME headline runs one size larger; keep it fluid so it never clips at
+   Firefox's 240px default. Replaces an inline font-size in welcome.ts. */
+.onboarding-screen-welcome .onboarding-headline {
+  font-size: clamp(20px, 7vw, 26px);
 }
 
 .onboarding-body {
@@ -501,6 +512,8 @@ body[data-vault-ui="sidebar-management"] #totp-secret-field {
   color: var(--clr-text-secondary);
   margin: 0;
   text-wrap: pretty;
+  /* Wrap long unbreakable tokens (emails, keys) instead of pushing panel width. */
+  overflow-wrap: anywhere;
 }
 
 .onboarding-sub {
@@ -649,6 +662,7 @@ body[data-vault-ui="sidebar-management"] #totp-secret-field {
   border: 1px solid oklch(0.5 0.1 75 / 0.2);
   border-radius: var(--radius-sm);
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Success / ok banner */
