@@ -7,13 +7,31 @@ vi.mock("totp-generator", () => ({
   },
 }));
 
+vi.mock("webextension-polyfill", () => ({
+  default: {
+    runtime: {
+      sendMessage: vi.fn().mockResolvedValue(undefined),
+    },
+  },
+}));
+
+import browser from "webextension-polyfill";
 import { TOTP } from "totp-generator";
 import { fillTotp, getOtp } from "./totpLoginFlow";
 import { unwrapErr } from "../testUtils/resultUnwrap";
 
+// Pull only the ONBOARDING_LOGIN_PROGRESS calls out of the sendMessage spy.
+const progressSteps = (): readonly string[] =>
+  vi
+    .mocked(browser.runtime.sendMessage)
+    .mock.calls.map(([msg]) => msg as { type?: string; step?: string })
+    .filter((msg) => msg.type === "ONBOARDING_LOGIN_PROGRESS")
+    .map((msg) => msg.step as string);
+
 describe("fillTotp", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -33,6 +51,40 @@ describe("fillTotp", () => {
     expect(result.isOk()).toBe(true);
     expect(otpInput.value).toBe("123456");
     expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // ── content/totp-login-progress [MEDIUM] ──────────────────────────────────
+  // The sidebar onboarding "login checklist" beads light up from per-step
+  // ONBOARDING_LOGIN_PROGRESS events. On the happy path fillTotp must emit
+  // code_filling (before generating the OTP) then code_done (after Verify is
+  // clicked), in that order.
+  test("emits code_filling then code_done on the happy path", async () => {
+    const otpInput = document.createElement("input");
+    otpInput.id = "otpValue|input";
+    document.body.appendChild(otpInput);
+    const verifyButton = document.createElement("button");
+    verifyButton.innerHTML = "Verify";
+    document.body.appendChild(verifyButton);
+
+    const result = await fillTotp("JBSWY3DPEHPK3PXP");
+
+    expect(result.isOk()).toBe(true);
+    expect(progressSteps()).toEqual(["code_filling", "code_done"]);
+  });
+
+  // A missing input element short-circuits before any progress is emitted.
+  test("emits no login progress when the OTP input is missing", async () => {
+    vi.useFakeTimers();
+    const verifyButton = document.createElement("button");
+    verifyButton.innerHTML = "Verify";
+    document.body.appendChild(verifyButton);
+
+    const pending = fillTotp("JBSWY3DPEHPK3PXP");
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    expect(result.isErr()).toBe(true);
+    expect(progressSteps()).toEqual([]);
   });
 
   test("returns err otp_input_not_found when OTP input is absent", async () => {
@@ -146,6 +198,7 @@ describe("fillTotp verify-button DOM contract", () => {
 describe("fillTotp getOtp rejection handling", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+    vi.clearAllMocks();
     vi.mocked(TOTP.generate).mockRejectedValueOnce(new Error("invalid Base32"));
   });
 
@@ -170,5 +223,22 @@ describe("fillTotp getOtp rejection handling", () => {
     // The rejecting field was never filled and Verify was never clicked.
     expect(otpInput.value).toBe("");
     expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  // The bead lights up the moment we commit to filling (code_filling), but a
+  // rejecting secret must NOT advance the checklist to code_done.
+  test("emits code_filling but NOT code_done when OTP generation fails", async () => {
+    const otpInput = document.createElement("input");
+    otpInput.id = "otpValue|input";
+    document.body.appendChild(otpInput);
+
+    const verifyBtn = document.createElement("button");
+    verifyBtn.innerHTML = "Verify";
+    document.body.appendChild(verifyBtn);
+
+    const result = await fillTotp("JBSWY3DPEHPK3PXP");
+
+    expect(result.isErr()).toBe(true);
+    expect(progressSteps()).toEqual(["code_filling"]);
   });
 });

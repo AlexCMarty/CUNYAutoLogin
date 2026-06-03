@@ -109,6 +109,85 @@ describe("fillCredentials", () => {
   });
 });
 
+// ── content/credflow-login-progress [MEDIUM] ─────────────────────────────────
+// The sidebar onboarding "login checklist" beads light up from per-step
+// ONBOARDING_LOGIN_PROGRESS events emitted by the content script.
+describe("fillCredentials login progress", () => {
+  const buildForm = (): HTMLButtonElement => {
+    const username = document.createElement("input");
+    username.id = CREDENTIAL_INPUT_IDS.username;
+    const password = document.createElement("input");
+    password.id = CREDENTIAL_INPUT_IDS.password;
+    const submit = document.createElement("button");
+    submit.id = CREDENTIAL_INPUT_IDS.submitButton;
+    document.body.append(username, password, submit);
+    return submit;
+  };
+
+  // Pull only the ONBOARDING_LOGIN_PROGRESS steps out of the sendMessage spy.
+  const progressSteps = (): readonly string[] =>
+    vi
+      .mocked(browser.runtime.sendMessage)
+      .mock.calls.map(([msg]) => msg as { type?: string; step?: string })
+      .filter((msg) => msg.type === "ONBOARDING_LOGIN_PROGRESS")
+      .map((msg) => msg.step as string);
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // On the happy path it emits credentials_filling (before the fields are
+  // filled) then credentials_done (after submit is clicked), in that order.
+  test("emits credentials_filling then credentials_done on the happy path", async () => {
+    buildForm();
+
+    const resultPromise = fillCredentials("student@login.cuny.edu", "hunter2");
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+
+    expect(result.isOk()).toBe(true);
+    expect(progressSteps()).toEqual(["credentials_filling", "credentials_done"]);
+  });
+
+  // A missing element short-circuits before any progress is emitted — the
+  // checklist must never light up when no fill actually happened.
+  test("emits no login progress when an input element is missing", async () => {
+    const password = document.createElement("input");
+    password.id = CREDENTIAL_INPUT_IDS.password;
+    const submit = document.createElement("button");
+    submit.id = CREDENTIAL_INPUT_IDS.submitButton;
+    document.body.append(password, submit);
+
+    const resultPromise = fillCredentials("student@login.cuny.edu", "hunter2");
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+
+    expect(result.isErr()).toBe(true);
+    expect(progressSteps()).toEqual([]);
+  });
+
+  // Login must proceed even if the runtime port is gone: a rejecting
+  // sendMessage is swallowed and fillCredentials still resolves ok.
+  test("does not throw or block when login-progress sendMessage rejects", async () => {
+    vi.mocked(browser.runtime.sendMessage).mockRejectedValue(new Error("port closed"));
+    const submit = buildForm();
+    const clickSpy = vi.spyOn(submit, "click");
+
+    const resultPromise = fillCredentials("student@login.cuny.edu", "hunter2");
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+
+    expect(result.isOk()).toBe(true);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
 // Helper: insert the credential error DOM element with the Oracle text marker
 function insertCredentialError(): void {
   const el = document.createElement("div");

@@ -5,7 +5,11 @@ import {
   matchesCredentialErrorUrl,
   matchesCredentialPage,
 } from "../cuny/ssoSite";
-import type { OnboardingCredentialError, OnboardingStageDetected } from "../onboarding/messages";
+import type {
+  OnboardingCredentialError,
+  OnboardingLoginProgress,
+  OnboardingStageDetected,
+} from "../onboarding/messages";
 import {
   POST_SUBMIT_ERROR_OBSERVE_MS,
   type FillMessage,
@@ -22,6 +26,15 @@ const warnRuntimeMessageFailure = (context: string, error: unknown): void => {
     // eslint-disable-next-line no-console
     console.warn(`[CUNYAutoLogin] credentialFlow: ${context}`, error);
   }
+};
+
+/**
+ * Fire-and-forget per-step login-progress bead for the sidebar checklist.
+ * Errors are swallowed so a torn-down extension port never blocks the fill.
+ */
+const reportLoginProgress = (step: OnboardingLoginProgress["step"]): void => {
+  const message: OnboardingLoginProgress = { type: "ONBOARDING_LOGIN_PROGRESS", step };
+  void browser.runtime.sendMessage(message).catch(() => undefined);
 };
 
 /**
@@ -79,9 +92,11 @@ export const fillCredentials = async (
   if (!passwordElm) return err("password_input_not_found");
   if (!submitBtn) return err("submit_button_not_found");
 
+  reportLoginProgress("credentials_filling");
   setInputValue(usernameElm, email);
   setInputValue(passwordElm, password);
   submitBtn.click();
+  reportLoginProgress("credentials_done");
   return ok(true);
 };
 
