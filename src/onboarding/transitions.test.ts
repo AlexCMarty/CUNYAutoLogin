@@ -232,3 +232,79 @@ describe("advance + canTransition", () => {
     expect(advance("CREDENTIAL_ERROR", "CREDENTIAL_ERROR_ROUTE_TO_EMAIL")).toBe("EMAIL_ENTRY");
   });
 });
+
+// ──── advanced key-flow branch transitions ────────────────────────────────────
+
+describe("advanced key-flow branch transitions", () => {
+  // Drive (state, event) → next directly from TRANSITION_TABLE so the test
+  // data never drifts from production. Each row is [state, event, expectedNext].
+  const advancedBranchCases: ReadonlyArray<[
+    Parameters<typeof advance>[0],
+    Parameters<typeof advance>[1],
+    ReturnType<typeof advance>,
+  ]> = [
+    // CHOOSE_SETUP_PATH fork
+    ["CHOOSE_SETUP_PATH", "CHOOSE_GUIDED",    TRANSITION_TABLE.CHOOSE_SETUP_PATH.CHOOSE_GUIDED    ?? null],
+    ["CHOOSE_SETUP_PATH", "CHOOSE_REUSE_KEY", TRANSITION_TABLE.CHOOSE_SETUP_PATH.CHOOSE_REUSE_KEY ?? null],
+    ["CHOOSE_SETUP_PATH", "CHOOSE_IMPORT_KEY",TRANSITION_TABLE.CHOOSE_SETUP_PATH.CHOOSE_IMPORT_KEY?? null],
+    // KEY_FROM_OTHER_DEVICE
+    ["KEY_FROM_OTHER_DEVICE", "KEY_CONFIRMED", TRANSITION_TABLE.KEY_FROM_OTHER_DEVICE.KEY_CONFIRMED ?? null],
+    ["KEY_FROM_OTHER_DEVICE", "BACK",          TRANSITION_TABLE.KEY_FROM_OTHER_DEVICE.BACK ?? null],
+    // KEY_FROM_AUTH_APP
+    ["KEY_FROM_AUTH_APP", "KEY_CONFIRMED", TRANSITION_TABLE.KEY_FROM_AUTH_APP.KEY_CONFIRMED ?? null],
+    ["KEY_FROM_AUTH_APP", "BACK",          TRANSITION_TABLE.KEY_FROM_AUTH_APP.BACK ?? null],
+    // TEST_LOGIN outcomes
+    ["TEST_LOGIN", "TEST_SUCCEEDED",       TRANSITION_TABLE.TEST_LOGIN.TEST_SUCCEEDED       ?? null],
+    ["TEST_LOGIN", "TEST_BAD_CREDENTIALS", TRANSITION_TABLE.TEST_LOGIN.TEST_BAD_CREDENTIALS ?? null],
+    ["TEST_LOGIN", "TEST_BAD_KEY",         TRANSITION_TABLE.TEST_LOGIN.TEST_BAD_KEY         ?? null],
+    // TEST_LOGIN_BAD_CREDENTIALS recovery
+    ["TEST_LOGIN_BAD_CREDENTIALS", "RETRY_CREDENTIALS", TRANSITION_TABLE.TEST_LOGIN_BAD_CREDENTIALS.RETRY_CREDENTIALS ?? null],
+    ["TEST_LOGIN_BAD_CREDENTIALS", "EDIT_EMAIL",         TRANSITION_TABLE.TEST_LOGIN_BAD_CREDENTIALS.EDIT_EMAIL        ?? null],
+    ["TEST_LOGIN_BAD_CREDENTIALS", "BACK",               TRANSITION_TABLE.TEST_LOGIN_BAD_CREDENTIALS.BACK              ?? null],
+    // TEST_LOGIN_BAD_KEY recovery
+    ["TEST_LOGIN_BAD_KEY", "RETRY_KEY",        TRANSITION_TABLE.TEST_LOGIN_BAD_KEY.RETRY_KEY        ?? null],
+    ["TEST_LOGIN_BAD_KEY", "SWITCH_TO_GUIDED", TRANSITION_TABLE.TEST_LOGIN_BAD_KEY.SWITCH_TO_GUIDED ?? null],
+    ["TEST_LOGIN_BAD_KEY", "BACK",             TRANSITION_TABLE.TEST_LOGIN_BAD_KEY.BACK             ?? null],
+  ];
+
+  test.each(advancedBranchCases)(
+    "advance(%s, %s) === %s (from table)",
+    (state, event, expected) => {
+      expect(advance(state, event)).toBe(expected);
+      expect(canTransition(state, event)).toBe(expected !== null);
+    }
+  );
+
+  test("TEST_LOGIN BACK is disabled (null — sign-in is in flight)", () => {
+    expect(advance("TEST_LOGIN", "BACK")).toBeNull();
+    expect(canTransition("TEST_LOGIN", "BACK")).toBe(false);
+  });
+
+  test("CHOOSE_SETUP_PATH BACK returns to PASSWORD_ENTRY", () => {
+    expect(advance("CHOOSE_SETUP_PATH", "BACK")).toBe("PASSWORD_ENTRY");
+  });
+});
+
+// ──── exhaustive (state × event) matrix ──────────────────────────────────────
+
+describe("exhaustive illegal-event matrix", () => {
+  // Every (state, event) pair must either:
+  //   • return the declared target from the table, OR
+  //   • return null (event absent from this state's entry)
+  // canTransition must agree with advance in both cases.
+  for (const state of ONBOARDING_STATES) {
+    for (const event of ONBOARDING_EVENTS) {
+      const tableEntry = TRANSITION_TABLE[state];
+      // If the event key is absent from the entry, the declared value is undefined.
+      const declared = Object.prototype.hasOwnProperty.call(tableEntry, event)
+        ? tableEntry[event as keyof typeof tableEntry]
+        : undefined;
+      const expectedResult = declared ?? null;
+
+      test(`advance(${state}, ${event}) === ${String(expectedResult)}`, () => {
+        expect(advance(state, event)).toBe(expectedResult);
+        expect(canTransition(state, event)).toBe(expectedResult !== null);
+      });
+    }
+  }
+});

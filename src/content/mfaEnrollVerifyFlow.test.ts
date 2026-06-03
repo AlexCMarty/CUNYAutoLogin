@@ -20,6 +20,7 @@ vi.mock("./totpLoginFlow", () => ({
 }));
 
 import browser from "webextension-polyfill";
+import { getOtp } from "./totpLoginFlow";
 
 // eslint-disable-next-line max-lines-per-function
 describe("startMfaEnrollVerifyOtpPolling", () => {
@@ -235,6 +236,154 @@ describe("startMfaEnrollVerifyOtpPolling", () => {
         (msg as { status?: string }).status === "first_failure"
     );
     expect(firstFailureCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // ── content/mfa-second-failure-unpinned [CRITICAL] ────────────────────────
+  // The SECOND wrong-code response must send exactly one second_failure, set
+  // automationPaused, and stop the poll (clearInterval) so the extension never
+  // re-submits the TOTP (account-lockout guard).
+  test("second wrong code sends second_failure, clears interval, and stops re-submitting", async () => {
+    vi.mocked(browser.runtime.sendMessage).mockImplementation(async (msg) => {
+      if ((msg as { type?: string }).type === "AUTO_FILL_REQUEST") {
+        return {
+          success: true,
+          payload: {
+            email: "student@login.cuny.edu",
+            password: "pw",
+            totpSecret: "JBSWY3DPEHPK3PXP",
+          },
+        };
+      }
+      return undefined;
+    });
+
+    const otpInput = document.createElement("input");
+    otpInput.id = RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID;
+    document.body.appendChild(otpInput);
+
+    const clearIntervalSpy = vi.spyOn(window, "clearInterval");
+
+    startMfaEnrollVerifyOtpPolling();
+
+    // Tick 1: OTP fills successfully
+    await vi.advanceTimersByTimeAsync(600);
+    await vi.runOnlyPendingTimersAsync();
+    expect(otpInput.value).toBe("123456");
+
+    // Now inject the server-side error (first wrong code)
+    const errorContainer = document.createElement("div");
+    errorContainer.className = "oj-messaging-inline-container";
+    const detail = document.createElement("div");
+    detail.className = "oj-message-detail";
+    detail.textContent = "Incorrect code";
+    errorContainer.appendChild(detail);
+    document.body.appendChild(errorContainer);
+
+    // Tick 2: first_failure — OTP resets, no stop yet
+    await vi.advanceTimersByTimeAsync(600);
+    await vi.runOnlyPendingTimersAsync();
+    const isFirstFailure = ([msg]: [unknown, ...unknown[]]): boolean =>
+      typeof msg === "object" && msg !== null &&
+      (msg as { type?: string }).type === "ONBOARDING_VERIFY_STATUS" &&
+      (msg as { status?: string }).status === "first_failure";
+    expect(vi.mocked(browser.runtime.sendMessage).mock.calls.filter(isFirstFailure)).toHaveLength(1);
+    expect(clearIntervalSpy).not.toHaveBeenCalled();
+
+    // Tick 3 (OTP re-filled after reset): fill happens
+    await vi.advanceTimersByTimeAsync(600);
+    await vi.runOnlyPendingTimersAsync();
+
+    // Tick 4: second wrong code → second_failure + stop
+    await vi.advanceTimersByTimeAsync(600);
+    await vi.runOnlyPendingTimersAsync();
+
+    const isSecondFailure = ([msg]: [unknown, ...unknown[]]): boolean =>
+      typeof msg === "object" && msg !== null &&
+      (msg as { type?: string }).type === "ONBOARDING_VERIFY_STATUS" &&
+      (msg as { status?: string }).status === "second_failure";
+    expect(vi.mocked(browser.runtime.sendMessage).mock.calls.filter(isSecondFailure)).toHaveLength(1);
+    expect(clearIntervalSpy).toHaveBeenCalled();
+
+    // After halt: no further AUTO_FILL_REQUEST messages
+    vi.clearAllMocks();
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.runOnlyPendingTimersAsync();
+    const isAutoFill = ([msg]: [unknown, ...unknown[]]): boolean =>
+      typeof msg === "object" && msg !== null && (msg as { type?: string }).type === "AUTO_FILL_REQUEST";
+    expect(vi.mocked(browser.runtime.sendMessage).mock.calls.filter(isAutoFill)).toHaveLength(0);
+  });
+
+  // ── content/mfa-clienterror-no-fill [HIGH] ─────────────────────────────────
+  // When "Enter a OTP code" is present the tick MUST halt before requesting the
+  // vault — the OTP input stays empty and zero AUTO_FILL_REQUEST messages fire.
+  test("client OTP validation error: otp input stays empty and no AUTO_FILL_REQUEST sent", async () => {
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
+      success: true,
+      payload: {
+        email: "student@login.cuny.edu",
+        password: "pw",
+        totpSecret: "JBSWY3DPEHPK3PXP",
+      },
+    });
+
+    const otpInput = document.createElement("input");
+    otpInput.id = RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID;
+    document.body.appendChild(otpInput);
+
+    // Pre-inject client-side error before polling starts
+    const errorContainer = document.createElement("div");
+    errorContainer.className = "oj-messaging-inline-container";
+    const detail = document.createElement("div");
+    detail.className = "oj-message-detail";
+    detail.textContent = "Enter a OTP code";
+    errorContainer.appendChild(detail);
+    document.body.appendChild(errorContainer);
+
+    startMfaEnrollVerifyOtpPolling();
+    await vi.advanceTimersByTimeAsync(600);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(otpInput.value).toBe("");
+    const isAutoFillMsg = ([msg]: [unknown, ...unknown[]]): boolean =>
+      typeof msg === "object" && msg !== null && (msg as { type?: string }).type === "AUTO_FILL_REQUEST";
+    expect(vi.mocked(browser.runtime.sendMessage).mock.calls.filter(isAutoFillMsg)).toHaveLength(0);
+  });
+
+  // ── content/getotp-rejection [MEDIUM] — enroll tick side ──────────────────
+  // When getOtp rejects (malformed Base32 secret), the try/catch in
+  // tryFillMfaEnrollVerifyOtp swallows the error → field stays empty, no
+  // "pending" status is sent.
+  test("getOtp rejection is swallowed: field stays empty and no pending status sent", async () => {
+    // Reject ALL calls for the duration of this test; restore the default after.
+    vi.mocked(getOtp).mockRejectedValue(new Error("invalid Base32 secret"));
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
+      success: true,
+      payload: {
+        email: "student@login.cuny.edu",
+        password: "pw",
+        totpSecret: "NOT_VALID_BASE32!!!",
+      },
+    });
+
+    const otpInput = document.createElement("input");
+    otpInput.id = RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID;
+    document.body.appendChild(otpInput);
+
+    startMfaEnrollVerifyOtpPolling();
+    // Advance exactly one poll interval (500 ms) then flush pending microtasks.
+    await vi.advanceTimersByTimeAsync(500);
+    await vi.runOnlyPendingTimersAsync();
+
+    // Restore the default so later tests are unaffected (clearAllMocks resets
+    // calls but not the mock implementation queue).
+    vi.mocked(getOtp).mockResolvedValue("123456");
+
+    expect(otpInput.value).toBe("");
+    const isPendingStatus = ([msg]: [unknown, ...unknown[]]): boolean =>
+      typeof msg === "object" && msg !== null &&
+      (msg as { type?: string }).type === "ONBOARDING_VERIFY_STATUS" &&
+      (msg as { status?: string }).status === "pending";
+    expect(vi.mocked(browser.runtime.sendMessage).mock.calls.filter(isPendingStatus)).toHaveLength(0);
   });
 
   test("isAutoFillResponse returning false is handled gracefully", async () => {

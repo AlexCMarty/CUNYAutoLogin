@@ -7,8 +7,6 @@ import {
   simulateKeystrokes,
   isFillMessage,
   hasCredentialErrorInDom,
-  TOTP_SECRET_LEN_MIN,
-  TOTP_SECRET_LEN_MAX,
   TOTP_SECRET_SELECTOR,
 } from "./content.utils";
 import {
@@ -27,81 +25,11 @@ import {
 } from "./banner";
 
 
-describe("normalizeTotpSecretCandidate", () => {
-  describe("valid secrets", () => {
-    test("trims leading/trailing whitespace", () => {
-      expect(normalizeTotpSecretCandidate("  JBSWY3DPEHPK3PXP  ")).toBe("JBSWY3DPEHPK3PXP");
-    });
-
-    test("uppercases lowercase input", () => {
-      expect(normalizeTotpSecretCandidate("jbswy3dpehpk3pxp")).toBe("JBSWY3DPEHPK3PXP");
-    });
-
-    test("strips trailing = padding", () => {
-      expect(normalizeTotpSecretCandidate("JBSWY3DPEHPK3PXP======")).toBe("JBSWY3DPEHPK3PXP");
-    });
-
-    test("applies all transforms together: whitespace + lowercase + padding", () => {
-      expect(normalizeTotpSecretCandidate("  jbswy3dp ehpk3pxp  ====  ")).toBe("JBSWY3DPEHPK3PXP");
-    });
-
-    test("collapses internal whitespace before normalizing", () => {
-      expect(normalizeTotpSecretCandidate("JBSWY3DP EHPK 3PXP")).toBe("JBSWY3DPEHPK3PXP");
-    });
-
-    test("accepts exact minimum length", () => {
-      const secret = "A".repeat(TOTP_SECRET_LEN_MIN);
-      expect(normalizeTotpSecretCandidate(secret)).toBe(secret);
-    });
-
-    test("accepts exact maximum length", () => {
-      const secret = "A".repeat(TOTP_SECRET_LEN_MAX);
-      expect(normalizeTotpSecretCandidate(secret)).toBe(secret);
-    });
-
-    test("accepts all valid Base32 characters (A-Z, 2-7)", () => {
-      const allValidChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".repeat(2); // 64 chars, within range
-      expect(normalizeTotpSecretCandidate(allValidChars)).toBe(allValidChars);
-    });
-  });
-
-  describe("invalid secrets → null", () => {
-    test("empty string", () => {
-      expect(normalizeTotpSecretCandidate("")).toBeNull();
-    });
-
-    test("too short (below minimum length)", () => {
-      expect(normalizeTotpSecretCandidate("A".repeat(TOTP_SECRET_LEN_MIN - 1))).toBeNull();
-    });
-
-    test("too long (above maximum length)", () => {
-      expect(normalizeTotpSecretCandidate("A".repeat(TOTP_SECRET_LEN_MAX + 1))).toBeNull();
-    });
-
-    test("contains digit 0 (invalid Base32)", () => {
-      // Pad to minimum length so only the charset check triggers
-      expect(normalizeTotpSecretCandidate("0BSWY3DPEH")).toBeNull();
-    });
-
-    test("contains digit 1 (invalid Base32)", () => {
-      expect(normalizeTotpSecretCandidate("1BSWY3DPEH")).toBeNull();
-    });
-
-    test("contains digit 8 (invalid Base32)", () => {
-      expect(normalizeTotpSecretCandidate("8BSWY3DPEH")).toBeNull();
-    });
-
-    test("contains digit 9 (invalid Base32)", () => {
-      expect(normalizeTotpSecretCandidate("9BSWY3DPEH")).toBeNull();
-    });
-
-    test("whitespace-only input", () => {
-      expect(normalizeTotpSecretCandidate("          ")).toBeNull();
-    });
-
-    test("only padding characters", () => {
-      expect(normalizeTotpSecretCandidate("==========")).toBeNull();
-    });
+// Exhaustive normalizeTotpSecretCandidate tests live in src/cuny/ssoSite.test.ts (the source of truth).
+// This single smoke test confirms the re-export from content.utils is wired to the same function.
+describe("normalizeTotpSecretCandidate (re-export smoke test)", () => {
+  test("re-exported normalizer accepts a valid Base32 secret", () => {
+    expect(normalizeTotpSecretCandidate("JBSWY3DPEHPK3PXP")).toBe("JBSWY3DPEHPK3PXP");
   });
 });
 

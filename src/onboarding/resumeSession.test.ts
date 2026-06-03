@@ -157,6 +157,49 @@ describe("persistOnboardingResumeSnapshot", () => {
   });
 });
 
+describe("persistOnboardingResumeSnapshot — advancedKeyFlow:false round-trip", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("persists advancedKeyFlow:false explicitly and round-trips to false", async () => {
+    // The existing tests only verify advancedKeyFlow:true. When advancedKeyFlow is
+    // false the serialized payload must include the field so callers that rely on
+    // the exact shape (e.g. loadResumeSnapshotFromSession) see the boolean false,
+    // not undefined (Vitest treats {…, advancedKeyFlow: undefined} as equal to {…}
+    // so the false case needs an explicit assertion).
+    vi.mocked(browser.storage.session!.set).mockResolvedValue(undefined);
+    await persistOnboardingResumeSnapshot({
+      state: "EMAIL_ENTRY",
+      email: "a@login.cuny.edu",
+      password: "pw",
+      advancedKeyFlow: false,
+    });
+    expect(browser.storage.session!.set).toHaveBeenCalledWith({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: "EMAIL_ENTRY",
+        email: "a@login.cuny.edu",
+        password: "pw",
+        advancedKeyFlow: false,
+      },
+    });
+
+    // Round-trip: simulate loading back the same payload and verify the
+    // restored boolean is false (not undefined or truthy).
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: "EMAIL_ENTRY",
+        email: "a@login.cuny.edu",
+        password: "pw",
+        advancedKeyFlow: false,
+      },
+    });
+    const restored = await loadResumeSnapshotFromSession();
+    expect(restored).not.toBeNull();
+    expect(restored?.advancedKeyFlow).toBe(false);
+  });
+});
+
 describe("loadResumeSnapshotFromSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -195,6 +238,37 @@ describe("loadResumeSnapshotFromSession", () => {
   test("returns null and does not throw when storage.get rejects", async () => {
     vi.mocked(browser.storage.session!.get).mockRejectedValue(new Error("storage unavailable"));
     await expect(loadResumeSnapshotFromSession()).resolves.toBeNull();
+  });
+
+  test("returns null when stored email is not a string (email:42)", async () => {
+    // The session store is the resume trust boundary: malformed shapes must be
+    // rejected so callers always receive a typed snapshot or null.
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: "EMAIL_ENTRY",
+        email: 42,
+      },
+    });
+    expect(await loadResumeSnapshotFromSession()).toBeNull();
+  });
+
+  test("returns null when stored advancedKeyFlow is not a boolean (advancedKeyFlow:\"yes\")", async () => {
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        state: "EMAIL_ENTRY",
+        advancedKeyFlow: "yes",
+      },
+    });
+    expect(await loadResumeSnapshotFromSession()).toBeNull();
+  });
+
+  test("returns null when stored object has no state field", async () => {
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: {
+        email: "a@login.cuny.edu",
+      },
+    });
+    expect(await loadResumeSnapshotFromSession()).toBeNull();
   });
 });
 

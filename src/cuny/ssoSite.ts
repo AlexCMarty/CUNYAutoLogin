@@ -244,9 +244,11 @@ export const TOTP_SECRET_LEN_MAX = 128;
 /**
  * Normalize pasted Base32 so WebCrypto TOTP matches CUNY's enrollment UI; reject
  * lengths and alphabets outside configured bounds so garbage never enters the vault.
+ * ASCII hyphens are stripped along with whitespace so authenticator/QR exports that
+ * group the secret (e.g. "JBSWY3DP-EHPK3PXP", "JBSW-Y3DP-EHPK-3PXP") are accepted.
  */
 export function normalizeTotpSecretCandidate(raw: string): string | null {
-  const normalized = raw.replace(/\s+/g, "").toUpperCase().replace(/=+$/, "");
+  const normalized = raw.replace(/[\s-]+/g, "").toUpperCase().replace(/=+$/, "");
   if (normalized.length < TOTP_SECRET_LEN_MIN || normalized.length > TOTP_SECRET_LEN_MAX) {
     return null;
   }

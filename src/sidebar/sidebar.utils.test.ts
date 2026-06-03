@@ -105,6 +105,46 @@ describe("validateEmail", () => {
   test("wrong domain → false", () => {
     expect(validateEmail("student@cuny.edu")).toBe(false);
   });
+
+  // ── email-spoof-rejection [HIGH] ──────────────────────────────────────────
+  // The `@` prefix in the suffix is the entire security boundary.
+  // Any address whose domain merely ENDS with `login.cuny.edu` but is not
+  // exactly `@login.cuny.edu` must be rejected to prevent domain-spoofing.
+
+  test("domain that appends evil TLD after @login.cuny.edu → false", () => {
+    // e.g. attacker registers login.cuny.edu.evil.com
+    expect(validateEmail("x@login.cuny.edu.evil.com")).toBe(false);
+  });
+
+  test("subdomain of login.cuny.edu → false", () => {
+    expect(validateEmail("foo@sublogin.cuny.edu")).toBe(false);
+  });
+
+  test("domain with different prefix that still ends with login.cuny.edu → false", () => {
+    expect(validateEmail("foo@xlogin.cuny.edu")).toBe(false);
+  });
+
+  test("bare domain with no local-part or @ → false", () => {
+    expect(validateEmail("login.cuny.edu")).toBe(false);
+  });
+
+  // ── email-empty-and-no-at [MEDIUM] ───────────────────────────────────────
+
+  test("empty string → false", () => {
+    expect(validateEmail("")).toBe(false);
+  });
+
+  test("no @ sign (no domain separator) → false", () => {
+    expect(validateEmail("loginatcuny")).toBe(false);
+  });
+
+  // Contract: an address with an empty local-part is currently accepted
+  // because `"@login.cuny.edu".endsWith("@login.cuny.edu")` is true.
+  // This test documents and locks that behaviour; change it only if the
+  // product spec explicitly requires a non-empty local part.
+  test("empty local-part (@login.cuny.edu) → true (current contract)", () => {
+    expect(validateEmail("@login.cuny.edu")).toBe(true);
+  });
 });
 
 describe("decryptStatusMessage", () => {

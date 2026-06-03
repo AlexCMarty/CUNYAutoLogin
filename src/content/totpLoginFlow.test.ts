@@ -86,3 +86,83 @@ describe("getOtp", () => {
     );
   });
 });
+
+// ── content/totp-verify-button-contract [MEDIUM] ──────────────────────────────
+// CUNY wraps the "Verify" label in a <span>; the flow finds buttons via
+// innerHTML.includes("Verify"). A decoy with "Verify" only in an attribute
+// must not interfere with the found-and-clicked button.
+describe("fillTotp verify-button DOM contract", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("finds and clicks a button whose innerHTML contains <span>Verify</span>", async () => {
+    const otpInput = document.createElement("input");
+    otpInput.id = "otpValue|input";
+    document.body.appendChild(otpInput);
+
+    const realVerifyBtn = document.createElement("button");
+    realVerifyBtn.innerHTML = "<span>Verify</span>";
+    const clickSpy = vi.spyOn(realVerifyBtn, "click");
+    document.body.appendChild(realVerifyBtn);
+
+    const result = await fillTotp("JBSWY3DPEHPK3PXP");
+    expect(result.isOk()).toBe(true);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(otpInput.value).toBe("123456");
+  });
+
+  test("does not click a decoy button that has Verify only in a data attribute", async () => {
+    vi.useFakeTimers();
+    const otpInput = document.createElement("input");
+    otpInput.id = "otpValue|input";
+    document.body.appendChild(otpInput);
+
+    // Decoy: "Verify" is in an attribute, not innerHTML text
+    const decoy = document.createElement("button");
+    decoy.setAttribute("data-label", "Verify");
+    decoy.innerHTML = "Submit";
+    const decoyClick = vi.spyOn(decoy, "click");
+    document.body.appendChild(decoy);
+
+    const pending = fillTotp("JBSWY3DPEHPK3PXP");
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    // Without a real Verify button, fillTotp must return err
+    expect(result.isErr()).toBe(true);
+    expect(decoyClick).not.toHaveBeenCalled();
+  });
+});
+
+// ── content/getotp-rejection [MEDIUM] — fillTotp propagation side ─────────────
+// When getOtp rejects, fillTotp propagates the rejection (it is not wrapped in
+// a try/catch). Callers must handle thrown errors, not just Result.isErr().
+describe("fillTotp getOtp rejection propagation", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.mocked(TOTP.generate).mockRejectedValueOnce(new Error("invalid Base32"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("propagates the rejection from getOtp when TOTP.generate throws", async () => {
+    const otpInput = document.createElement("input");
+    otpInput.id = "otpValue|input";
+    document.body.appendChild(otpInput);
+
+    const verifyBtn = document.createElement("button");
+    verifyBtn.innerHTML = "Verify";
+    document.body.appendChild(verifyBtn);
+
+    await expect(fillTotp("JBSWY3DPEHPK3PXP")).rejects.toThrow("invalid Base32");
+    // Field was not filled because rejection happened before setInputValue
+    expect(otpInput.value).toBe("");
+  });
+});

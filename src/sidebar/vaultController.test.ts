@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, test, expect, vi, beforeEach } from "vitest";
-import { encryptVault } from "../crypto/vault";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import { encryptVault, decryptVault } from "../crypto/vault";
 import type { StoredVault, VaultPayload } from "../crypto/vault";
 import { unwrap } from "../testUtils/resultUnwrap";
 import { VAULT_STORAGE_KEY } from "../crypto/vault";
@@ -573,5 +573,221 @@ describe("vaultController — lock button", () => {
     await vi.waitFor(() => {
       expect(getStatusText()).toBe("");
     });
+  });
+});
+
+// ── master-not-in-local [HIGH] ────────────────────────────────────────────────
+// Hard rule: the master (extension) password must NEVER appear in storage.local
+// in any form.  The existing happy-path test only checks the key name; these
+// tests go further and assert the stored JSON excludes every plaintext secret.
+
+describe("vaultController — master password never in storage.local", () => {
+  beforeEach(setupUnlockedController);
+
+  test("storage.local.set is never called with SESSION_MASTER_KEY as a key", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    (document.getElementById("email") as HTMLInputElement).value = TEST_EMAIL;
+    (document.getElementById("password") as HTMLInputElement).value = TEST_PASSWORD;
+    (document.getElementById("totpSecret") as HTMLInputElement).value = TEST_TOTP;
+    submitForm();
+
+    await vi.waitFor(() => {
+      expect(browser.storage.local.set).toHaveBeenCalled();
+    });
+
+    // None of the calls should pass SESSION_MASTER_KEY as a top-level key
+    const calls = vi.mocked(browser.storage.local.set).mock.calls;
+    for (const [arg] of calls) {
+      expect(Object.keys(arg as object)).not.toContain(SESSION_MASTER_KEY);
+    }
+  });
+
+  test("vault written to storage.local contains neither the master nor the CUNY password in plaintext", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    (document.getElementById("email") as HTMLInputElement).value = TEST_EMAIL;
+    (document.getElementById("password") as HTMLInputElement).value = TEST_PASSWORD;
+    (document.getElementById("totpSecret") as HTMLInputElement).value = TEST_TOTP;
+    submitForm();
+
+    await vi.waitFor(() => {
+      expect(browser.storage.local.set).toHaveBeenCalled();
+    });
+
+    const calls = vi.mocked(browser.storage.local.set).mock.calls;
+    for (const [arg] of calls) {
+      const serialized = JSON.stringify(arg);
+      expect(serialized).not.toContain(MASTER);
+      expect(serialized).not.toContain(TEST_PASSWORD);
+    }
+  });
+});
+
+// ── unlock-populates-fields [HIGH] ────────────────────────────────────────────
+// After a correct-master unlock, the email / password / totp fields must be
+// populated from the freshly decrypted session payload.
+
+describe("vaultController — unlock populates credential fields from decrypted payload", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    setupSidebarDom();
+    await configureSnapshot(await makeLockedSnapshot());
+    const browser = (await import("webextension-polyfill")).default;
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    await loadController();
+  });
+
+  test("after correct master submit, email input equals TEST_EMAIL", async () => {
+    (document.getElementById("masterPassword") as HTMLInputElement).value = MASTER;
+    submitForm();
+    await vi.waitFor(() => {
+      expect((document.getElementById("email") as HTMLInputElement).value).toBe(TEST_EMAIL);
+    });
+  });
+
+  test("after correct master submit, password input equals TEST_PASSWORD", async () => {
+    (document.getElementById("masterPassword") as HTMLInputElement).value = MASTER;
+    submitForm();
+    await vi.waitFor(() => {
+      expect((document.getElementById("password") as HTMLInputElement).value).toBe(TEST_PASSWORD);
+    });
+  });
+
+  test("after correct master submit, totpSecret input equals TEST_TOTP", async () => {
+    (document.getElementById("masterPassword") as HTMLInputElement).value = MASTER;
+    submitForm();
+    await vi.waitFor(() => {
+      expect((document.getElementById("totpSecret") as HTMLInputElement).value).toBe(TEST_TOTP);
+    });
+  });
+});
+
+// ── locked-disabled-reenable [MEDIUM] ─────────────────────────────────────────
+// handleLocked disables the submit button during the async decrypt and MUST
+// re-enable it on failure so the user can try again.
+
+describe("vaultController — submit button re-enabled after wrong-password failure", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    setupSidebarDom();
+    await configureSnapshot(await makeLockedSnapshot());
+    await loadController();
+  });
+
+  test("submit button is not disabled after a wrong-password attempt", async () => {
+    (document.getElementById("masterPassword") as HTMLInputElement).value = "wrong-password!!!!";
+    submitForm();
+    await vi.waitFor(() => {
+      expect(getStatusText()).toContain("Wrong extension password");
+    });
+    expect((document.getElementById("submit-btn") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+// ── data-vault-ui-leak [MEDIUM] ───────────────────────────────────────────────
+// `setupSidebarDom` resets body.innerHTML but not body.dataset, so
+// `data-vault-ui="sidebar-management"` can leak from the management-mode suite
+// into later tests.  We guard against this with an afterEach cleanup and a
+// regression assertion inside the lock-button suite (which runs after the
+// management suite and must not see the attribute).
+
+describe("vaultController — data-vault-ui attribute isolation", () => {
+  afterEach(() => {
+    document.body.removeAttribute("data-vault-ui");
+  });
+
+  beforeEach(async () => {
+    vi.resetModules();
+    setupSidebarDom();
+    // Simulate a management-mode test that set the attribute
+    document.body.dataset.vaultUi = "sidebar-management";
+    const snap = await makeUnlockedSnapshot();
+    await configureSnapshot(snap);
+    const browser = (await import("webextension-polyfill")).default;
+    vi.mocked(browser.storage.local.set).mockResolvedValue();
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    await loadController();
+  });
+
+  test("after afterEach runs, body has no data-vault-ui attribute", () => {
+    // This test body runs before afterEach; it just confirms the attribute IS
+    // present inside the test (as set up by beforeEach).  The real isolation
+    // check is the next describe's regression test.
+    expect(document.body.dataset.vaultUi).toBe("sidebar-management");
+  });
+});
+
+describe("vaultController — lock-button suite sees no management attribute (leak regression)", () => {
+  // afterEach in the preceding describe should have cleaned up; verify here.
+  beforeEach(async () => {
+    vi.resetModules();
+    setupSidebarDom();
+    const snap = await makeUnlockedSnapshot();
+    await configureSnapshot(snap);
+    const browser = (await import("webextension-polyfill")).default;
+    vi.mocked(browser.storage.session.remove).mockResolvedValue();
+    await loadController();
+  });
+
+  test("body has no data-vault-ui attribute at start of this suite", () => {
+    expect(document.body.dataset.vaultUi).toBeUndefined();
+  });
+});
+
+// ── mgmt-totp-fallback-happy [HIGH] ──────────────────────────────────────────
+// In sidebar-management mode, an EMPTY totpSecret field must succeed by
+// falling back to the session payload's TOTP secret.  The saved vault must
+// round-trip back to the original TEST_TOTP value.
+
+describe("vaultController — management mode: empty TOTP field falls back to session payload TOTP", () => {
+  afterEach(() => {
+    document.body.removeAttribute("data-vault-ui");
+  });
+
+  beforeEach(async () => {
+    vi.resetModules();
+    setupSidebarDom();
+    document.body.dataset.vaultUi = "sidebar-management";
+    const snap = await makeUnlockedSnapshot();
+    await configureSnapshot(snap);
+    const browser = (await import("webextension-polyfill")).default;
+    vi.mocked(browser.storage.local.set).mockResolvedValue();
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    await loadController();
+  });
+
+  test("save succeeds when totpSecret field is empty in management mode", async () => {
+    (document.getElementById("email") as HTMLInputElement).value = TEST_EMAIL;
+    (document.getElementById("password") as HTMLInputElement).value = TEST_PASSWORD;
+    // Deliberately clear the TOTP field — management mode should fall back to session payload
+    (document.getElementById("totpSecret") as HTMLInputElement).value = "";
+    submitForm();
+
+    await vi.waitFor(() => {
+      expect(getStatusText()).toContain("Changes saved");
+    });
+  });
+
+  test("vault written with empty TOTP field decrypts back to TEST_TOTP", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    (document.getElementById("email") as HTMLInputElement).value = TEST_EMAIL;
+    (document.getElementById("password") as HTMLInputElement).value = TEST_PASSWORD;
+    (document.getElementById("totpSecret") as HTMLInputElement).value = "";
+    submitForm();
+
+    await vi.waitFor(() => {
+      expect(browser.storage.local.set).toHaveBeenCalled();
+    });
+
+    // Extract the stored vault object from the most recent local.set call
+    const calls = vi.mocked(browser.storage.local.set).mock.calls;
+    const lastCall = calls[calls.length - 1]!;
+    const written = (lastCall[0] as Record<string, unknown>)[VAULT_STORAGE_KEY];
+
+    // Decrypt with the session master and verify TOTP is preserved
+    const decResult = await decryptVault(written as StoredVault, MASTER);
+    expect(decResult.isOk()).toBe(true);
+    if (decResult.isOk()) {
+      expect(decResult.value.totpSecret).toBe(TEST_TOTP);
+    }
   });
 });

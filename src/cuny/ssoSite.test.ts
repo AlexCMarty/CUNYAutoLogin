@@ -348,6 +348,35 @@ describe("normalizeTotpSecretCandidate", () => {
   test("spaces + lowercase + padding all normalized together", () => {
     expect(normalizeTotpSecretCandidate("jbswy3dp ehpk3pxp=")).toBe("JBSWY3DPEHPK3PXP");
   });
+
+  // vault-session/normalizer-dash-unpinned: authenticator/QR exports hyphenate Base32 groups
+  test("single hyphen between groups stripped → accepted", () => {
+    expect(normalizeTotpSecretCandidate("JBSWY3DP-EHPK3PXP")).toBe("JBSWY3DPEHPK3PXP");
+  });
+
+  test("fully grouped form with multiple hyphens stripped → accepted", () => {
+    expect(normalizeTotpSecretCandidate("JBSW-Y3DP-EHPK-3PXP")).toBe("JBSWY3DPEHPK3PXP");
+  });
+
+  // vault-session/normalizer-whitespace-variety: \s covers tabs and newlines, not just spaces
+  test("tabs and newlines stripped", () => {
+    expect(normalizeTotpSecretCandidate("JBSWY3DP\tEHPK\n3PXP")).toBe("JBSWY3DPEHPK3PXP");
+  });
+
+  // vault-session/normalizer-embedded-padding: mid-string = survives end-anchored strip and fails charset
+  test("mid-string = rejected (not trailing padding)", () => {
+    expect(normalizeTotpSecretCandidate("JBSW=Y3DPEHPK")).toBeNull();
+  });
+
+  // vault-session/normalizer-padding-undershoot: trailing padding stripped before length gate, 8 chars < min
+  test("trailing padding stripped before length check leaves too-short secret → null", () => {
+    expect(normalizeTotpSecretCandidate("ABCDEFGH=====")).toBeNull();
+  });
+
+  // vault-session/normalizer-duplicate-drift: digit 9 is invalid Base32 (was only in content.test.ts)
+  test("invalid char '9' → null", () => {
+    expect(normalizeTotpSecretCandidate("ABCDEFGH9J")).toBeNull();
+  });
 });
 
 describe("isAllowedReopenCunyTabUrl", () => {

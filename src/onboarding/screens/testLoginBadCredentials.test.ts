@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { mountTestLoginBadCredentialsScreen } from "./testLoginBadCredentials";
 import type { OnboardingScreenContext } from "./screenContext";
 
-const makeCtx = (email = ""): OnboardingScreenContext => {
+const makeCtx = (email = ""): OnboardingScreenContext & { dispatch: ReturnType<typeof vi.fn> } => {
   const root = document.createElement("div");
   document.body.appendChild(root);
   return {
@@ -20,7 +20,7 @@ const makeCtx = (email = ""): OnboardingScreenContext => {
     setEmail: vi.fn(),
     setPassword: vi.fn(),
     setCredentialError: vi.fn(),
-    dispatch: vi.fn(),
+    dispatch: vi.fn<OnboardingScreenContext["dispatch"]>(),
   };
 };
 
@@ -55,5 +55,32 @@ describe("mountTestLoginBadCredentialsScreen", () => {
     expect(document.querySelector("strong")?.textContent).toContain(
       "@login.cuny.edu"
     );
+  });
+
+  // ── testLoginBadCredentials dispatch behavior ──────────────────────────────
+
+  test("clicking Try again dispatches RETRY_CREDENTIALS", () => {
+    const ctx = makeCtx();
+    mountTestLoginBadCredentialsScreen(ctx);
+    document.querySelector<HTMLButtonElement>("[data-onboarding-bad-cred-retry='true']")!.click();
+    expect(ctx.dispatch).toHaveBeenCalledWith("RETRY_CREDENTIALS");
+  });
+
+  test("clicking My email is wrong dispatches EDIT_EMAIL", () => {
+    const ctx = makeCtx();
+    mountTestLoginBadCredentialsScreen(ctx);
+    document.querySelector<HTMLButtonElement>("[data-onboarding-bad-cred-edit-email='true']")!.click();
+    expect(ctx.dispatch).toHaveBeenCalledWith("EDIT_EMAIL");
+  });
+
+  test("after unmount retry and edit-email clicks dispatch nothing", () => {
+    const ctx = makeCtx();
+    const handle = mountTestLoginBadCredentialsScreen(ctx);
+    const retry = document.querySelector<HTMLButtonElement>("[data-onboarding-bad-cred-retry='true']")!;
+    const editEmail = document.querySelector<HTMLButtonElement>("[data-onboarding-bad-cred-edit-email='true']")!;
+    handle.unmount();
+    retry.click();
+    editEmail.click();
+    expect(ctx.dispatch).not.toHaveBeenCalled();
   });
 });

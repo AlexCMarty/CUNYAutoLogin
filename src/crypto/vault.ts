@@ -128,20 +128,31 @@ export const decryptVault = (
   stored: StoredVault,
   masterPassword: string
 ): ResultAsync<VaultPayload, VaultError> => {
-  const salt = base64ToBytes(stored.saltB64);
-  const iv = base64ToBytes(stored.ivB64);
-  const ciphertext = base64ToBytes(stored.ciphertextB64);
-  return ResultAsync.fromPromise(deriveAesKey(masterPassword, salt), () => "crypto_failed" as const).andThen(
-    (key) =>
-      ResultAsync.fromPromise(
-        crypto.subtle.decrypt(
-          { name: "AES-GCM", iv: iv as BufferSource },
-          key,
-          ciphertext as BufferSource
-        ),
-        () => "decrypt_failed" as const
+  // Decode the stored base64 fields up front. `atob` throws synchronously on
+  // non-base64 input (corrupt/tampered storage), so guard it as a Result rather
+  // than letting the exception escape the ResultAsync contract.
+  const decodeStoredBytes = Result.fromThrowable(
+    () => ({
+      salt: base64ToBytes(stored.saltB64),
+      iv: base64ToBytes(stored.ivB64),
+      ciphertext: base64ToBytes(stored.ciphertextB64),
+    }),
+    () => "invalid_payload" as const
+  );
+  return decodeStoredBytes().asyncAndThen(({ salt, iv, ciphertext }) =>
+    ResultAsync.fromPromise(deriveAesKey(masterPassword, salt), () => "crypto_failed" as const)
+      .andThen((key) =>
+        ResultAsync.fromPromise(
+          crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: iv as BufferSource },
+            key,
+            ciphertext as BufferSource
+          ),
+          () => "decrypt_failed" as const
+        )
       )
-  ).andThen((plain) => parseDecryptedPayload(plain));
+      .andThen((plain) => parseDecryptedPayload(plain))
+  );
 };
 
 export const isStoredVault = (value: unknown): value is StoredVault => {

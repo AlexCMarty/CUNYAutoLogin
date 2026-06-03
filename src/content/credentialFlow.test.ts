@@ -27,7 +27,12 @@ describe("fillCredentials", () => {
     document.body.innerHTML = "";
   });
 
+  // ── content/credflow-fillcredentials-isolation [MEDIUM] ───────────────────
+  // The happy-path test previously ran on real timers (elements pre-existed so
+  // domWait returned immediately). Wrap in fake timers to be consistent with
+  // the err-path block and remove the latent real-clock dependency.
   test("fills username/password and clicks submit", async () => {
+    vi.useFakeTimers();
     const username = document.createElement("input");
     username.id = CREDENTIAL_INPUT_IDS.username;
     const password = document.createElement("input");
@@ -37,11 +42,17 @@ describe("fillCredentials", () => {
     const clickSpy = vi.spyOn(submit, "click");
     document.body.append(username, password, submit);
 
-    const result = await fillCredentials("student@login.cuny.edu", "hunter2");
+    const resultPromise = fillCredentials("student@login.cuny.edu", "hunter2");
+    // Elements already present so waitFor resolves on the first microtask tick;
+    // no timer advancement needed — but we flush to be explicit.
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+
     expect(result.isOk()).toBe(true);
     expect(username.value).toBe("student@login.cuny.edu");
     expect(password.value).toBe("hunter2");
     expect(clickSpy).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 
   describe("err paths — missing elements", () => {
@@ -275,5 +286,64 @@ describe("handleAutoFillFailureCredentialError", () => {
     await expect(
       handleAutoFillFailureCredentialError(noop, "storage_error")
     ).resolves.toBeUndefined();
+  });
+});
+
+// ── content/credflow-refill-guard [MEDIUM] ────────────────────────────────────
+// After one fill attempt per module lifetime (hasSubmitBeenAttempted), a
+// re-render must NOT refill + resubmit (account-lockout guard).
+// Uses a SINGLE importFresh so the latch persists across both calls.
+describe("handleCredentialPageFlow refill guard (single module lifetime)", () => {
+  const noop = (): void => { /* no-op logger */ };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+    vi.useFakeTimers();
+    vi.stubGlobal("location", new URL("https://ssologin.cuny.edu/oam/server/obrareq.cgi") as unknown as Location);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  test("second call does NOT re-set values or re-click submit", async () => {
+    // One fresh import — the latch is shared between both calls
+    vi.resetModules();
+    const { handleCredentialPageFlow: fn } = await import("./credentialFlow");
+
+    const username = document.createElement("input");
+    username.id = CREDENTIAL_INPUT_IDS.username;
+    const password = document.createElement("input");
+    password.id = CREDENTIAL_INPUT_IDS.password;
+    const submit = document.createElement("button");
+    submit.id = CREDENTIAL_INPUT_IDS.submitButton;
+    const clickSpy = vi.spyOn(submit, "click");
+    document.body.append(username, password, submit);
+
+    const validPayload = { email: "student@login.cuny.edu", password: "hunter2", totpSecret: "" };
+
+    // First call — should fill and submit
+    const first = fn(validPayload, noop);
+    await vi.runAllTimersAsync();
+    await first;
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(username.value).toBe("student@login.cuny.edu");
+
+    // Reset values to detect a spurious second fill
+    username.value = "";
+    password.value = "";
+    clickSpy.mockClear();
+
+    // Second call on the same credential page — latch is set, must skip refill
+    const second = fn(validPayload, noop);
+    await vi.runAllTimersAsync();
+    await second;
+
+    expect(clickSpy).toHaveBeenCalledTimes(0);
+    expect(username.value).toBe("");
+    expect(password.value).toBe("");
   });
 });

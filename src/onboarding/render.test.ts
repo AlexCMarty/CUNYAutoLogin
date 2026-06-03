@@ -894,6 +894,39 @@ describe("mountOnboarding", () => {
     unmount();
   });
 
+  test("ONBOARDING_CREDENTIAL_ERROR while in TEST_LOGIN dispatches TEST_BAD_CREDENTIALS and does NOT set credentialError", () => {
+    // When a credential error arrives while the controller is in TEST_LOGIN, the
+    // render bridge must take the fast-path (render.ts:416-420) that dispatches
+    // TEST_BAD_CREDENTIALS and returns early — it must NOT call setCredentialError
+    // nor follow the normal CREDENTIAL_ERROR_DETECTED route.
+    const controller = createOnboardingController({
+      initialState: "TEST_LOGIN",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_CREDENTIAL_ERROR",
+      culprit: "password",
+    });
+    const snap = controller.getSnapshot();
+    expect(snap.state).toBe("TEST_LOGIN_BAD_CREDENTIALS");
+    // credentialError must remain null — the TEST_LOGIN path must NOT set it.
+    expect(snap.credentialError).toBeNull();
+  });
+
+  test("ONBOARDING_CREDENTIAL_ERROR culprit:email while in TEST_LOGIN also dispatches TEST_BAD_CREDENTIALS (not EMAIL_ENTRY)", () => {
+    // Regardless of culprit, the TEST_LOGIN fast-path always dispatches
+    // TEST_BAD_CREDENTIALS and returns — it never routes to EMAIL_ENTRY.
+    const controller = createOnboardingController({
+      initialState: "TEST_LOGIN",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_CREDENTIAL_ERROR",
+      culprit: "email",
+    });
+    const snap = controller.getSnapshot();
+    expect(snap.state).toBe("TEST_LOGIN_BAD_CREDENTIALS");
+    expect(snap.credentialError).toBeNull();
+  });
+
   test("password forward on empty input does not advance past screen 3", () => {
     renderOnboardingRoot();
     mountOnboarding(document);

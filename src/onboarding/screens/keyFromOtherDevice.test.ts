@@ -7,10 +7,14 @@ vi.mock("webextension-polyfill", () => ({
   },
 }));
 
+import browser from "webextension-polyfill";
 import { mountKeyFromOtherDeviceScreen } from "./keyFromOtherDevice";
+import { PENDING_TOTP_SECRET_SESSION_KEY } from "../../cuny/ssoSite";
 import type { OnboardingScreenContext } from "./screenContext";
 
-const makeCtx = (qaVariant?: string): OnboardingScreenContext => {
+const sessionSet = browser.storage.session.set as ReturnType<typeof vi.fn>;
+
+const makeCtx = (qaVariant?: string): OnboardingScreenContext & { dispatch: ReturnType<typeof vi.fn> } => {
   const root = document.createElement("div");
   document.body.appendChild(root);
   return {
@@ -27,7 +31,7 @@ const makeCtx = (qaVariant?: string): OnboardingScreenContext => {
     setEmail: vi.fn(),
     setPassword: vi.fn(),
     setCredentialError: vi.fn(),
-    dispatch: vi.fn(),
+    dispatch: vi.fn<OnboardingScreenContext["dispatch"]>(),
   };
 };
 
@@ -36,6 +40,10 @@ const keyInput = (): HTMLInputElement =>
 const confirmBtn = (): HTMLButtonElement =>
   document.querySelector<HTMLButtonElement>(
     "[data-onboarding-key-confirm='true']"
+  )!;
+const backBtn = (): HTMLButtonElement =>
+  document.querySelector<HTMLButtonElement>(
+    "[data-onboarding-key-back='true']"
   )!;
 const okLine = (): HTMLElement =>
   document.querySelector<HTMLElement>("[data-onboarding-key-ok='true']")!;
@@ -50,6 +58,7 @@ const typeKey = (value: string): void => {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  sessionSet.mockClear();
 });
 
 describe("mountKeyFromOtherDeviceScreen", () => {
@@ -105,5 +114,76 @@ describe("mountKeyFromOtherDeviceScreen", () => {
     expect(
       document.querySelector("[data-onboarding-screen='KEY_FROM_OTHER_DEVICE']")
     ).toBeNull();
+  });
+});
+
+describe("mountKeyFromOtherDeviceScreen — Confirm / Back behavior", () => {
+  // ── pasteKeyScreen-confirm ─────────────────────────────────────────────────
+
+  test("Confirm with valid key writes normalized secret to session and dispatches KEY_CONFIRMED", async () => {
+    const ctx = makeCtx();
+    mountKeyFromOtherDeviceScreen(ctx);
+    typeKey("MZXW6YTBOI7EU4DPNZSGK3TL");
+    confirmBtn().click();
+    await vi.waitFor(() => expect(ctx.dispatch).toHaveBeenCalledWith("KEY_CONFIRMED"));
+    expect(sessionSet).toHaveBeenCalledWith({
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "MZXW6YTBOI7EU4DPNZSGK3TL",
+    });
+  });
+
+  test("Confirm with invalid input dispatches nothing and writes nothing to session", async () => {
+    const ctx = makeCtx();
+    mountKeyFromOtherDeviceScreen(ctx);
+    typeKey("bad key 0189!");
+    confirmBtn().click();
+    await Promise.resolve();
+    expect(ctx.dispatch).not.toHaveBeenCalled();
+    expect(sessionSet).not.toHaveBeenCalled();
+  });
+
+  test("Confirm with empty input dispatches nothing and writes nothing to session", async () => {
+    const ctx = makeCtx();
+    mountKeyFromOtherDeviceScreen(ctx);
+    // leave input empty — button is disabled but we test the handler directly via input event skip
+    confirmBtn().click();
+    await Promise.resolve();
+    expect(ctx.dispatch).not.toHaveBeenCalled();
+    expect(sessionSet).not.toHaveBeenCalled();
+  });
+
+  // ── pasteKeyScreen-normalize ───────────────────────────────────────────────
+
+  test("Confirm writes the uppercased whitespace-stripped canonical form to session", async () => {
+    const ctx = makeCtx();
+    mountKeyFromOtherDeviceScreen(ctx);
+    typeKey("mzxw 6ytb oi7e u4dp nzsg k3tl");
+    confirmBtn().click();
+    await vi.waitFor(() => expect(ctx.dispatch).toHaveBeenCalledWith("KEY_CONFIRMED"));
+    expect(sessionSet).toHaveBeenCalledWith({
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "MZXW6YTBOI7EU4DPNZSGK3TL",
+    });
+  });
+
+  // ── pasteKeyScreen-back-unmount ────────────────────────────────────────────
+
+  test("Back click dispatches BACK", () => {
+    const ctx = makeCtx();
+    mountKeyFromOtherDeviceScreen(ctx);
+    backBtn().click();
+    expect(ctx.dispatch).toHaveBeenCalledWith("BACK");
+  });
+
+  test("after unmount Back and Confirm clicks dispatch nothing and write nothing", async () => {
+    const ctx = makeCtx();
+    const handle = mountKeyFromOtherDeviceScreen(ctx);
+    typeKey("MZXW6YTBOI7EU4DPNZSGK3TL");
+    const savedBack = backBtn();
+    const savedConfirm = confirmBtn();
+    handle.unmount();
+    savedBack.click();
+    savedConfirm.click();
+    await Promise.resolve();
+    expect(ctx.dispatch).not.toHaveBeenCalled();
+    expect(sessionSet).not.toHaveBeenCalled();
   });
 });

@@ -396,3 +396,59 @@ describe("isStoredVault — additional edge cases", () => {
     expect(isStoredVault(noVersion)).toBe(false);
   });
 });
+
+// ── crypto/vault-decrypt-base64-throws [MEDIUM] ───────────────────────────────
+
+describe("decryptVault — non-base64 fields return a Result, never throw", () => {
+  const validBase: StoredVault = {
+    version: 1,
+    saltB64: btoa("somesalt"),
+    ivB64: btoa("someiv"),
+    ciphertextB64: btoa("someciphertext"),
+  };
+
+  test("non-base64 ciphertextB64 returns a Result (does not throw)", async () => {
+    const result = await decryptVault(
+      { ...validBase, ciphertextB64: "%%%not-base64%%%" },
+      MASTER
+    );
+    // Must be a Result (Ok or Err) — if it throws, the test fails.
+    expect(result.isOk() || result.isErr()).toBe(true);
+  });
+
+  test("non-base64 ivB64 returns a Result (does not throw)", async () => {
+    const result = await decryptVault(
+      { ...validBase, ivB64: "%%%not-base64%%%" },
+      MASTER
+    );
+    expect(result.isOk() || result.isErr()).toBe(true);
+  });
+
+  test("non-base64 saltB64 returns a Result (does not throw)", async () => {
+    const result = await decryptVault(
+      { ...validBase, saltB64: "%%%not-base64%%%" },
+      MASTER
+    );
+    expect(result.isOk() || result.isErr()).toBe(true);
+  });
+});
+
+// ── crypto/vault-decrypt-failed-vs-crypto-failed [MEDIUM] ────────────────────
+
+describe("decryptVault — error-code distinction: crypto_failed vs decrypt_failed", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("AES-GCM decrypt rejection maps to decrypt_failed (key derivation untouched)", async () => {
+    // Encrypt a real vault so we have a structurally valid stored object.
+    const stored = unwrap(await encryptVault(PAYLOAD, MASTER));
+
+    // Leave deriveKey alone; only make AES-GCM decrypt reject.
+    vi.spyOn(globalThis.crypto.subtle, "decrypt").mockRejectedValueOnce(
+      new Error("simulated AES-GCM decrypt failure")
+    );
+
+    expect(unwrapErr(await decryptVault(stored, MASTER))).toBe("decrypt_failed");
+  });
+});

@@ -43,10 +43,13 @@ describe("SCREEN_MOUNTS", () => {
     }
   });
 
-  test("covers the expected 18 states (all except CREDENTIAL_ERROR which has no screen)", () => {
-    // CREDENTIAL_ERROR is a transient state with no screen mount
-    const expectedCount = ONBOARDING_STATES.length - 1;
-    expect(Object.keys(SCREEN_MOUNTS).length).toBe(expectedCount);
+  test("covers every state except CREDENTIAL_ERROR — set equality, not just a count", () => {
+    // CREDENTIAL_ERROR is a transient routing state with no mount; every other
+    // state must have an entry. Using set equality means adding a state without
+    // a mount will cause a real failure (not just a count mismatch).
+    const expectedStates = new Set(ONBOARDING_STATES.filter((state) => state !== "CREDENTIAL_ERROR"));
+    const actualStates = new Set(Object.keys(SCREEN_MOUNTS));
+    expect(actualStates).toEqual(expectedStates);
   });
 
   test("WELCOME state has a mount function", () => {

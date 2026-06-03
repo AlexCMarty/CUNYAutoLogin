@@ -25,6 +25,7 @@ vi.mock("webextension-polyfill", () => ({
       },
       local: {
         get: vi.fn(),
+        set: vi.fn(),
       },
     },
     cookies: {
@@ -56,6 +57,7 @@ import type { VaultPayload } from "../crypto/vault";
 import {
   BRIGHTSPACE_HOME_URL,
   CUNY_LOGIN_ENTRY_URL,
+  ENROLLED_FACTOR_ALIAS_SESSION_KEY,
   OAA_RUI_LOGOUT_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
@@ -1142,4 +1144,331 @@ describe("LOGOUT_CUNY_SESSIONS", () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
   });
 
+});
+
+// ──── cross-extension-sender-gate [CRITICAL] ─────────────────────────────────
+
+describe("cross-extension sender gate", () => {
+  test("mismatched sender id → returns undefined before any handler runs", () => {
+    const result = handler(
+      { type: "AUTO_FILL_REQUEST" },
+      { id: "evil-ext", tab: { id: 1, url: `${SSO_LOGIN_ORIGIN}/fixture` } }
+    );
+    expect(result).toBeUndefined();
+    expect(vi.mocked(decryptVault)).not.toHaveBeenCalled();
+    expect(vi.mocked(browser.storage.session!.get)).not.toHaveBeenCalled();
+  });
+
+  test("sender with no id field → returns undefined before any handler runs", () => {
+    const result = handler({ type: "AUTO_FILL_REQUEST" }, {} as { id: string });
+    expect(result).toBeUndefined();
+    expect(vi.mocked(decryptVault)).not.toHaveBeenCalled();
+    expect(vi.mocked(browser.storage.session!.get)).not.toHaveBeenCalled();
+  });
+});
+
+// ──── master-pw-storage-invariant [HIGH] ─────────────────────────────────────
+
+describe("master password storage invariant", () => {
+  test("AUTO_FILL path never passes master password to console or storage.local.set", async () => {
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const localSetMock = vi.mocked(
+      (browser.storage.local as unknown as { set: ReturnType<typeof vi.fn> }).set
+    );
+    localSetMock.mockResolvedValue(undefined);
+
+    await handler({ type: "AUTO_FILL_REQUEST" }, CS_SENDER);
+
+    const allConsoleCalls = [
+      ...consoleSpy.mock.calls,
+      ...consoleWarnSpy.mock.calls,
+      ...consoleErrorSpy.mock.calls,
+    ].flat();
+    for (const arg of allConsoleCalls) {
+      expect(String(arg)).not.toContain(MASTER);
+    }
+    for (const callArgs of localSetMock.mock.calls) {
+      expect(JSON.stringify(callArgs)).not.toContain(MASTER);
+    }
+
+    consoleSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
+  test("STAGE_ONBOARDING_CREDENTIALS path never writes master to storage.local.set", async () => {
+    const localSetMock = vi.mocked(
+      (browser.storage.local as unknown as { set: ReturnType<typeof vi.fn> }).set
+    );
+    localSetMock.mockResolvedValue(undefined);
+
+    await handler(
+      { type: "STAGE_ONBOARDING_CREDENTIALS", email: "s@login.cuny.edu", password: MASTER },
+      EXT_SENDER
+    );
+
+    for (const callArgs of localSetMock.mock.calls) {
+      expect(JSON.stringify(callArgs)).not.toContain(MASTER);
+    }
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER);
+  });
+
+  test("PERSIST_ONBOARDING_RESUME_SNAPSHOT path never writes session master to storage.local.set", async () => {
+    const localSetMock = vi.mocked(
+      (browser.storage.local as unknown as { set: ReturnType<typeof vi.fn> }).set
+    );
+    localSetMock.mockResolvedValue(undefined);
+    vi.mocked(browser.storage.session!.set).mockResolvedValue(undefined);
+
+    await handler(
+      {
+        type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+        state: "VERIFY_LOGIN_CODE",
+        email: "s@login.cuny.edu",
+        password: "pw",
+      },
+      EXT_SENDER
+    );
+
+    for (const callArgs of localSetMock.mock.calls) {
+      expect(JSON.stringify(callArgs)).not.toContain(MASTER);
+    }
+  });
+});
+
+// ──── enrolled-alias-handler [HIGH] ──────────────────────────────────────────
+
+describe("ENROLLED_ALIAS_FROM_PAGE", () => {
+  test("valid alias from content-script sender → { ok: true } and stores alias in session", async () => {
+    vi.mocked(browser.storage.session!.set).mockResolvedValue(undefined);
+    expect(
+      await handler({ type: "ENROLLED_ALIAS_FROM_PAGE", alias: "myAuthApp" }, CS_SENDER)
+    ).toEqual({ ok: true });
+    expect(vi.mocked(browser.storage.session!.set)).toHaveBeenCalledWith({
+      [ENROLLED_FACTOR_ALIAS_SESSION_KEY]: "myAuthApp",
+    });
+  });
+
+  test("valid alias from extension sender (no tab on page) → { ok: false }, no session.set", async () => {
+    expect(
+      await handler({ type: "ENROLLED_ALIAS_FROM_PAGE", alias: "myAuthApp" }, EXT_SENDER)
+    ).toEqual({ ok: false });
+    expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+  });
+
+  test("missing alias field → { ok: false }, no session.set", async () => {
+    expect(
+      await handler({ type: "ENROLLED_ALIAS_FROM_PAGE" }, CS_SENDER)
+    ).toEqual({ ok: false });
+    expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+  });
+
+  test("empty string alias → { ok: false }, no session.set", async () => {
+    expect(
+      await handler({ type: "ENROLLED_ALIAS_FROM_PAGE", alias: "" }, CS_SENDER)
+    ).toEqual({ ok: false });
+    expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+  });
+
+  test("non-string alias (number) → { ok: false }, no session.set", async () => {
+    expect(
+      await handler({ type: "ENROLLED_ALIAS_FROM_PAGE", alias: 42 }, CS_SENDER)
+    ).toEqual({ ok: false });
+    expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+  });
+
+  test("storage.session.set rejects → { ok: false }", async () => {
+    vi.mocked(browser.storage.session!.set).mockRejectedValueOnce(new Error("quota exceeded"));
+    expect(
+      await handler({ type: "ENROLLED_ALIAS_FROM_PAGE", alias: "myAuthApp" }, CS_SENDER)
+    ).toEqual({ ok: false });
+  });
+});
+
+// ──── content-script-ready-sender-gate [HIGH] ────────────────────────────────
+
+describe("ONBOARDING_CONTENT_SCRIPT_READY — sender gate (leak prevention)", () => {
+  test("staged show command is NOT leaked to untrusted sender with no tab", async () => {
+    await handler(
+      {
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        target: "#allow-btn",
+        tooltipText: "Click Allow to continue.",
+        stepIndex: 0,
+        stepTotal: 4,
+      },
+      EXT_SENDER
+    );
+    // EXT_SENDER has no `tab` — senderIsTrustedContentScriptWithTab returns false
+    expect(
+      await handler({ type: "ONBOARDING_CONTENT_SCRIPT_READY" }, EXT_SENDER)
+    ).toEqual({ overlayCommand: null });
+  });
+
+  test("staged show command is NOT leaked to sender with tab on non-CUNY host", async () => {
+    await handler(
+      {
+        type: "ONBOARDING_OVERLAY_COMMAND",
+        action: "show",
+        target: "#allow-btn",
+        tooltipText: "Click Allow to continue.",
+        stepIndex: 0,
+        stepTotal: 4,
+      },
+      EXT_SENDER
+    );
+    const untrustedTabSender = {
+      id: "test-ext-id",
+      tab: { id: 5, url: "https://evil.example.com/page" },
+    };
+    expect(
+      await handler({ type: "ONBOARDING_CONTENT_SCRIPT_READY" }, untrustedTabSender)
+    ).toEqual({ overlayCommand: null });
+  });
+});
+
+// ──── clear-creds-sender-reject [MEDIUM] ─────────────────────────────────────
+
+describe("CLEAR_ONBOARDING_CREDENTIALS — content-script sender rejection", () => {
+  test("CLEAR from a content-script sender → { ok: false } and staged creds remain", async () => {
+    // Stage credentials from the privileged extension UI.
+    await handler(
+      {
+        type: "STAGE_ONBOARDING_CREDENTIALS",
+        email: "staged@login.cuny.edu",
+        password: "staged-pw",
+      },
+      EXT_SENDER
+    );
+
+    // Attempt to clear from a content-script sender — must be rejected.
+    expect(
+      await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, CS_SENDER)
+    ).toEqual({ ok: false });
+
+    // Verify creds are still staged: with no vault, AUTO_FILL should use them.
+    vi.mocked(isStoredVault).mockReturnValue(false);
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({});
+    expect(await handler({ type: "AUTO_FILL_REQUEST" }, CS_SENDER)).toEqual({
+      success: true,
+      payload: { email: "staged@login.cuny.edu", password: "staged-pw", totpSecret: "" },
+    });
+
+    // Clean up for later tests.
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER);
+  });
+});
+
+// ──── persist-resume-malformed-payload [MEDIUM] ──────────────────────────────
+
+describe("PERSIST_ONBOARDING_RESUME_SNAPSHOT — malformed payload rejection", () => {
+  test("missing state field → { ok: false } and storage.session.set/remove never called", async () => {
+    expect(
+      await handler(
+        {
+          type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+          email: "a@login.cuny.edu",
+          password: "pw",
+          // state intentionally omitted
+        },
+        EXT_SENDER
+      )
+    ).toEqual({ ok: false });
+    expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+    expect(vi.mocked(browser.storage.session!.remove)).not.toHaveBeenCalled();
+  });
+
+  test("non-string email → { ok: false } and storage.session.set/remove never called", async () => {
+    expect(
+      await handler(
+        {
+          type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+          state: "VERIFY_LOGIN_CODE",
+          email: 12345,
+          password: "pw",
+        },
+        EXT_SENDER
+      )
+    ).toEqual({ ok: false });
+    expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+    expect(vi.mocked(browser.storage.session!.remove)).not.toHaveBeenCalled();
+  });
+
+  test("non-boolean advancedKeyFlow → { ok: false } and storage untouched", async () => {
+    expect(
+      await handler(
+        {
+          type: "PERSIST_ONBOARDING_RESUME_SNAPSHOT",
+          state: "VERIFY_LOGIN_CODE",
+          email: "a@login.cuny.edu",
+          password: "pw",
+          advancedKeyFlow: "yes",
+        },
+        EXT_SENDER
+      )
+    ).toEqual({ ok: false });
+    expect(vi.mocked(browser.storage.session!.set)).not.toHaveBeenCalled();
+    expect(vi.mocked(browser.storage.session!.remove)).not.toHaveBeenCalled();
+  });
+});
+
+// ──── auto-fill-otpcontext-coercion [MEDIUM] ─────────────────────────────────
+
+describe("AUTO_FILL_REQUEST — unrecognized otpContext coercion", () => {
+  test("string 'bogus' otpContext coerces to undefined: behaves identically to omitting otpContext", async () => {
+    // Vault present, no staged creds, no pending secret — isolates the coercion
+    // path from login_totp/enroll_verify override logic. The vault's totpSecret
+    // must be returned unchanged.
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [SESSION_MASTER_KEY]: MASTER,
+    });
+
+    const bogusResult = await handler({ type: "AUTO_FILL_REQUEST", otpContext: "bogus" }, CS_SENDER);
+    const undefinedResult = await handler({ type: "AUTO_FILL_REQUEST" }, CS_SENDER);
+
+    // Coercion guarantee: bogus behaves exactly like undefined (no enroll override).
+    expect(bogusResult).toEqual(undefinedResult);
+    // Vault's own totpSecret is passed through untouched.
+    expect(bogusResult).toEqual({ success: true, payload: PAYLOAD });
+  });
+
+  test("numeric otpContext coerces to undefined: behaves identically to omitting otpContext", async () => {
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [SESSION_MASTER_KEY]: MASTER,
+    });
+
+    const numericResult = await handler({ type: "AUTO_FILL_REQUEST", otpContext: 999 }, CS_SENDER);
+    const undefinedResult = await handler({ type: "AUTO_FILL_REQUEST" }, CS_SENDER);
+
+    expect(numericResult).toEqual(undefinedResult);
+    expect(numericResult).toEqual({ success: true, payload: PAYLOAD });
+  });
+
+  test("'bogus' otpContext does NOT trigger enroll-specific override (coerces identically to login_totp/undefined path)", async () => {
+    // 'bogus' coerces to undefined. With staged creds + pending secret,
+    // undefined triggers the same loginTotpOverride as "login_totp", not the
+    // enroll_verify override. Both paths apply the pending secret the same way —
+    // the key invariant is that the coercion is deterministic and matches undefined.
+    await handler(
+      { type: "STAGE_ONBOARDING_CREDENTIALS", email: "s@login.cuny.edu", password: "pw" },
+      EXT_SENDER
+    );
+    vi.mocked(browser.storage.session!.get).mockResolvedValue({
+      [SESSION_MASTER_KEY]: MASTER,
+      [PENDING_TOTP_SECRET_SESSION_KEY]: "PENDINGSECRETXX",
+    });
+
+    const bogusResult = await handler({ type: "AUTO_FILL_REQUEST", otpContext: "bogus" }, CS_SENDER);
+    const loginTotpResult = await handler({ type: "AUTO_FILL_REQUEST", otpContext: "login_totp" }, CS_SENDER);
+    const undefinedResult = await handler({ type: "AUTO_FILL_REQUEST" }, CS_SENDER);
+
+    // All three must be identical — bogus coerces to undefined, not to enroll_verify.
+    expect(bogusResult).toEqual(undefinedResult);
+    expect(bogusResult).toEqual(loginTotpResult);
+
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER);
+  });
 });
