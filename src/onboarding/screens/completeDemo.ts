@@ -1,84 +1,23 @@
 import browser from "webextension-polyfill";
 import type { OnboardingReopenCunyTab } from "../messages";
 import { BRIGHTSPACE_HOME_URL } from "../../cuny/ssoSite";
+import { buildLoginChecklist } from "./loginChecklist";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
+/**
+ * COMPLETE_DEMO — the guided "You're all set." preview. Reuses the shared
+ * login checklist (see loginChecklist.ts) so it stays in lockstep with
+ * TEST_LOGIN. Only the first step's wording differs per screen.
+ */
 const DEMO_STEPS = [
-  "Opening CUNY Login…",
-  "Filling in your email…",
-  "Filling in your password…",
-  "Generating your login code…",
-  "Signed in.",
+  "Opening CUNY Login",
+  "Filling in your email / password",
+  "Generating your login code",
+  "Signed in",
 ] as const;
-
-const STEP_INTERVAL_MS = 1_500;
-
-type DemoRefs = {
-  dotEls: HTMLElement[];
-  textEls: HTMLElement[];
-  statusEl: HTMLElement;
-  actions: HTMLElement;
-};
-
-const buildDemoList = (doc: Document): { list: HTMLElement } & DemoRefs => {
-  const list = doc.createElement("div");
-  list.className = "onboarding-demo-list";
-  const dotEls: HTMLElement[] = [];
-  const textEls: HTMLElement[] = [];
-  DEMO_STEPS.forEach((step) => {
-    const row = doc.createElement("div");
-    row.className = "onboarding-demo-row";
-    const dot = doc.createElement("span");
-    dot.className = "onboarding-demo-dot";
-    const text = doc.createElement("span");
-    text.className = "onboarding-demo-text";
-    text.textContent = step;
-    row.appendChild(dot);
-    row.appendChild(text);
-    list.appendChild(row);
-    dotEls.push(dot);
-    textEls.push(text);
-  });
-  const statusEl = doc.createElement("p");
-  statusEl.className = "onboarding-demo-status";
-  statusEl.dataset.onboardingDemoStatus = "true";
-  statusEl.hidden = true;
-  const actions = doc.createElement("div");
-  return { list, dotEls, textEls, statusEl, actions };
-};
-
-const animateStep = (refs: DemoRefs, stepIdx: number): void => {
-  refs.dotEls.forEach((dot, dotIdx) => {
-    dot.dataset.active = dotIdx === stepIdx ? "true" : "false";
-    dot.dataset.done = dotIdx < stepIdx ? "true" : "false";
-  });
-  refs.textEls.forEach((text, textIdx) => {
-    text.dataset.active = textIdx === stepIdx ? "true" : "false";
-  });
-};
-
-const finishAnimation = (
-  refs: DemoRefs,
-  dispatch: OnboardingScreenContext["dispatch"],
-  doc: Document
-): void => {
-  refs.dotEls.forEach((dot) => {
-    dot.dataset.active = "false";
-    dot.dataset.done = "true";
-  });
-  refs.statusEl.hidden = false;
-  refs.statusEl.textContent = "Watch the CUNY tab — we're doing the work.";
-  const doneBtn = doc.createElement("button");
-  doneBtn.type = "button";
-  doneBtn.className = "onboarding-btn onboarding-btn-primary";
-  doneBtn.textContent = "Done";
-  doneBtn.addEventListener("click", () => dispatch("DEMO_FINISHED"));
-  refs.actions.replaceChildren(doneBtn);
-};
 
 export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root, dispatch } = ctx;
-  const timers: ReturnType<typeof setTimeout>[] = [];
 
   const container = doc.createElement("section");
   container.dataset.onboardingScreen = "COMPLETE_DEMO";
@@ -95,9 +34,19 @@ export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContex
     "Next time you need to sign in to CUNY, this is what happens — no password needed.";
   container.appendChild(body);
 
-  const { list, dotEls, textEls, statusEl, actions } = buildDemoList(doc);
-  container.appendChild(list);
+  const checklist = buildLoginChecklist(doc, DEMO_STEPS);
+  container.appendChild(checklist.element);
+
+  const statusEl = doc.createElement("p");
+  statusEl.className = "onboarding-demo-status";
+  statusEl.dataset.onboardingDemoStatus = "true";
+  statusEl.hidden = true;
   container.appendChild(statusEl);
+
+  const actions = doc.createElement("div");
+  actions.className = "onboarding-actions";
+  actions.style.flexDirection = "column";
+  actions.style.gap = "8px";
 
   const showBtn = doc.createElement("button");
   showBtn.type = "button";
@@ -112,16 +61,25 @@ export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContex
   skipBtn.textContent = "Skip";
   skipBtn.addEventListener("click", () => dispatch("DEMO_FINISHED"));
 
-  actions.className = "onboarding-actions";
-  actions.style.flexDirection = "column";
-  actions.style.gap = "8px";
   actions.appendChild(showBtn);
   actions.appendChild(skipBtn);
   container.appendChild(actions);
 
-  const refs: DemoRefs = { dotEls, textEls, statusEl, actions };
+  const finish = (): void => {
+    statusEl.hidden = false;
+    statusEl.textContent = "Watch the CUNY tab — we're doing the work.";
+    const doneBtn = doc.createElement("button");
+    doneBtn.type = "button";
+    doneBtn.className = "onboarding-btn onboarding-btn-primary";
+    doneBtn.textContent = "Done";
+    doneBtn.addEventListener("click", () => dispatch("DEMO_FINISHED"));
+    actions.replaceChildren(doneBtn);
+  };
 
+  let started = false;
   showBtn.addEventListener("click", () => {
+    if (started) return;
+    started = true;
     showBtn.disabled = true;
     skipBtn.hidden = true;
     const msg: OnboardingReopenCunyTab = {
@@ -130,17 +88,21 @@ export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContex
     };
     void browser.runtime.sendMessage(msg).catch(() => undefined);
     dispatch("DEMO_REQUESTED");
-    DEMO_STEPS.forEach((_step, stepIdx) => {
-      timers.push(setTimeout(() => animateStep(refs, stepIdx), stepIdx * STEP_INTERVAL_MS));
-    });
-    timers.push(setTimeout(() => finishAnimation(refs, dispatch, doc), DEMO_STEPS.length * STEP_INTERVAL_MS));
+    // A preview, not a proof: let the fallback finish the final bead, while
+    // real progress events (if the reopened tab logs in) advance it sooner.
+    checklist.begin({ completeFinal: true, onComplete: finish });
   });
 
   root.appendChild(container);
   return {
     unmount: () => {
-      timers.forEach(clearTimeout);
+      checklist.unmount();
       container.remove();
+    },
+    // Only react to real events once the demo is running — a stray message
+    // must not light beads before the student presses "Show me".
+    onMessage: (message) => {
+      if (started) checklist.applyMessage(message);
     },
   };
 };

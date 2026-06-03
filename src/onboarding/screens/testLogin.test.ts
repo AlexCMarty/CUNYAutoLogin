@@ -50,6 +50,7 @@ const flush = async (): Promise<void> => {
 };
 
 beforeEach(() => {
+  vi.useFakeTimers();
   sendMessageMock.mockReset();
   tabsCreateMock.mockReset();
   sendMessageMock.mockResolvedValue({ ok: true });
@@ -57,6 +58,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.runOnlyPendingTimers();
+  vi.useRealTimers();
   document.body.innerHTML = "";
 });
 
@@ -74,14 +77,57 @@ describe("mountTestLoginScreen", () => {
     expect(document.querySelector(".onboarding-status")).toBeNull();
   });
 
-  test("in-progress frame marks exactly one row active (the password step)", () => {
+  test("in-progress frame starts with the first bead ('Opening Brightspace') active", () => {
     mountTestLoginScreen(makeCtx());
     const activeDots = document.querySelectorAll(
       ".onboarding-demo-dot[data-active='true']"
     );
     expect(activeDots).toHaveLength(1);
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>(".onboarding-demo-row")
+    );
+    expect(rows).toHaveLength(4);
+    const firstDot = rows[0]?.querySelector<HTMLElement>(".onboarding-demo-dot");
+    expect(firstDot?.dataset.active).toBe("true");
+    expect(rows[0]?.querySelector(".onboarding-demo-text")?.textContent).toBe(
+      "Opening Brightspace…"
+    );
+  });
+});
+
+describe("mountTestLoginScreen — live progress beads", () => {
+  test("beads advance as real login-progress events arrive via onMessage", () => {
+    const handle = mountTestLoginScreen(makeCtx());
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "credentials_done" });
+    const dots = Array.from(
+      document.querySelectorAll<HTMLElement>(".onboarding-demo-dot")
+    );
+    // credentials_done -> "Generating your login code" (index 2) active.
+    expect(dots[2]?.dataset.active).toBe("true");
+    expect(dots[0]?.dataset.done).toBe("true");
+    expect(dots[1]?.dataset.done).toBe("true");
   });
 
+  test("the fallback never marks 'Signed in' on its own (held for the real success)", () => {
+    mountTestLoginScreen(makeCtx());
+    vi.advanceTimersByTime(60_000);
+    const dots = Array.from(
+      document.querySelectorAll<HTMLElement>(".onboarding-demo-dot")
+    );
+    expect(dots[3]?.dataset.done).not.toBe("true");
+    expect(dots[3]?.dataset.active).toBe("true");
+  });
+
+  test("a real 'signed_in' completes every bead", () => {
+    const handle = mountTestLoginScreen(makeCtx());
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "signed_in" });
+    document
+      .querySelectorAll<HTMLElement>(".onboarding-demo-dot")
+      .forEach((dot) => expect(dot.dataset.done).toBe("true"));
+  });
+});
+
+describe("mountTestLoginScreen — success frame", () => {
   test("qaVariant='success': success phase, signed-in headline, status line", () => {
     mountTestLoginScreen(makeCtx("success"));
     const section = document.querySelector<HTMLElement>(
@@ -101,9 +147,11 @@ describe("mountTestLoginScreen", () => {
     ).toHaveLength(0);
     expect(
       document.querySelectorAll(".onboarding-demo-dot[data-done='true']")
-    ).toHaveLength(5);
+    ).toHaveLength(4);
   });
+});
 
+describe("mountTestLoginScreen — lifecycle & side effects", () => {
   test("unmount removes the container", () => {
     const handle = mountTestLoginScreen(makeCtx());
     handle.unmount();

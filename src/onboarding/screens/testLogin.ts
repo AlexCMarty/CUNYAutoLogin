@@ -1,6 +1,7 @@
 /**
  * TEST_LOGIN — a real CUNY auto-login that proves the pasted key works
- * (bead 3). Reuses the COMPLETE_DEMO checklist look (row/dot/text classes).
+ * (bead 3). Reuses the shared login checklist (loginChecklist.ts) so it stays
+ * in lockstep with COMPLETE_DEMO; only the first step's wording differs.
  *
  * On mount this screen:
  *   1. Sends LOGOUT_CUNY_SESSIONS to terminate any existing OAA session.
@@ -9,12 +10,16 @@
  *   3. Opens Brightspace in a new tab (SAML flow hits ssologin for autofill,
  *      then redirects back to Brightspace on success — no allow gate).
  *
- * The render bridge in render.ts then drives the result:
- *   - Brightspace URL landing in tab → TEST_SUCCEEDED
+ * As the login runs, the content script emits ONBOARDING_LOGIN_PROGRESS events
+ * and the sidebar synthesises `signed_in` from Brightspace cookie detection;
+ * the render bridge forwards them to this screen's `onMessage`, advancing the
+ * beads. A timed fallback keeps them moving if events are sparse, but never
+ * marks "Signed in" — that waits for the real success (which then transitions
+ * to EXT_PASSWORD_SETUP). The render bridge also drives the failure branches:
  *   - ONBOARDING_CREDENTIAL_ERROR while in TEST_LOGIN → TEST_BAD_CREDENTIALS
  *   - ONBOARDING_VERIFY_STATUS second_failure while in TEST_LOGIN → TEST_BAD_KEY
  *
- * `qaVariant=success` shows the signed-in frame; default shows the
+ * `qaVariant=success` shows the static signed-in frame; default animates the
  * in-progress frame.
  */
 
@@ -22,6 +27,7 @@ import browser from "webextension-polyfill";
 import { BRIGHTSPACE_HOME_URL } from "../../cuny/ssoSite";
 import type { LogoutCunySessionsRequest, StageOnboardingCredentials } from "../messages";
 import { DEV_MODE_NAMES } from "../devModes";
+import { buildLoginChecklist } from "./loginChecklist";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
 const isDevMode = (): boolean =>
@@ -45,14 +51,10 @@ const resolveCunyEntryUrl = (): string => {
 
 const STEPS = [
   "Opening Brightspace",
-  "Filling in your email",
-  "Filling in your password",
-  "Generating your six-digit code",
+  "Filling in your email / password",
+  "Generating your login code",
   "Signed in",
 ] as const;
-
-/** In-progress frame: rows 0–1 done, row 2 ("password") active. */
-const IN_PROGRESS_ACTIVE_IDX = 2;
 
 const HEADLINE_PROGRESS = "Let's make sure it works.";
 const HEADLINE_SUCCESS = "Your key works.";
@@ -65,29 +67,46 @@ const BODY_SUCCESS =
 const DEMO_STATUS_PROGRESS = "Watch the new tab — we're doing the work.";
 const STATUS_SUCCESS = "Signed in. Saving your vault…";
 
-const buildChecklist = (doc: Document, success: boolean): HTMLElement => {
-  const list = doc.createElement("div");
-  list.className = "onboarding-demo-list";
-  // success → all rows done; otherwise the active row sits at the password step.
-  const activeIdx = success ? STEPS.length : IN_PROGRESS_ACTIVE_IDX;
-  STEPS.forEach((step, idx) => {
-    const done = idx < activeIdx;
-    const active = idx === activeIdx;
-    const row = doc.createElement("div");
-    row.className = "onboarding-demo-row";
-    const dot = doc.createElement("span");
-    dot.className = "onboarding-demo-dot";
-    dot.dataset.active = active ? "true" : "false";
-    dot.dataset.done = done ? "true" : "false";
-    const text = doc.createElement("span");
-    text.className = "onboarding-demo-text";
-    text.dataset.active = active ? "true" : "false";
-    text.textContent = active && !success ? `${step}…` : step;
-    row.appendChild(dot);
-    row.appendChild(text);
-    list.appendChild(row);
-  });
-  return list;
+const buildSuccessStatus = (doc: Document): HTMLElement => {
+  const status = doc.createElement("p");
+  status.className = "onboarding-status";
+  const check = doc.createElement("span");
+  check.setAttribute("aria-hidden", "true");
+  check.textContent = "✓";
+  const statusText = doc.createElement("span");
+  statusText.textContent = STATUS_SUCCESS;
+  status.appendChild(check);
+  status.appendChild(statusText);
+  return status;
+};
+
+const buildProgressStatus = (doc: Document): HTMLElement => {
+  const demoStatus = doc.createElement("p");
+  demoStatus.className = "onboarding-demo-status";
+  demoStatus.textContent = DEMO_STATUS_PROGRESS;
+  return demoStatus;
+};
+
+/** Fire the real login: clear session, stage credentials, open Brightspace. */
+const runTestLoginSideEffects = (email: string, password: string): void => {
+  const logoutPayload: LogoutCunySessionsRequest = { type: "LOGOUT_CUNY_SESSIONS" };
+  const stagePayload: StageOnboardingCredentials = {
+    type: "STAGE_ONBOARDING_CREDENTIALS",
+    email,
+    password,
+  };
+  const cunyUrl = resolveCunyEntryUrl();
+  void (async () => {
+    try { await browser.runtime.sendMessage(logoutPayload); } catch (err) {
+      reportTestLoginFailure("LOGOUT_CUNY_SESSIONS", err);
+    }
+    try { await browser.runtime.sendMessage(stagePayload); } catch (err) {
+      reportTestLoginFailure("STAGE_ONBOARDING_CREDENTIALS", err);
+    }
+    try { await browser.tabs.create({ url: cunyUrl, active: true }); } catch (err) {
+      reportTestLoginFailure("tabs.create", err);
+    }
+  })();
 };
 
 export const mountTestLoginScreen: ScreenMount = (
@@ -109,53 +128,31 @@ export const mountTestLoginScreen: ScreenMount = (
   body.className = "onboarding-body";
   body.textContent = success ? BODY_SUCCESS : BODY_PROGRESS;
 
+  const checklist = buildLoginChecklist(doc, STEPS);
+
   container.appendChild(headline);
   container.appendChild(body);
-  container.appendChild(buildChecklist(doc, success));
+  container.appendChild(checklist.element);
+  container.appendChild(success ? buildSuccessStatus(doc) : buildProgressStatus(doc));
 
   if (success) {
-    const status = doc.createElement("p");
-    status.className = "onboarding-status";
-    const check = doc.createElement("span");
-    check.setAttribute("aria-hidden", "true");
-    check.textContent = "✓"; // ✓
-    const statusText = doc.createElement("span");
-    statusText.textContent = STATUS_SUCCESS;
-    status.appendChild(check);
-    status.appendChild(statusText);
-    container.appendChild(status);
+    checklist.finishAll();
   } else {
-    const demoStatus = doc.createElement("p");
-    demoStatus.className = "onboarding-demo-status";
-    demoStatus.textContent = DEMO_STATUS_PROGRESS;
-    container.appendChild(demoStatus);
+    // Real proof: animate for liveness but hold "Signed in" until the actual
+    // success (cookie → `signed_in`, which then navigates to EXT_PASSWORD_SETUP).
+    checklist.begin({ completeFinal: false });
   }
 
   root.appendChild(container);
 
   const snapshot = getSnapshot();
-  const logoutPayload: LogoutCunySessionsRequest = { type: "LOGOUT_CUNY_SESSIONS" };
-  const stagePayload: StageOnboardingCredentials = {
-    type: "STAGE_ONBOARDING_CREDENTIALS",
-    email: snapshot.email,
-    password: snapshot.password,
-  };
-  const cunyUrl = resolveCunyEntryUrl();
-  void (async () => {
-    try { await browser.runtime.sendMessage(logoutPayload); } catch (err) {
-      reportTestLoginFailure("LOGOUT_CUNY_SESSIONS", err);
-    }
-    try { await browser.runtime.sendMessage(stagePayload); } catch (err) {
-      reportTestLoginFailure("STAGE_ONBOARDING_CREDENTIALS", err);
-    }
-    try { await browser.tabs.create({ url: cunyUrl, active: true }); } catch (err) {
-      reportTestLoginFailure("tabs.create", err);
-    }
-  })();
+  runTestLoginSideEffects(snapshot.email, snapshot.password);
 
   return {
     unmount: () => {
+      checklist.unmount();
       container.remove();
     },
+    onMessage: (message) => checklist.applyMessage(message),
   };
 };

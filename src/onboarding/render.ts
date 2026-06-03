@@ -33,6 +33,7 @@ import {
 } from "./controller";
 import {
   type ClearOnboardingCredentials,
+  type OnboardingLoginProgress,
   type OnboardingMessage,
   type OnboardingPageStage,
   type PersistOnboardingResumeSnapshot,
@@ -479,9 +480,17 @@ const handleVerifyStatusMessage = (
   // the factors_list_after_enroll stage, not by this message.
 };
 
+/** Synthetic "signed in" progress signal — the content script never sends this;
+ *  the sidebar derives it from Brightspace cookie detection (see below). */
+const SIGNED_IN_PROGRESS: OnboardingLoginProgress = {
+  type: "ONBOARDING_LOGIN_PROGRESS",
+  step: "signed_in",
+};
+
 const installRuntimeMessageBridge = (
   controller: OnboardingController,
   screenHost: HTMLElement,
+  getActiveScreenHandle: () => ScreenHandle | null,
   onCunyTabSeen?: (tabId: number) => void
 ): (() => void) => {
   const stageSideEffects = {
@@ -542,6 +551,11 @@ const installRuntimeMessageBridge = (
         handleVerifyStatusMessage(controller, screenHost, typedMessage.status);
       },
     });
+    // Forward every validated message to the active screen so live-updating
+    // screens (the login checklist) can react without a re-render. Our
+    // checklist messages don't trigger a state transition, so the handle is
+    // still the one that was active when the message arrived.
+    getActiveScreenHandle()?.onMessage?.(message);
   };
   try {
     browser.runtime.onMessage.addListener(listener);
@@ -681,6 +695,7 @@ const wireTabCloseDetection = (
 // message → activeCunyTabIdRef stays null → tabs.onUpdated guard would never fire).
 const wireBrightspaceCookieDetection = (
   controller: OnboardingController,
+  getActiveScreenHandle: () => ScreenHandle | null,
 ): () => void => {
   const cookiesOnChanged = (browser.cookies as unknown as {
     onChanged?: {
@@ -692,6 +707,10 @@ const wireBrightspaceCookieDetection = (
     if (changeInfo.removed) return;
     if (!(BRIGHTSPACE_SESSION_COOKIE_NAMES as readonly string[]).includes(changeInfo.cookie.name)) return;
     if (!isBrightspaceCookieDomain(changeInfo.cookie.domain)) return;
+    // Real "signed in" — complete the active login checklist (TEST_LOGIN or the
+    // guided COMPLETE_DEMO) before TEST_LOGIN navigates onward. Other screens
+    // ignore the hook.
+    getActiveScreenHandle()?.onMessage?.(SIGNED_IN_PROGRESS);
     dispatchIfState(controller, "TEST_LOGIN", "TEST_SUCCEEDED");
   };
   try {
@@ -926,8 +945,9 @@ const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
 
   const { repaint, repaintInterruptionActions } = buildRepaintCallbacks(model, refs, keyEntryOriginRef);
 
+  const getActiveScreenHandle = (): ScreenHandle | null => refs.screenHandleRef.current;
   const unsubscribe = subscribeOnboardingController(controller, repaint, suppressResumeSnapshots, keyEntryOriginRef);
-  const uninstallBridge = installRuntimeMessageBridge(controller, screenHost, (tabId) => {
+  const uninstallBridge = installRuntimeMessageBridge(controller, screenHost, getActiveScreenHandle, (tabId) => {
     activeCunyTabIdRef.value = tabId;
     refs.isCunyTabMissingFlag.value = false;
     repaintInterruptionActions();
@@ -943,7 +963,7 @@ const bindOnboardingLifecycle = (model: OnboardingMountModel): (() => void) => {
       activeCunyTabIdRef,
       isCunyTabMissingFlag: refs.isCunyTabMissingFlag,
     });
-  const unwireBrightspaceCookie = wireBrightspaceCookieDetection(controller);
+  const unwireBrightspaceCookie = wireBrightspaceCookieDetection(controller, getActiveScreenHandle);
 
   repaint();
   if (!suppressResumeSnapshots) {

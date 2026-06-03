@@ -169,11 +169,20 @@ describe("mountCompleteDemoScreen — animation steps", () => {
     vi.clearAllMocks();
   });
 
-  test("renders 5 demo rows (one per DEMO_STEPS entry)", () => {
+  test("renders 4 demo rows, first labelled 'Opening CUNY Login'", () => {
     const { ctx, root } = makeCtx();
     mountCompleteDemoScreen(ctx);
     const rows = root.querySelectorAll(".onboarding-demo-row");
-    expect(rows.length).toBe(5);
+    expect(rows.length).toBe(4);
+    const texts = Array.from(
+      root.querySelectorAll<HTMLElement>(".onboarding-demo-text")
+    ).map((node) => node.textContent);
+    expect(texts).toEqual([
+      "Opening CUNY Login",
+      "Filling in your email / password",
+      "Generating your login code",
+      "Signed in",
+    ]);
   });
 
   test("first step dot becomes active immediately after Show me click", () => {
@@ -228,6 +237,43 @@ describe("mountCompleteDemoScreen — animation steps", () => {
       expect(dot.dataset.done).toBe("true");
       expect(dot.dataset.active).toBe("false");
     });
+  });
+});
+
+describe("mountCompleteDemoScreen — real progress events", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  test("onMessage is ignored before 'Show me' (no bead lights up early)", () => {
+    const { ctx, root } = makeCtx();
+    const handle = mountCompleteDemoScreen(ctx);
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "code_done" });
+    root.querySelectorAll<HTMLElement>(".onboarding-demo-dot").forEach((dot) => {
+      expect(dot.dataset.active).not.toBe("true");
+      expect(dot.dataset.done).not.toBe("true");
+    });
+  });
+
+  test("after 'Show me', a real event advances the beads", () => {
+    const { ctx, root } = makeCtx();
+    const handle = mountCompleteDemoScreen(ctx);
+    root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "credentials_done" });
+    const dots = root.querySelectorAll<HTMLElement>(".onboarding-demo-dot");
+    expect(dots[2]?.dataset.active).toBe("true");
+  });
+
+  test("a real 'signed_in' finishes the demo and reveals the status + Done", () => {
+    const { ctx, root } = makeCtx();
+    const handle = mountCompleteDemoScreen(ctx);
+    root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "signed_in" });
+    const status = root.querySelector<HTMLElement>("[data-onboarding-demo-status='true']")!;
+    expect(status.hidden).toBe(false);
+    const doneBtn = root.querySelector<HTMLButtonElement>(".onboarding-actions button");
+    expect(doneBtn?.textContent).toContain("Done");
   });
 });
 
