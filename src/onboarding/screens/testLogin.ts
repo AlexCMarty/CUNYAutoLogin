@@ -13,9 +13,9 @@
  * As the login runs, the content script emits ONBOARDING_LOGIN_PROGRESS events
  * and the sidebar synthesises `signed_in` from Brightspace cookie detection;
  * the render bridge forwards them to this screen's `onMessage`, advancing the
- * beads. A timed fallback keeps them moving if events are sparse, but never
- * marks "Signed in" — that waits for the real success (which then transitions
- * to EXT_PASSWORD_SETUP). The render bridge also drives the failure branches:
+ * beads. Beads advance only on these real events — nothing is timed — and
+ * "Signed in" completes only on the real success (which then transitions to
+ * EXT_PASSWORD_SETUP). The render bridge also drives the failure branches:
  *   - ONBOARDING_CREDENTIAL_ERROR while in TEST_LOGIN → TEST_BAD_CREDENTIALS
  *   - ONBOARDING_VERIFY_STATUS second_failure while in TEST_LOGIN → TEST_BAD_KEY
  *
@@ -52,7 +52,7 @@ const resolveCunyEntryUrl = (): string => {
 const STEPS = [
   "Opening Brightspace",
   "Filling in your email / password",
-  "Generating your login code",
+  "Filling in your login code",
   "Signed in",
 ] as const;
 
@@ -138,9 +138,10 @@ export const mountTestLoginScreen: ScreenMount = (
   if (success) {
     checklist.finishAll();
   } else {
-    // Real proof: animate for liveness but hold "Signed in" until the actual
-    // success (cookie → `signed_in`, which then navigates to EXT_PASSWORD_SETUP).
-    checklist.begin({ completeFinal: false });
+    // Real proof: bead 0 ("Opening Brightspace") spins until the content script
+    // reports the first real event. "Signed in" is held until the actual success
+    // (cookie → `signed_in`, which then navigates to EXT_PASSWORD_SETUP).
+    checklist.begin();
   }
 
   root.appendChild(container);

@@ -112,13 +112,14 @@ describe("mountCompleteDemoScreen — Show me", () => {
     );
   });
 
-  test("status element is hidden until animation completes", () => {
+  test("status narration appears on Show me (watch the real tab)", () => {
     const { ctx, root } = makeCtx();
     mountCompleteDemoScreen(ctx);
     root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
     const status = root.querySelector<HTMLElement>("[data-onboarding-demo-status='true']")!;
-    // Status is revealed only after all steps animate; immediately after click it stays hidden.
-    expect(status.hidden).toBe(true);
+    // The narration hint is shown immediately so the student watches the real tab.
+    expect(status.hidden).toBe(false);
+    expect(status.textContent).toContain("Watch the CUNY tab");
   });
 
   test("Show me dispatches DEMO_REQUESTED", () => {
@@ -137,7 +138,7 @@ describe("mountCompleteDemoScreen — Show me", () => {
   });
 });
 
-describe("mountCompleteDemoScreen — unmount clears timers", () => {
+describe("mountCompleteDemoScreen — unmount", () => {
   afterEach(() => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -150,15 +151,14 @@ describe("mountCompleteDemoScreen — unmount clears timers", () => {
     expect(root.querySelector("[data-onboarding-screen='COMPLETE_DEMO']")).toBeNull();
   });
 
-  test("timers cleared on unmount do not fire after removal", () => {
+  test("a late signed_in after unmount does not reveal Done or dispatch DEMO_FINISHED", () => {
     const { ctx, dispatched } = makeCtx();
     const handle = mountCompleteDemoScreen(ctx);
     const btn = document.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!;
     btn.click();
-    // Unmount before timers fire
     handle.unmount();
-    // Advance all timers — nothing should fire or throw
-    vi.runAllTimers();
+    // A stray real event arriving after teardown must be ignored.
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "signed_in" });
     expect(dispatched.filter((ev) => ev === "DEMO_FINISHED")).toHaveLength(0);
   });
 });
@@ -180,7 +180,7 @@ describe("mountCompleteDemoScreen — animation steps", () => {
     expect(texts).toEqual([
       "Opening CUNY Login",
       "Filling in your email / password",
-      "Generating your login code",
+      "Filling in your login code",
       "Signed in",
     ]);
   });
@@ -189,54 +189,56 @@ describe("mountCompleteDemoScreen — animation steps", () => {
     const { ctx, root } = makeCtx();
     mountCompleteDemoScreen(ctx);
     root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
-    // The first setTimeout fires at stepIdx * 1500ms = 0ms — advance 0ms
-    vi.advanceTimersByTime(0);
+    // begin() activates bead 0 synchronously — no timer involved.
     const dots = root.querySelectorAll<HTMLElement>(".onboarding-demo-dot");
     expect(dots[0]?.dataset.active).toBe("true");
   });
 
-  test("Show me hides Skip button", () => {
+  test("Show me keeps Skip available (escape hatch while the real login runs)", () => {
     const { ctx, root } = makeCtx();
     mountCompleteDemoScreen(ctx);
     const skipBtn = root.querySelector<HTMLButtonElement>("[data-onboarding-demo-skip='true']")!;
     root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
-    expect(skipBtn.hidden).toBe(true);
+    expect(skipBtn.hidden).toBe(false);
   });
 
-  test("status element revealed and Done button appears after all steps animate", () => {
+  test("no timer marks beads done — the demo waits for a real signed_in", () => {
     const { ctx, root } = makeCtx();
     mountCompleteDemoScreen(ctx);
     root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
-    // 5 steps × 1500ms + 1 finish timer at 5 × 1500ms
-    vi.advanceTimersByTime(5 * 1500);
+    vi.advanceTimersByTime(60_000);
+    const dots = root.querySelectorAll<HTMLElement>(".onboarding-demo-dot");
+    // Bead 0 stays active; nothing auto-advances or auto-completes.
+    expect(dots[0]?.dataset.active).toBe("true");
+    expect(dots[3]?.dataset.done).not.toBe("true");
+    const doneBtn = root.querySelector<HTMLButtonElement>(".onboarding-actions button");
+    expect(doneBtn?.textContent).not.toContain("Done");
+  });
+
+  test("a real signed_in reveals the status + Done and marks every dot done", () => {
+    const { ctx, root } = makeCtx();
+    const handle = mountCompleteDemoScreen(ctx);
+    root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "signed_in" });
     const status = root.querySelector<HTMLElement>("[data-onboarding-demo-status='true']")!;
     expect(status.hidden).toBe(false);
     const doneBtn = root.querySelector<HTMLButtonElement>("button");
     expect(doneBtn?.textContent).toContain("Done");
+    root.querySelectorAll<HTMLElement>(".onboarding-demo-dot").forEach((dot) => {
+      expect(dot.dataset.done).toBe("true");
+      expect(dot.dataset.active).toBe("false");
+    });
   });
 
-  test("Done button after animation dispatches DEMO_FINISHED", () => {
+  test("Done button after signed_in dispatches DEMO_FINISHED", () => {
     const { ctx, root, dispatched } = makeCtx();
-    mountCompleteDemoScreen(ctx);
+    const handle = mountCompleteDemoScreen(ctx);
     root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
-    vi.advanceTimersByTime(5 * 1500);
-    // The done button replaces the show/skip buttons
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "signed_in" });
     const actions = root.querySelector<HTMLElement>(".onboarding-actions")!;
     const doneBtn = actions.querySelector<HTMLButtonElement>("button")!;
     doneBtn.click();
     expect(dispatched).toContain("DEMO_FINISHED");
-  });
-
-  test("all dots are marked done after animation completes", () => {
-    const { ctx, root } = makeCtx();
-    mountCompleteDemoScreen(ctx);
-    root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
-    vi.advanceTimersByTime(5 * 1500);
-    const dots = root.querySelectorAll<HTMLElement>(".onboarding-demo-dot");
-    dots.forEach((dot) => {
-      expect(dot.dataset.done).toBe("true");
-      expect(dot.dataset.active).toBe("false");
-    });
   });
 });
 
@@ -256,12 +258,16 @@ describe("mountCompleteDemoScreen — real progress events", () => {
     });
   });
 
-  test("after 'Show me', a real event advances the beads", () => {
+  test("after 'Show me', real events advance the beads (code bead waits for code_filling)", () => {
     const { ctx, root } = makeCtx();
     const handle = mountCompleteDemoScreen(ctx);
     root.querySelector<HTMLButtonElement>("[data-onboarding-demo-show='true']")!.click();
-    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "credentials_done" });
-    const dots = root.querySelectorAll<HTMLElement>(".onboarding-demo-dot");
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "credentials_filling" });
+    let dots = root.querySelectorAll<HTMLElement>(".onboarding-demo-dot");
+    expect(dots[1]?.dataset.active).toBe("true");
+    expect(dots[2]?.dataset.active).not.toBe("true");
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "code_filling" });
+    dots = root.querySelectorAll<HTMLElement>(".onboarding-demo-dot");
     expect(dots[2]?.dataset.active).toBe("true");
   });
 

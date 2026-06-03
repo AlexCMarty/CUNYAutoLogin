@@ -19,7 +19,8 @@ vi.mock("webextension-polyfill", () => ({
 }));
 
 import { mountTestLoginScreen } from "./testLogin";
-import type { OnboardingScreenContext } from "./screenContext";
+import type { OnboardingScreenContext, ScreenHandle } from "./screenContext";
+import type { OnboardingMessage } from "../messages";
 
 const makeCtx = (qaVariant?: string): OnboardingScreenContext => {
   const root = document.createElement("div");
@@ -96,26 +97,44 @@ describe("mountTestLoginScreen", () => {
 });
 
 describe("mountTestLoginScreen — live progress beads", () => {
-  test("beads advance as real login-progress events arrive via onMessage", () => {
+  const send = (handle: ScreenHandle, step: string): void =>
+    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step } as OnboardingMessage);
+  const dotsNow = (): HTMLElement[] =>
+    Array.from(document.querySelectorAll<HTMLElement>(".onboarding-demo-dot"));
+
+  test("beads advance step-by-step as real login-progress events arrive", () => {
     const handle = mountTestLoginScreen(makeCtx());
-    handle.onMessage?.({ type: "ONBOARDING_LOGIN_PROGRESS", step: "credentials_done" });
-    const dots = Array.from(
-      document.querySelectorAll<HTMLElement>(".onboarding-demo-dot")
-    );
-    // credentials_done -> "Generating your login code" (index 2) active.
-    expect(dots[2]?.dataset.active).toBe("true");
-    expect(dots[0]?.dataset.done).toBe("true");
-    expect(dots[1]?.dataset.done).toBe("true");
+    // credentials_filling: "Opening" done, credentials bead active.
+    send(handle, "credentials_filling");
+    expect(dotsNow()[0]?.dataset.done).toBe("true");
+    expect(dotsNow()[1]?.dataset.active).toBe("true");
+    // code_filling: credentials done, code bead active (only now — not before).
+    send(handle, "code_filling");
+    expect(dotsNow()[1]?.dataset.done).toBe("true");
+    expect(dotsNow()[2]?.dataset.active).toBe("true");
+    // code_done: code done, "Signed in" active but NOT done.
+    send(handle, "code_done");
+    expect(dotsNow()[2]?.dataset.done).toBe("true");
+    expect(dotsNow()[3]?.dataset.active).toBe("true");
+    expect(dotsNow()[3]?.dataset.done).not.toBe("true");
   });
 
-  test("the fallback never marks 'Signed in' on its own (held for the real success)", () => {
+  test("credentials_done does not light the code bead early", () => {
+    const handle = mountTestLoginScreen(makeCtx());
+    send(handle, "credentials_filling");
+    send(handle, "credentials_done");
+    expect(dotsNow()[1]?.dataset.active).toBe("true");
+    expect(dotsNow()[2]?.dataset.active).not.toBe("true");
+  });
+
+  test("no timer advances the beads — they wait for real events", () => {
     mountTestLoginScreen(makeCtx());
     vi.advanceTimersByTime(60_000);
-    const dots = Array.from(
-      document.querySelectorAll<HTMLElement>(".onboarding-demo-dot")
-    );
+    const dots = dotsNow();
+    // Bead 0 ("Opening Brightspace") stays active; nothing auto-advances.
+    expect(dots[0]?.dataset.active).toBe("true");
+    expect(dots[1]?.dataset.active).not.toBe("true");
     expect(dots[3]?.dataset.done).not.toBe("true");
-    expect(dots[3]?.dataset.active).toBe("true");
   });
 
   test("a real 'signed_in' completes every bead", () => {

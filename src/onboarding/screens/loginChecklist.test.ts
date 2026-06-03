@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { buildLoginChecklist, DEFAULT_STEP_INTERVAL_MS } from "./loginChecklist";
+import { buildLoginChecklist } from "./loginChecklist";
 import type { OnboardingMessage } from "../messages";
 
 const STEPS = [
   "Opening CUNY Login",
   "Filling in your email / password",
-  "Generating your login code",
+  "Filling in your login code",
   "Signed in",
 ] as const;
 
@@ -43,119 +43,137 @@ describe("buildLoginChecklist — structure", () => {
   });
 });
 
-describe("buildLoginChecklist — begin + timed fallback", () => {
-  test("begin activates the first bead synchronously", () => {
+describe("buildLoginChecklist — begin", () => {
+  test("begin activates the first bead synchronously, with the '…' affordance", () => {
     const { element, begin } = buildLoginChecklist(document, STEPS);
     begin();
     expect(dots(element)[0]?.dataset.active).toBe("true");
     expect(texts(element)[0]?.textContent).toBe("Opening CUNY Login…");
+    expect(dots(element)[1]?.dataset.active).not.toBe("true");
   });
 
-  test("fallback advances one bead per interval", () => {
-    const { element, begin } = buildLoginChecklist(document, STEPS);
-    begin({ intervalMs: 1_000 });
-    vi.advanceTimersByTime(1_000);
-    expect(dots(element)[0]?.dataset.done).toBe("true");
-    expect(dots(element)[1]?.dataset.active).toBe("true");
-    vi.advanceTimersByTime(1_000);
-    expect(dots(element)[2]?.dataset.active).toBe("true");
-  });
-
-  test("completeFinal:false holds the final bead active — never auto-done", () => {
-    const { element, begin } = buildLoginChecklist(document, STEPS);
-    begin({ intervalMs: 1_000, completeFinal: false });
-    vi.advanceTimersByTime(10_000);
-    const lastDot = dots(element)[3];
-    expect(lastDot?.dataset.active).toBe("true");
-    expect(lastDot?.dataset.done).not.toBe("true");
-  });
-
-  test("completeFinal:true marks every bead done and fires onComplete once", () => {
-    const onComplete = vi.fn();
-    const { element, begin } = buildLoginChecklist(document, STEPS);
-    begin({ intervalMs: 1_000, completeFinal: true, onComplete });
-    vi.advanceTimersByTime(10_000);
-    dots(element).forEach((dot) => {
-      expect(dot.dataset.done).toBe("true");
-      expect(dot.dataset.active).not.toBe("true");
-    });
-    expect(onComplete).toHaveBeenCalledTimes(1);
-  });
-
-  test("defaults to DEFAULT_STEP_INTERVAL_MS when no interval is given", () => {
+  test("no timer ever advances the beads on its own", () => {
     const { element, begin } = buildLoginChecklist(document, STEPS);
     begin();
-    vi.advanceTimersByTime(DEFAULT_STEP_INTERVAL_MS);
-    expect(dots(element)[1]?.dataset.active).toBe("true");
+    vi.advanceTimersByTime(60_000);
+    // Still on bead 0 — nothing fires without a real event.
+    expect(dots(element)[0]?.dataset.active).toBe("true");
+    expect(dots(element)[1]?.dataset.active).not.toBe("true");
+    expect(dots(element)[3]?.dataset.done).not.toBe("true");
   });
 });
 
 describe("buildLoginChecklist — real progress events", () => {
-  test("credentials_filling -> credentials_done -> code_done walks the beads", () => {
-    const { element, applyMessage } = buildLoginChecklist(document, STEPS);
+  test("credentials_filling completes 'Opening' and activates the credentials bead", () => {
+    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
+    begin();
     applyMessage(progress("credentials_filling"));
+    expect(dots(element)[0]?.dataset.done).toBe("true");
     expect(dots(element)[1]?.dataset.active).toBe("true");
+    expect(texts(element)[1]?.textContent).toBe("Filling in your email / password…");
+  });
+
+  test("credentials_done is ignored — the credentials bead keeps spinning", () => {
+    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
+    begin();
+    applyMessage(progress("credentials_filling"));
     applyMessage(progress("credentials_done"));
+    // The code bead must NOT light up until the code phase actually begins.
+    expect(dots(element)[1]?.dataset.active).toBe("true");
+    expect(dots(element)[2]?.dataset.active).not.toBe("true");
+    expect(dots(element)[2]?.dataset.done).not.toBe("true");
+  });
+
+  test("code_filling completes credentials and activates the code bead", () => {
+    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
+    begin();
+    applyMessage(progress("credentials_filling"));
+    applyMessage(progress("code_filling"));
     expect(dots(element)[1]?.dataset.done).toBe("true");
     expect(dots(element)[2]?.dataset.active).toBe("true");
+    expect(texts(element)[2]?.textContent).toBe("Filling in your login code…");
+  });
+
+  test("code_done completes the code bead and activates 'Signed in'", () => {
+    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
+    begin();
+    applyMessage(progress("code_filling"));
     applyMessage(progress("code_done"));
+    expect(dots(element)[2]?.dataset.done).toBe("true");
     expect(dots(element)[3]?.dataset.active).toBe("true");
   });
 
   test("cuny_totp_challenge stage activates the code bead", () => {
-    const { element, applyMessage } = buildLoginChecklist(document, STEPS);
+    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
+    begin();
     applyMessage({
       type: "ONBOARDING_STAGE_DETECTED",
       stage: "cuny_totp_challenge",
     });
     expect(dots(element)[2]?.dataset.active).toBe("true");
   });
+});
 
-  test("signed_in finishes the whole checklist and fires onComplete", () => {
+describe("buildLoginChecklist — completion, monotonicity & filtering", () => {
+  test("'Signed in' is never marked done until the real signed_in arrives", () => {
+    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
+    begin();
+    applyMessage(progress("code_done")); // bead 3 active, not done
+    vi.advanceTimersByTime(60_000);
+    expect(dots(element)[3]?.dataset.active).toBe("true");
+    expect(dots(element)[3]?.dataset.done).not.toBe("true");
+  });
+
+  test("signed_in finishes every bead and fires onComplete once", () => {
     const onComplete = vi.fn();
     const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
-    begin({ completeFinal: false, onComplete });
+    begin({ onComplete });
+    applyMessage(progress("signed_in"));
+    dots(element).forEach((dot) => {
+      expect(dot.dataset.done).toBe("true");
+      expect(dot.dataset.active).not.toBe("true");
+    });
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    applyMessage(progress("signed_in")); // idempotent
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  test("signed_in is a catch-all completer even when intermediate events were skipped", () => {
+    const onComplete = vi.fn();
+    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
+    begin({ onComplete });
+    applyMessage(progress("credentials_filling")); // login with no TOTP page
     applyMessage(progress("signed_in"));
     dots(element).forEach((dot) => expect(dot.dataset.done).toBe("true"));
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
   test("is monotonic — a stale earlier event never steps the beads backward", () => {
-    const { element, applyMessage } = buildLoginChecklist(document, STEPS);
+    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
+    begin();
     applyMessage(progress("code_done")); // jump to bead 3
     applyMessage(progress("credentials_filling")); // stale, should be ignored
     expect(dots(element)[3]?.dataset.active).toBe("true");
     expect(dots(element)[1]?.dataset.active).not.toBe("true");
   });
 
-  test("real events pre-empt the fallback without double-firing", () => {
-    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
-    begin({ intervalMs: 1_000 });
-    applyMessage(progress("code_done")); // real event jumps ahead of the timer
-    expect(dots(element)[3]?.dataset.active).toBe("true");
-    // The fallback timer was rescheduled from the new position; with
-    // completeFinal:false it must still hold the final bead.
-    vi.advanceTimersByTime(5_000);
-    expect(dots(element)[3]?.dataset.done).not.toBe("true");
-  });
-
   test("ignores unrelated messages", () => {
-    const { element, applyMessage } = buildLoginChecklist(document, STEPS);
+    const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
+    begin();
     applyMessage({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: true });
-    dots(element).forEach((dot) => {
-      expect(dot.dataset.active).not.toBe("true");
-      expect(dot.dataset.done).not.toBe("true");
-    });
+    expect(dots(element)[0]?.dataset.active).toBe("true");
+    expect(dots(element)[1]?.dataset.active).not.toBe("true");
   });
 });
 
 describe("buildLoginChecklist — unmount", () => {
-  test("unmount stops the fallback from advancing further", () => {
-    const { element, begin, unmount } = buildLoginChecklist(document, STEPS);
-    begin({ intervalMs: 1_000 });
+  test("after unmount, further messages are ignored", () => {
+    const onComplete = vi.fn();
+    const { element, begin, applyMessage, unmount } = buildLoginChecklist(document, STEPS);
+    begin({ onComplete });
     unmount();
-    vi.advanceTimersByTime(10_000);
-    expect(dots(element)[0]?.dataset.active).toBe("true");
-    expect(dots(element)[1]?.dataset.active).not.toBe("true");
+    applyMessage(progress("signed_in"));
+    expect(dots(element)[3]?.dataset.done).not.toBe("true");
+    expect(onComplete).not.toHaveBeenCalled();
   });
 });

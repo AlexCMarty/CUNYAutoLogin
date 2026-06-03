@@ -12,9 +12,12 @@ import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 const DEMO_STEPS = [
   "Opening CUNY Login",
   "Filling in your email / password",
-  "Generating your login code",
+  "Filling in your login code",
   "Signed in",
 ] as const;
+
+const WATCH_TAB_HINT = "Watch the CUNY tab — we're doing the work.";
+const SIGNED_IN_STATUS = "Signed in.";
 
 export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
   const { doc, root, dispatch } = ctx;
@@ -65,9 +68,10 @@ export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContex
   actions.appendChild(skipBtn);
   container.appendChild(actions);
 
+  // Fired by the real `signed_in` (cookie) signal once every bead is done.
   const finish = (): void => {
     statusEl.hidden = false;
-    statusEl.textContent = "Watch the CUNY tab — we're doing the work.";
+    statusEl.textContent = SIGNED_IN_STATUS;
     const doneBtn = doc.createElement("button");
     doneBtn.type = "button";
     doneBtn.className = "onboarding-btn onboarding-btn-primary";
@@ -81,16 +85,20 @@ export const mountCompleteDemoScreen: ScreenMount = (ctx: OnboardingScreenContex
     if (started) return;
     started = true;
     showBtn.disabled = true;
-    skipBtn.hidden = true;
+    // Keep "Skip" available: the beads now advance only on real events, so if
+    // the reopened login stalls or the tab is closed the student must still be
+    // able to finish. Reveal the narration hint so they watch the real tab.
+    statusEl.hidden = false;
+    statusEl.textContent = WATCH_TAB_HINT;
     const msg: OnboardingReopenCunyTab = {
       type: "ONBOARDING_REOPEN_CUNY_TAB",
       url: BRIGHTSPACE_HOME_URL,
     };
     void browser.runtime.sendMessage(msg).catch(() => undefined);
     dispatch("DEMO_REQUESTED");
-    // A preview, not a proof: let the fallback finish the final bead, while
-    // real progress events (if the reopened tab logs in) advance it sooner.
-    checklist.begin({ completeFinal: true, onComplete: finish });
+    // Real progress only: the reopened tab's login drives the beads; the final
+    // "Signed in" bead completes (and reveals Done) on the real cookie signal.
+    checklist.begin({ onComplete: finish });
   });
 
   root.appendChild(container);
