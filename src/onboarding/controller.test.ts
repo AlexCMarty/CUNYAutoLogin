@@ -253,18 +253,12 @@ describe("createOnboardingController", () => {
 
   // ── advancedKeyFlow latch / guided-fallback behaviour ────────────────────────
 
-  test("advancedKeyFlow stays true after TEST_BAD_CREDENTIALS → RETRY_CREDENTIALS → PASSWORD_ENTRY", () => {
+  test("advancedKeyFlow resets to false after TEST_BAD_CREDENTIALS → RETRY_CREDENTIALS → PASSWORD_ENTRY", () => {
     // Drive the full advanced path: KEY_FROM_OTHER_DEVICE → TEST_LOGIN (latches)
     // → TEST_BAD_CREDENTIALS → RETRY_CREDENTIALS (falls back to PASSWORD_ENTRY).
-    // IMPORTANT: advancedKeyFlow is never reset by dispatch — the flag stays
-    // true even after a guided-path fallback. This is the CURRENT behaviour.
-    // If a user then continues through the guided flow and reaches BIOMETRIC_*
-    // the advancedKeyFlow=true override will *still* skip COMPLETE_DEMO and
-    // jump straight to COMPLETE_DONE, even though the user never watched a real
-    // auto-login via TEST_LOGIN.
-    // ⚠️ SUSPECTED BUG: advancedKeyFlow should be reset to false when the user
-    //    takes RETRY_CREDENTIALS or SWITCH_TO_GUIDED, so the guided completion
-    //    path shows COMPLETE_DEMO as intended.
+    // Falling back out of the proof clears the latch, so a user who then finishes
+    // the guided flow still watches the auto-login demo. Re-entering the key flow
+    // re-latches the flag when TEST_LOGIN is reached again.
     const controller = createOnboardingController({
       initialState: "KEY_FROM_OTHER_DEVICE",
     });
@@ -275,17 +269,14 @@ describe("createOnboardingController", () => {
     controller.dispatch("TEST_BAD_CREDENTIALS"); // → TEST_LOGIN_BAD_CREDENTIALS
     expect(controller.getSnapshot().state).toBe("TEST_LOGIN_BAD_CREDENTIALS");
 
-    controller.dispatch("RETRY_CREDENTIALS"); // → PASSWORD_ENTRY
+    controller.dispatch("RETRY_CREDENTIALS"); // → PASSWORD_ENTRY (clears the latch)
     expect(controller.getSnapshot().state).toBe("PASSWORD_ENTRY");
-
-    // Current behaviour: flag is still true (NOT reset). Document as-is.
-    expect(controller.getSnapshot().advancedKeyFlow).toBe(true);
+    expect(controller.getSnapshot().advancedKeyFlow).toBe(false);
   });
 
-  test("advancedKeyFlow stays true after TEST_BAD_KEY → SWITCH_TO_GUIDED → OPENING_CUNY", () => {
-    // Drive the SWITCH_TO_GUIDED fallback variant.
-    // Same SUSPECTED BUG: flag is never reset, so a subsequent guided finish
-    // lands on COMPLETE_DONE instead of COMPLETE_DEMO.
+  test("advancedKeyFlow resets to false after TEST_BAD_KEY → SWITCH_TO_GUIDED → OPENING_CUNY", () => {
+    // The SWITCH_TO_GUIDED fallback drops the user onto the guided path; the
+    // latch must clear so the guided completion shows COMPLETE_DEMO.
     const controller = createOnboardingController({
       initialState: "KEY_FROM_OTHER_DEVICE",
     });
@@ -293,29 +284,42 @@ describe("createOnboardingController", () => {
     expect(controller.getSnapshot().advancedKeyFlow).toBe(true);
 
     controller.dispatch("TEST_BAD_KEY"); // → TEST_LOGIN_BAD_KEY
-    controller.dispatch("SWITCH_TO_GUIDED"); // → OPENING_CUNY
+    controller.dispatch("SWITCH_TO_GUIDED"); // → OPENING_CUNY (clears the latch)
 
     expect(controller.getSnapshot().state).toBe("OPENING_CUNY");
-
-    // Current behaviour: advancedKeyFlow is still true after guided-path fallback.
-    expect(controller.getSnapshot().advancedKeyFlow).toBe(true);
+    expect(controller.getSnapshot().advancedKeyFlow).toBe(false);
   });
 
-  test("advancedKeyFlow=true at BIOMETRIC_OFFER after full guided fallback (SWITCH_TO_GUIDED path) skips COMPLETE_DEMO", () => {
-    // This test pins the concrete end-state effect of the suspected bug above:
-    // a user who fell back to the guided path will skip COMPLETE_DEMO.
+  test("guided fallback (SWITCH_TO_GUIDED) reaches COMPLETE_DEMO, not COMPLETE_DONE", () => {
+    // The concrete end-state effect of the reset: a user who fell back to the
+    // guided path must still watch the auto-login demo.
     const controller = createOnboardingController({
       initialState: "KEY_FROM_OTHER_DEVICE",
     });
     controller.dispatch("KEY_CONFIRMED"); // latch advancedKeyFlow=true
     controller.dispatch("TEST_BAD_KEY");
-    controller.dispatch("SWITCH_TO_GUIDED"); // now on OPENING_CUNY with advancedKeyFlow=true
+    controller.dispatch("SWITCH_TO_GUIDED"); // → OPENING_CUNY, latch cleared
+    expect(controller.getSnapshot().advancedKeyFlow).toBe(false);
 
     // Simulate the user completing the guided flow up to BIOMETRIC_OFFER.
     controller.setState("BIOMETRIC_OFFER");
 
-    // Because advancedKeyFlow is still true, dispatch skips COMPLETE_DEMO.
+    // advancedKeyFlow is false, so dispatch does NOT skip COMPLETE_DEMO.
     controller.dispatch("BIOMETRIC_DECLINED");
-    expect(controller.getSnapshot().state).toBe("COMPLETE_DONE");
+    expect(controller.getSnapshot().state).toBe("COMPLETE_DEMO");
+  });
+
+  test("RETRY_KEY keeps advancedKeyFlow latched, then a fresh TEST_LOGIN re-confirms it", () => {
+    // Re-entering the key flow via RETRY_KEY stays in the proof, so the flag is
+    // not cleared along the way and a second KEY_CONFIRMED keeps it true.
+    const controller = createOnboardingController({
+      initialState: "KEY_FROM_OTHER_DEVICE",
+    });
+    controller.dispatch("KEY_CONFIRMED"); // → TEST_LOGIN (true)
+    controller.dispatch("TEST_BAD_KEY"); // → TEST_LOGIN_BAD_KEY
+    controller.dispatch("RETRY_KEY"); // → KEY_FROM_OTHER_DEVICE (still latched)
+    expect(controller.getSnapshot().advancedKeyFlow).toBe(true);
+    controller.dispatch("KEY_CONFIRMED"); // → TEST_LOGIN again
+    expect(controller.getSnapshot().advancedKeyFlow).toBe(true);
   });
 });

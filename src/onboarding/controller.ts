@@ -39,9 +39,14 @@ export type OnboardingSnapshot = {
   readonly password: string;
   readonly credentialError: OnboardingCredentialErrorInfo | null;
   /**
-   * True once the student entered the advanced "use your existing key" branch
-   * (i.e. reached `TEST_LOGIN`). Such users already watched a real auto-login,
-   * so the completion flow skips `COMPLETE_DEMO` and lands on `COMPLETE_DONE`.
+   * True while the student is proving an existing key via the advanced branch
+   * (set on reaching `TEST_LOGIN`). Such users watch a real auto-login there, so
+   * the completion flow skips `COMPLETE_DEMO` and lands on `COMPLETE_DONE`.
+   *
+   * Cleared when they fall back out of the proof — re-entering credentials
+   * (`PASSWORD_ENTRY`/`EMAIL_ENTRY`) or switching to the guided path
+   * (`OPENING_CUNY`) — so a guided finish still shows the demo. Re-entering the
+   * key flow re-latches it at `TEST_LOGIN`.
    */
   readonly advancedKeyFlow: boolean;
 };
@@ -106,6 +111,13 @@ export const createOnboardingController = (
       // Entering the advanced "use your existing key" proof step marks the flow
       // so the completion path can later skip the redundant sign-in demo.
       if (next === "TEST_LOGIN") advancedKeyFlow = true;
+      // Falling back out of the proof clears the latch: re-entering credentials
+      // or switching to the guided path means the user never proved auto-login
+      // via TEST_LOGIN, so the guided finish must still show COMPLETE_DEMO.
+      // Re-entering the key flow re-latches it when TEST_LOGIN is reached again.
+      else if (next === "PASSWORD_ENTRY" || next === "EMAIL_ENTRY" || next === "OPENING_CUNY") {
+        advancedKeyFlow = false;
+      }
       // Key-flow users already saw a real auto-login in TEST_LOGIN, so skip the
       // "Show me" demo and go straight to the final screen. The static table
       // still maps BIOMETRIC_* → COMPLETE_DEMO; the override lives here so the
