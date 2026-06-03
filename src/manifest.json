@@ -59,6 +59,14 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "cunyautologin@alexmarty.dev",
+      "data_collection_permissions": {
+        "required": [
+          "personallyIdentifyingInfo",
+          "authenticationInfo",
+          "websiteContent",
+          "websiteActivity"
+        ]
+      },
       "strict_min_version": "140.0"
     }
   },

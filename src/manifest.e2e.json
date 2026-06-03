@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CUNYAutoLogin",
   "version": "0.8.3",
-  "description": "CUNYAutoLogin — encrypted credential vault and ssologin.cuny.edu auto-fill.",
+  "description": "Stop manually logging into CUNY. We do that for you.",
   "permissions": [
     "storage",
     "sidePanel",
@@ -60,8 +60,8 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "cunyautologin@local",
-      "strict_min_version": "128.0"
+      "id": "cunyautologin@alexmarty.dev",
+      "strict_min_version": "140.0"
     }
   },
   "minimum_chrome_version": "141"
