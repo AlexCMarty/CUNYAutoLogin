@@ -220,6 +220,23 @@ export const VERIFY_STATUSES = [
 ] as const;
 type VerifyStatus = (typeof VERIFY_STATUSES)[number];
 
+/**
+ * Fine-grained auto-login progress, used to light the onboarding "login
+ * checklist" beads (TEST_LOGIN / COMPLETE_DEMO) as a real CUNY sign-in
+ * proceeds. The content script emits the first four steps inline as it fills
+ * each field; `signed_in` is synthesised by the sidebar from Brightspace
+ * cookie detection (never sent over the wire by the content script).
+ * Metadata-only — carries no credential material.
+ */
+export const LOGIN_PROGRESS_STEPS = [
+  "credentials_filling",
+  "credentials_done",
+  "code_filling",
+  "code_done",
+  "signed_in",
+] as const;
+type LoginProgressStep = (typeof LOGIN_PROGRESS_STEPS)[number];
+
 // ──── onboarding message shapes ──────────────────────────────────────────────
 
 export type OnboardingStageDetected = {
@@ -264,6 +281,11 @@ export type OnboardingCunyTabMissing = {
   readonly missing: boolean;
 };
 
+export type OnboardingLoginProgress = {
+  readonly type: "ONBOARDING_LOGIN_PROGRESS";
+  readonly step: LoginProgressStep;
+};
+
 export type OnboardingMessage =
   | OnboardingStageDetected
   | OnboardingCredentialError
@@ -271,7 +293,8 @@ export type OnboardingMessage =
   | OnboardingVerifyStatus
   | OnboardingReopenCunyTab
   | OnboardingTabReattached
-  | OnboardingCunyTabMissing;
+  | OnboardingCunyTabMissing
+  | OnboardingLoginProgress;
 
 export const ONBOARDING_MESSAGE_TYPES = [
   "ONBOARDING_STAGE_DETECTED",
@@ -281,6 +304,7 @@ export const ONBOARDING_MESSAGE_TYPES = [
   "ONBOARDING_REOPEN_CUNY_TAB",
   "ONBOARDING_TAB_REATTACHED",
   "ONBOARDING_CUNY_TAB_MISSING",
+  "ONBOARDING_LOGIN_PROGRESS",
 ] as const;
 export type OnboardingMessageType = (typeof ONBOARDING_MESSAGE_TYPES)[number];
 
@@ -386,6 +410,14 @@ export const isOnboardingCunyTabMissing = (
   return typeof value.missing === "boolean";
 };
 
+export const isOnboardingLoginProgress = (
+  value: unknown
+): value is OnboardingLoginProgress => {
+  if (!isRecord(value)) return false;
+  if (value.type !== "ONBOARDING_LOGIN_PROGRESS") return false;
+  return isOneOf(value.step, LOGIN_PROGRESS_STEPS);
+};
+
 type OnboardingMessageValidator = (candidate: Record<string, unknown>) => boolean;
 
 // One entry per OnboardingMessageType — delegates to the per-type guards above
@@ -402,6 +434,7 @@ const ONBOARDING_MESSAGE_VALIDATORS: Record<
   ONBOARDING_REOPEN_CUNY_TAB:  isOnboardingReopenCunyTab,
   ONBOARDING_TAB_REATTACHED:   isOnboardingTabReattached,
   ONBOARDING_CUNY_TAB_MISSING: isOnboardingCunyTabMissing,
+  ONBOARDING_LOGIN_PROGRESS:   isOnboardingLoginProgress,
 };
 
 /**

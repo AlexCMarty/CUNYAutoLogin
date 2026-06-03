@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   CREDENTIAL_CULPRITS,
+  LOGIN_PROGRESS_STEPS,
   ONBOARDING_MESSAGE_TYPES,
   ONBOARDING_PAGE_STAGES,
   OVERLAY_ACTIONS,
@@ -12,6 +13,7 @@ import {
   isLogoutCunySessionsRequest,
   isOnboardingCredentialError,
   isOnboardingCunyTabMissing,
+  isOnboardingLoginProgress,
   isOnboardingMessage,
   isOnboardingOverlayCommand,
   isOnboardingReopenCunyTab,
@@ -27,8 +29,8 @@ import {
 // ──── constants (pinned) ──────────────────────────────────────────────────────
 
 describe("constants", () => {
-  test("exactly 7 onboarding message types are declared", () => {
-    expect(ONBOARDING_MESSAGE_TYPES.length).toBe(7);
+  test("exactly 8 onboarding message types are declared", () => {
+    expect(ONBOARDING_MESSAGE_TYPES.length).toBe(8);
   });
 
   test("every declared message type string is unique", () => {
@@ -293,6 +295,41 @@ describe("isOnboardingCunyTabMissing", () => {
   });
 });
 
+// ──── isOnboardingLoginProgress ──────────────────────────────────────────────
+
+describe("isOnboardingLoginProgress", () => {
+  test("each recognised step is accepted", () => {
+    expect(LOGIN_PROGRESS_STEPS).toEqual([
+      "credentials_filling",
+      "credentials_done",
+      "code_filling",
+      "code_done",
+      "signed_in",
+    ]);
+    for (const step of LOGIN_PROGRESS_STEPS) {
+      expect(
+        isOnboardingLoginProgress({ type: "ONBOARDING_LOGIN_PROGRESS", step })
+      ).toBe(true);
+    }
+  });
+
+  test("unknown step is rejected", () => {
+    expect(
+      isOnboardingLoginProgress({ type: "ONBOARDING_LOGIN_PROGRESS", step: "logged_out" })
+    ).toBe(false);
+  });
+
+  test("missing step is rejected", () => {
+    expect(isOnboardingLoginProgress({ type: "ONBOARDING_LOGIN_PROGRESS" })).toBe(false);
+  });
+
+  test("wrong type discriminator is rejected", () => {
+    expect(
+      isOnboardingLoginProgress({ type: "ONBOARDING_STAGE_DETECTED", step: "code_done" })
+    ).toBe(false);
+  });
+});
+
 // ──── isOnboardingMessage (top-level discriminant) ───────────────────────────
 
 describe("isOnboardingMessage", () => {
@@ -333,6 +370,12 @@ describe("isOnboardingMessage", () => {
   test("valid cuny-tab-missing message → true", () => {
     expect(
       isOnboardingMessage({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: true })
+    ).toBe(true);
+  });
+
+  test("valid login-progress message → true", () => {
+    expect(
+      isOnboardingMessage({ type: "ONBOARDING_LOGIN_PROGRESS", step: "credentials_done" })
     ).toBe(true);
   });
 

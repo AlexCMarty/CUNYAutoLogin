@@ -15,6 +15,7 @@ import type {
   OnboardingCredentialErrorInfo,
   OnboardingSnapshot,
 } from "../controller";
+import type { OnboardingMessage } from "../messages";
 import type { OnboardingEvent } from "../transitions";
 
 export type OnboardingScreenContext = {
@@ -40,4 +41,12 @@ export type ScreenMount = (ctx: OnboardingScreenContext) => ScreenHandle;
 
 export type ScreenHandle = {
   readonly unmount: () => void;
+  /**
+   * Optional live-event hook. The render bridge calls this on the *active*
+   * screen handle for every validated onboarding runtime message, letting a
+   * screen react to real events after mount without a full re-render — e.g.
+   * the login checklist (TEST_LOGIN / COMPLETE_DEMO) advancing its beads from
+   * `ONBOARDING_LOGIN_PROGRESS`. Screens that need no live updates omit it.
+   */
+  readonly onMessage?: (message: OnboardingMessage) => void;
 };
