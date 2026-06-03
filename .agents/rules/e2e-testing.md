@@ -41,7 +41,7 @@ npm run capture-sidebar -- --capture-all        # all 31 visual states, one PNG 
 npm run capture-sidebar -- '#qa=KEY_FROM_OTHER_DEVICE&qaVariant=valid' # paste-key screen, valid-key look
 ```
 
-All 24 jumpable onboarding states are valid hash targets in **non-production** bundles (`build:e2e` / `build:dev`). `CREDENTIAL_ERROR` has no screen mount — use the `qaCred` variants above instead. The advanced "use your existing key" branch (`CHOOSE_SETUP_PATH`, `KEY_FROM_OTHER_DEVICE`, `KEY_FROM_AUTH_APP`, `TEST_LOGIN`, `TEST_LOGIN_BAD_CREDENTIALS`, `TEST_LOGIN_BAD_KEY`) is **visuals only** for now — reachable via `#qa=` but not wired into the live flow. Use `&qaVariant=open|valid` (paste pages) or `&qaVariant=success` (`TEST_LOGIN`) to capture the alternate looks.
+All 24 jumpable onboarding states are valid hash targets in **non-production** bundles (`build:e2e` / `build:dev`). `CREDENTIAL_ERROR` has no screen mount — use the `qaCred` variants above instead. The advanced "use your existing key" branch (`CHOOSE_SETUP_PATH`, `KEY_FROM_OTHER_DEVICE`, `KEY_FROM_AUTH_APP`, `TEST_LOGIN`, `TEST_LOGIN_BAD_CREDENTIALS`, `TEST_LOGIN_BAD_KEY`) is **wired after `PASSWORD_ENTRY`** (`NEXT` → `CHOOSE_SETUP_PATH` in `transitions.ts`); some sub-step events may still be best-effort per transition-table comments. Use `&qaVariant=open|valid` (paste pages) or `&qaVariant=success` (`TEST_LOGIN`) to capture the alternate looks.
 
 Viewport defaults to **380×800**; use `--width` / `--height` to override. Writes under `agent_screenshots/` by default; stdout is one absolute path per PNG. Full state table: `CONTRIBUTING.md` → **Sidebar screenshots (CLI)**.
 

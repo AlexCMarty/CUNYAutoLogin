@@ -25,7 +25,7 @@ Works in Chrome, Edge, and other Chromium browsers. You get automatic updates an
 Prefer to load it yourself, want to try a pre-release, or installing on Firefox while AMO review is pending? Grab a release zip.
 
 1. On GitHub, open this repository’s **[Releases](https://github.com/AlexCMarty/CUNYAutoLogin/releases)** page (also linked from the right-hand sidebar).
-2. Download the **zip** for the version you want (for example `CUNYAutoLogin-v0.8.1.zip`).
+2. Download the **zip** for the version you want (for example `CUNYAutoLogin-v0.8.3.zip`).
 3. Unzip it. You should see a folder that contains `manifest.json` at the top level—not a zip inside a zip.
 4. Follow **Chrome or Edge** or **Firefox** below and point the browser at **that unzipped folder** when it asks you to pick a folder.
 

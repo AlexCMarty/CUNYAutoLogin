@@ -30,7 +30,7 @@ npm ci
 ```bash
 npm run lint          # ESLint on src/ + e2e/ (zero warnings enforced)
 npm run typecheck     # tsc --noEmit only
-npm run build         # lint → tsc → Vite (sidebar + background) → Vite (content IIFE)
+npm run build         # lint → knip → tsc → Vite (sidebar + background) → Vite (content IIFE)
 npm run build:dev     # Same pipeline, development mode + sidebar debug controls
 npm run build:e2e     # build:dev + E2E manifest (local fixture origin)
 npm run build:content # dist/content.js only (default Vite mode unless you pass flags)
@@ -41,7 +41,7 @@ npm run watch         # vite --watch for sidebar/background (dev mode); rerun bu
 
 | Script | What it does |
 |--------|----------------|
-| `npm run build` | Production: **lint**, TypeScript check, Vite app bundle, second Vite pass for `content.js`, merged `dist/manifest.json`. |
+| `npm run build` | Production: **lint**, **knip**, TypeScript check, Vite app bundle, second Vite pass for `content.js`, merged `dist/manifest.json`. |
 | `npm run build:dev` | Development builds for sidebar, background, and content; sidebar includes **Send test FILL_CREDENTIALS** and **Clear vault — debug**. |
 | `npm run build:e2e` | Same as `build:dev`, but `E2E_MANIFEST=1` so Vite emits **`src/manifest.e2e.json`** into `dist/manifest.json`. That manifest adds `http://127.0.0.1:4173/*` to **`host_permissions`** and to **`content_scripts[0].matches`** so Playwright fixtures load the content script. |
 | `npm run build:content` | Rebuild only `dist/content.js` (single-file IIFE). |
@@ -84,7 +84,7 @@ For **sidebar-only** visual QA (layout, `#qa=<STATE>`, vault modes, etc.) withou
 
 Writes under `agent_screenshots/` (gitignored); prints one **absolute PNG path** per line on stdout. Default viewport **380×800**; override with `--width` / `--height`. See `node scripts/capture-sidebar.mjs --help` and [`e2e/extension-fixture.ts`](e2e/extension-fixture.ts) for the same Chromium load-extension approach.
 
-### All 22 visual states
+### All 31 visual states
 
 | # | Command | Notes |
 |---|---|---|
@@ -93,27 +93,36 @@ Writes under `agent_screenshots/` (gitignored); prints one **absolute PNG path**
 | 3 | `npm run capture-sidebar -- '#qa=EMAIL_ENTRY&qaCred=email'` | credential error on email field |
 | 4 | `npm run capture-sidebar -- '#qa=PASSWORD_ENTRY'` | |
 | 5 | `npm run capture-sidebar -- '#qa=PASSWORD_ENTRY&qaCred=password'` | credential error on password field |
-| 6 | `npm run capture-sidebar -- '#qa=OPENING_CUNY'` | |
-| 7 | `npm run capture-sidebar -- '#qa=CUNY_TOTP'` | |
-| 8 | `npm run capture-sidebar -- '#qa=ALLOW_GATE'` | |
-| 9 | `npm run capture-sidebar -- '#qa=OAA_SPA_HOME'` | |
-| 10 | `npm run capture-sidebar -- '#qa=GUIDED_MANAGE'` | |
-| 11 | `npm run capture-sidebar -- '#qa=GUIDED_ADD_FACTOR'` | |
-| 12 | `npm run capture-sidebar -- '#qa=GUIDED_FACTOR_TYPE'` | |
-| 13 | `npm run capture-sidebar -- '#qa=GUIDED_SECRET_CAPTURE'` | |
-| 14 | `npm run capture-sidebar -- '#qa=VERIFY_LOGIN_CODE'` | |
-| 15 | `npm run capture-sidebar -- '#qa=SET_DEFAULT'` | |
-| 16 | `npm run capture-sidebar -- '#qa=EXT_PASSWORD_SETUP'` | |
-| 17 | `npm run capture-sidebar -- '#qa=BIOMETRIC_OFFER'` | |
-| 18 | `npm run capture-sidebar -- '#qa=BIOMETRIC_PREP'` | |
-| 19 | `npm run capture-sidebar -- '#qa=COMPLETE_DEMO'` | |
-| 20 | `npm run capture-sidebar -- '#qa=COMPLETE_DONE'` | |
-| 21 | `npm run capture-sidebar -- --qa-vault-locked` | vault locked UI |
-| 22 | `npm run capture-sidebar -- --qa-vault-unlocked` | vault unlocked / management UI |
+| 6 | `npm run capture-sidebar -- '#qa=CHOOSE_SETUP_PATH'` | advanced key-flow fork |
+| 7 | `npm run capture-sidebar -- '#qa=KEY_FROM_OTHER_DEVICE'` | |
+| 8 | `npm run capture-sidebar -- '#qa=KEY_FROM_OTHER_DEVICE&qaVariant=open'` | accordion expanded |
+| 9 | `npm run capture-sidebar -- '#qa=KEY_FROM_OTHER_DEVICE&qaVariant=valid'` | prefilled key |
+| 10 | `npm run capture-sidebar -- '#qa=KEY_FROM_AUTH_APP&qaVariant=open'` | |
+| 11 | `npm run capture-sidebar -- '#qa=TEST_LOGIN'` | |
+| 12 | `npm run capture-sidebar -- '#qa=TEST_LOGIN&qaVariant=success'` | signed-in frame |
+| 13 | `npm run capture-sidebar -- '#qa=TEST_LOGIN_BAD_CREDENTIALS'` | |
+| 14 | `npm run capture-sidebar -- '#qa=TEST_LOGIN_BAD_KEY'` | |
+| 15 | `npm run capture-sidebar -- '#qa=OPENING_CUNY'` | |
+| 16 | `npm run capture-sidebar -- '#qa=CUNY_TOTP'` | |
+| 17 | `npm run capture-sidebar -- '#qa=ALLOW_GATE'` | |
+| 18 | `npm run capture-sidebar -- '#qa=OAA_SPA_HOME'` | |
+| 19 | `npm run capture-sidebar -- '#qa=GUIDED_MANAGE'` | |
+| 20 | `npm run capture-sidebar -- '#qa=GUIDED_ADD_FACTOR'` | |
+| 21 | `npm run capture-sidebar -- '#qa=GUIDED_FACTOR_TYPE'` | |
+| 22 | `npm run capture-sidebar -- '#qa=GUIDED_SECRET_CAPTURE'` | |
+| 23 | `npm run capture-sidebar -- '#qa=VERIFY_LOGIN_CODE'` | |
+| 24 | `npm run capture-sidebar -- '#qa=SET_DEFAULT'` | |
+| 25 | `npm run capture-sidebar -- '#qa=EXT_PASSWORD_SETUP'` | |
+| 26 | `npm run capture-sidebar -- '#qa=BIOMETRIC_OFFER'` | |
+| 27 | `npm run capture-sidebar -- '#qa=BIOMETRIC_PREP'` | |
+| 28 | `npm run capture-sidebar -- '#qa=COMPLETE_DEMO'` | |
+| 29 | `npm run capture-sidebar -- '#qa=COMPLETE_DONE'` | |
+| 30 | `npm run capture-sidebar -- --qa-vault-locked` | vault locked UI |
+| 31 | `npm run capture-sidebar -- --qa-vault-unlocked` | vault unlocked / management UI |
 
-`CREDENTIAL_ERROR` has no screen mount by design; use `qaCred=email` / `qaCred=password` variants (rows 3 and 5) to capture its visual representation.
+`CREDENTIAL_ERROR` has no screen mount by design; use `qaCred=email` / `qaCred=password` variants (rows 3 and 5) to capture its visual representation. Full list matches `scripts/capture-sidebar.mjs` (`ALL_STATES`); see `node scripts/capture-sidebar.mjs --help` for flags such as `--qa-vault-locked-no-biometric`.
 
-To capture all 22 states in one command:
+To capture all 31 states in one command:
 
 ```bash
 npm run capture-sidebar -- --capture-all
@@ -178,8 +187,8 @@ When in doubt: add the version field, leave the old reader in place for one rele
 ## Content script: confirm injection
 
 1. Open any tab on the CUNY SSO origin (paths vary).
-2. Use **`npm run build:dev`** if you want `[CUNYAutoLogin]` lines in the **page** console (production omits them).
-3. DevTools → Console on that tab should show prefixed logs when gated by `import.meta.env.DEV`.
+2. Use **`npm run build:dev`** or **`build:e2e`** if you want `[CUNYAutoLogin]` lines in the **page** console (production builds omit them).
+3. DevTools → Console on that tab should show prefixed logs when not gated by `import.meta.env.MODE === "production"` in `content.ts`.
 
 ---
 
@@ -200,7 +209,7 @@ After **My authentication factors**, the Oracle SPA often keeps the same URL whi
 | Area | Role |
 |------|--------|
 | `sidebar.html`, `src/sidebar/` | Sidebar shell, vault controller, dev debug panel |
-| `src/onboarding/` | 19-state flow (`state.ts`, `render.ts`, `screens/`, …) |
+| `src/onboarding/` | 25-state flow (`state.ts`, `render.ts`, `screens/`, …); 24 with screen mounts (`CREDENTIAL_ERROR` is routing-only) |
 | `src/crypto/vault.ts` | Encrypt/decrypt, `VAULT_STORAGE_KEY` |
 | `src/cuny/ssoSite.ts` | **Single source of truth** for SSO URLs, DOM ids, timing |
 | `src/content/` | Content script (IIFE root `content.ts`, flows, banner) |

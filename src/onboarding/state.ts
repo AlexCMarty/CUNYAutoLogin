@@ -17,8 +17,7 @@ export const ONBOARDING_STATES = [
   "WELCOME",
   "EMAIL_ENTRY",
   "PASSWORD_ENTRY",
-  // Advanced "use your existing key" branch (visuals only for now — reachable
-  // via dev #qa= jumps; the live PASSWORD_ENTRY → OPENING_CUNY path is unchanged).
+  // Advanced "use your existing key" branch (live after PASSWORD_ENTRY → CHOOSE_SETUP_PATH).
   "CHOOSE_SETUP_PATH",
   "KEY_FROM_OTHER_DEVICE",
   "KEY_FROM_AUTH_APP",

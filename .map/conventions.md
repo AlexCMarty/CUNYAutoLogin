@@ -68,7 +68,7 @@ if (!el) throw new Error('TOTP input not found after 30s');
 
 ### Wait strategy — polling (MFA verify page only)
 
-`totp-enroll-verify` and `startMfaEnrollVerifyOtpPolling` in `ssoSite.ts` use **`setInterval` at 500ms** instead of MutationObserver. The Oracle SPA re-renders form elements in ways that make observers flaky on that specific view. Match this pattern:
+`totp-enroll-verify` and `startMfaEnrollVerifyOtpPolling` in `mfaEnrollVerifyFlow.ts` (interval constant in `ssoSite.ts`) use **`setInterval` at 500ms** instead of MutationObserver. The Oracle SPA re-renders form elements in ways that make observers flaky on that specific view. Match this pattern:
 
 ```javascript
 const handle = setInterval(() => {
@@ -184,6 +184,6 @@ The extension injects a credential error banner via `src/content/banner.ts` on t
 | Element | Source | Selector |
 |---------|--------|----------|
 | `#serverError` | CUNY native | `document.getElementById('serverError')` |
-| Extension banner | `banner.ts` | `div[data-cunyautologin-banner]` or by `z-index: 2147483647` (INT_MAX) |
+| Extension banner | `banner.ts` | `[data-cunyautologin-banner-text='credential-error']` / `#cunyautologin-credential-error-banner` |
 
 When writing tests for the credential-error page, assert on `#serverError` for CUNY behavior and on the extension banner selector for extension behavior. Never confuse the two.

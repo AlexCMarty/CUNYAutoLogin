@@ -6,7 +6,7 @@ MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storag
 
 - `browser.*` only — `import browser from "webextension-polyfill"`, never `chrome.*`
 - Master password never in `storage.local` or logs — `browser.storage.session` only
-- Saved email must end with `@login.cuny.edu` (enforced in `sidebar/sidebar.utils.ts`)
+- Saved email must end with `@login.cuny.edu` (vault: `sidebar/sidebar.utils.ts`; onboarding: `emailEntry.ts`)
 - All CUNY page constants (selectors, URL paths, timing) go in `src/cuny/ssoSite.ts` only
 - Content script must stay a single IIFE — never add ESM imports to `src/content/`
 - No `console.log`/`console.debug` outside a dev-mode guard. Use `if (import.meta.env.MODE !== "production")` — **not** `if (import.meta.env.DEV)`, which reflects the Vite mode at build time (`true` in `build:dev`, `false` in `build`) and therefore does not reliably gate production-only exclusions across all build targets. See `.agents/rules/biometrics.md` § "The `import.meta.env.DEV` trap".
@@ -18,7 +18,7 @@ MV3 browser extension (Firefox + Chromium): encrypts CUNY credentials in `storag
 
 ```bash
 npm run lint        # must pass before build/merge
-npm run build       # production (lint → tsc → vite build → vite content)
+npm run build       # production (lint → knip → tsc → vite build → vite content)
 npm run build:dev   # development (sidebar includes debug panel)
 npm run build:e2e   # dev + manifest.e2e.json for Playwright
 npm run test        # unit + e2e

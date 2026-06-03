@@ -54,7 +54,7 @@ const ALL_STATES = [
   "#qa=EMAIL_ENTRY&qaCred=email",
   "#qa=PASSWORD_ENTRY",
   "#qa=PASSWORD_ENTRY&qaCred=password",
-  // Advanced "use your existing key" branch (visuals only). qaVariant picks the
+  // Advanced "use your existing key" branch (live after PASSWORD_ENTRY). qaVariant picks the
   // look: open = accordion expanded, valid = prefilled key, success = signed-in.
   "#qa=CHOOSE_SETUP_PATH",
   "#qa=KEY_FROM_OTHER_DEVICE",
@@ -112,7 +112,7 @@ Hash-fragment shortcuts:
     OAA_SPA_HOME, GUIDED_MANAGE, GUIDED_ADD_FACTOR, GUIDED_FACTOR_TYPE,
     GUIDED_SECRET_CAPTURE, VERIFY_LOGIN_CODE, SET_DEFAULT, EXT_PASSWORD_SETUP,
     BIOMETRIC_OFFER, BIOMETRIC_PREP, COMPLETE_DEMO, COMPLETE_DONE
-  Advanced "use your existing key" branch (visuals only, dev/e2e build):
+  Advanced "use your existing key" branch (dev/e2e build; live after PASSWORD_ENTRY):
     CHOOSE_SETUP_PATH, KEY_FROM_OTHER_DEVICE, KEY_FROM_AUTH_APP, TEST_LOGIN,
     TEST_LOGIN_BAD_CREDENTIALS, TEST_LOGIN_BAD_KEY
   Visual variants (append to the advanced states above):
