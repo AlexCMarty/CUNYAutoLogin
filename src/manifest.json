@@ -58,7 +58,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "cunyautologin@local",
+      "id": "cunyautologin@alexmarty.dev",
       "strict_min_version": "128.0"
     }
   },
