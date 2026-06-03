@@ -13,7 +13,10 @@ export const getOtp = async (secret: string): Promise<string> => {
   return otp;
 };
 
-type FillTotpError = "otp_input_not_found" | "verify_button_not_found";
+type FillTotpError =
+  | "otp_input_not_found"
+  | "verify_button_not_found"
+  | "otp_generation_failed";
 
 export const fillTotp = async (totpSecret: string): Promise<Result<true, FillTotpError>> => {
   const [totpElm, verifyBtn] = await Promise.all([
@@ -29,7 +32,15 @@ export const fillTotp = async (totpSecret: string): Promise<Result<true, FillTot
   if (!totpElm) return err("otp_input_not_found");
   if (!verifyBtn) return err("verify_button_not_found");
 
-  const otp = await getOtp(totpSecret);
+  // A malformed Base32 secret makes TOTP.generate reject. Keep that inside the
+  // Result contract instead of throwing past the caller's `isErr()` handling,
+  // and bail before filling/clicking so a rejecting field never gets a code.
+  let otp: string;
+  try {
+    otp = await getOtp(totpSecret);
+  } catch {
+    return err("otp_generation_failed");
+  }
   setInputValue(totpElm, otp);
   verifyBtn.click();
   return ok(true);

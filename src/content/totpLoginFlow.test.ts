@@ -139,10 +139,11 @@ describe("fillTotp verify-button DOM contract", () => {
   });
 });
 
-// ── content/getotp-rejection [MEDIUM] — fillTotp propagation side ─────────────
-// When getOtp rejects, fillTotp propagates the rejection (it is not wrapped in
-// a try/catch). Callers must handle thrown errors, not just Result.isErr().
-describe("fillTotp getOtp rejection propagation", () => {
+// ── content/getotp-rejection [MEDIUM] — fillTotp rejection handling ───────────
+// A malformed Base32 secret makes TOTP.generate reject. fillTotp must keep that
+// inside the Result contract (err "otp_generation_failed"), not throw past the
+// caller's isErr() handling, and must not push a code into a rejecting field.
+describe("fillTotp getOtp rejection handling", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.mocked(TOTP.generate).mockRejectedValueOnce(new Error("invalid Base32"));
@@ -152,17 +153,22 @@ describe("fillTotp getOtp rejection propagation", () => {
     vi.useRealTimers();
   });
 
-  test("propagates the rejection from getOtp when TOTP.generate throws", async () => {
+  test("returns err('otp_generation_failed') without throwing when TOTP.generate rejects", async () => {
     const otpInput = document.createElement("input");
     otpInput.id = "otpValue|input";
     document.body.appendChild(otpInput);
 
     const verifyBtn = document.createElement("button");
     verifyBtn.innerHTML = "Verify";
+    const clickSpy = vi.spyOn(verifyBtn, "click");
     document.body.appendChild(verifyBtn);
 
-    await expect(fillTotp("JBSWY3DPEHPK3PXP")).rejects.toThrow("invalid Base32");
-    // Field was not filled because rejection happened before setInputValue
+    const result = await fillTotp("JBSWY3DPEHPK3PXP");
+
+    expect(result.isErr()).toBe(true);
+    expect(unwrapErr(result)).toBe("otp_generation_failed");
+    // The rejecting field was never filled and Verify was never clicked.
     expect(otpInput.value).toBe("");
+    expect(clickSpy).not.toHaveBeenCalled();
   });
 });
