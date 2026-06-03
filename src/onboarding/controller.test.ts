@@ -170,6 +170,25 @@ describe("createOnboardingController", () => {
     logSpy.mockRestore();
   });
 
+  // ── onboarding-core/dev-log-gated-only-asserts-absence [LOW] ──────────────
+  // The silent-in-test case above only proves the guard suppresses; pin the
+  // other half — in development mode the transition IS logged in `from -> to`
+  // form — so a regression that disables dev logging or inverts the guard fails.
+  test("state transitions DO emit a from->to dev log in development mode", () => {
+    vi.stubEnv("MODE", "development");
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      const controller = createOnboardingController({ initialState: "WELCOME" });
+      controller.dispatch("NEXT"); // WELCOME -> EMAIL_ENTRY
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("WELCOME -> EMAIL_ENTRY")
+      );
+    } finally {
+      logSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
   test("initialState, initialEmail, initialPassword, initialCredentialError are all honoured", () => {
     const controller = createOnboardingController({
       initialState: "BIOMETRIC_OFFER",

@@ -4,6 +4,8 @@ import browser from "webextension-polyfill";
 import type { OnboardingSnapshot } from "../controller";
 import { computePasswordStrength, mountExtPasswordSetupScreen } from "./extPasswordSetup";
 import type { OnboardingScreenContext } from "./screenContext";
+import { PENDING_TOTP_SECRET_SESSION_KEY, SESSION_MASTER_KEY } from "../../cuny/ssoSite";
+import { VAULT_STORAGE_KEY, encryptVault } from "../../crypto/vault";
 
 describe("computePasswordStrength", () => {
   test("returns Weak for short passwords (< 8 chars)", () => {
@@ -269,6 +271,83 @@ describe("mountExtPasswordSetupScreen — vault save failure", () => {
     await vi.waitFor(() => {
       expect(errorMsg.hidden).toBe(false);
     });
+    root.remove();
+  });
+});
+
+// ── screens/extPasswordSetup-vault-writes [MEDIUM] + encrypt-error [LOW] ──────
+describe("mountExtPasswordSetupScreen — vault seal writes", () => {
+  const STAGED_SECRET = "MZXW6YTBOI7EU4DPNZSGK3TL";
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.mocked(browser.storage.session.get).mockReset().mockResolvedValue({});
+    vi.mocked(browser.storage.session.set).mockReset().mockResolvedValue(undefined);
+    vi.mocked(browser.storage.session.remove).mockReset().mockResolvedValue(undefined);
+    vi.mocked(browser.storage.local.set).mockReset().mockResolvedValue(undefined);
+    vi.mocked(encryptVault).mockReset().mockReturnValue({
+      isErr: () => false,
+      value: { version: 1, saltB64: "s", ivB64: "i", ciphertextB64: "c" },
+    } as never);
+  });
+
+  const fillValidAndGetForward = (root: HTMLElement): HTMLButtonElement => {
+    const set = (sel: string, value: string): void => {
+      const el = root.querySelector<HTMLInputElement>(sel)!;
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    set("[data-onboarding-ext-password-input='true']", "Passw0rd!");
+    set("[data-onboarding-ext-password-confirm='true']", "Passw0rd!");
+    return root.querySelector<HTMLButtonElement>("[data-onboarding-ext-password-forward='true']")!;
+  };
+
+  test("Lock-it-in encrypts snapshot+staged secret, writes vault, stages master, removes pending secret, dispatches", async () => {
+    vi.mocked(browser.storage.session.get).mockResolvedValue({
+      [PENDING_TOTP_SECRET_SESSION_KEY]: STAGED_SECRET,
+    });
+    vi.mocked(encryptVault).mockReturnValue({
+      isErr: () => false,
+      value: { version: 1, saltB64: "s", ivB64: "i", ciphertextB64: "c" },
+    } as never);
+
+    const { ctx, root, dispatched } = makeCtx();
+    mountExtPasswordSetupScreen(ctx);
+    fillValidAndGetForward(root).click();
+
+    await vi.waitFor(() => expect(dispatched).toContain("EXT_PASSWORD_SAVED"));
+
+    // Encrypts the CUNY creds from the snapshot + the staged TOTP secret, under the new master.
+    expect(vi.mocked(encryptVault)).toHaveBeenCalledWith(
+      { email: "student@login.cuny.edu", password: "cunyPass1!", totpSecret: STAGED_SECRET },
+      "Passw0rd!"
+    );
+    // Ciphertext goes to storage.local under the vault key.
+    expect(vi.mocked(browser.storage.local.set)).toHaveBeenCalledWith(
+      expect.objectContaining({ [VAULT_STORAGE_KEY]: expect.objectContaining({ version: 1 }) })
+    );
+    // New master is staged to the session (never storage.local).
+    expect(vi.mocked(browser.storage.session.set)).toHaveBeenCalledWith({
+      [SESSION_MASTER_KEY]: "Passw0rd!",
+    });
+    // The plaintext pending secret is cleared from the session so it does not linger.
+    expect(vi.mocked(browser.storage.session.remove)).toHaveBeenCalledWith(
+      PENDING_TOTP_SECRET_SESSION_KEY
+    );
+    root.remove();
+  });
+
+  test("encryptVault failure shows the save-failed error and does NOT write the vault or dispatch", async () => {
+    vi.mocked(encryptVault).mockReturnValueOnce({ isErr: () => true } as never);
+
+    const { ctx, root, dispatched } = makeCtx();
+    mountExtPasswordSetupScreen(ctx);
+    const errorMsg = root.querySelector<HTMLElement>(".onboarding-ext-password-error")!;
+    fillValidAndGetForward(root).click();
+
+    await vi.waitFor(() => expect(errorMsg.hidden).toBe(false));
+    expect(dispatched).not.toContain("EXT_PASSWORD_SAVED");
+    expect(vi.mocked(browser.storage.local.set)).not.toHaveBeenCalled();
     root.remove();
   });
 });

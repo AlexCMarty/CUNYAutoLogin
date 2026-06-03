@@ -823,24 +823,28 @@ describe("mountOnboarding", () => {
     expect(controller.getSnapshot().state).toBe("VERIFY_LOGIN_CODE");
   });
 
-  test("bridge ONBOARDING_VERIFY_STATUS(success) from VERIFY_LOGIN_CODE advances to SET_DEFAULT", () => {
+  // ── onboarding-core/verify-status-success-test-is-tautological [LOW] ──────
+  // Exercise the real bridge wiring (handleVerifyStatusMessage), not a separate
+  // controller's transition table: a VERIFY_STATUS(success) message delivered to
+  // the mounted bridge while in VERIFY_LOGIN_CODE must advance the rendered
+  // screen to SET_DEFAULT.
+  test("bridge ONBOARDING_VERIFY_STATUS(success) advances the mounted VERIFY_LOGIN_CODE screen to SET_DEFAULT", () => {
     renderOnboardingRoot();
-    mountOnboarding(document);
-    const controller = createOnboardingController({ initialState: "VERIFY_LOGIN_CODE" });
-    applyOnboardingMessage(controller, {
-      type: "ONBOARDING_VERIFY_STATUS",
-      status: "success",
-    } as never);
-    // applyOnboardingMessage only handles ONBOARDING_STAGE_DETECTED and ONBOARDING_CREDENTIAL_ERROR;
-    // VERIFY_STATUS is handled in the runtime bridge; test via the controller directly.
-    // The bridge listener test for VERIFY_STATUS(success) is covered below.
+    mountOnboarding(document, {
+      qaJump: { controllerInit: { initialState: "VERIFY_LOGIN_CODE" }, qaVariant: undefined },
+    });
+    expect(document.querySelector("[data-onboarding-screen='VERIFY_LOGIN_CODE']")).not.toBeNull();
+
     const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls[0]?.[0];
     if (typeof listener !== "function") throw new Error("bridge listener missing");
-    // Inject the controller into a fresh onboarding instance and simulate the bridge.
-    const mountedController = createOnboardingController({ initialState: "VERIFY_LOGIN_CODE" });
-    // Simulate VERIFY_STATUS success dispatch directly on controller.
-    mountedController.dispatch("VERIFY_SUCCEEDED");
-    expect(mountedController.getSnapshot().state).toBe("SET_DEFAULT");
+    listener(
+      { type: "ONBOARDING_VERIFY_STATUS", status: "success" },
+      trustedOnboardingBridgeSender(7),
+      () => undefined
+    );
+
+    expect(document.querySelector("[data-onboarding-screen='SET_DEFAULT']")).not.toBeNull();
+    expect(document.querySelector("[data-onboarding-screen='VERIFY_LOGIN_CODE']")).toBeNull();
   });
 
   test("bridge ONBOARDING_VERIFY_STATUS(pending) is a no-op (controller stays unchanged)", () => {
@@ -955,5 +959,163 @@ describe("mountOnboarding", () => {
     expect(
       document.querySelector(PASSWORD_INPUT_SELECTOR)
     ).not.toBeNull();
+  });
+});
+
+// ── onboarding-core/no-secret-recovery-branch-untested [LOW] ──────────────────
+describe("mountOnboarding — factors_list_after_enroll with no staged secret", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    document.body.innerHTML = "";
+    vi.mocked(browser.storage.session.get).mockResolvedValue({});
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue(undefined);
+  });
+
+  test("no staged TOTP secret: stays in VERIFY_LOGIN_CODE and shows the no-secret recovery banner", async () => {
+    renderOnboardingRoot();
+    mountOnboarding(document, {
+      qaJump: { controllerInit: { initialState: "VERIFY_LOGIN_CODE" }, qaVariant: undefined },
+    });
+
+    const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls[0]?.[0];
+    if (typeof listener !== "function") throw new Error("bridge listener missing");
+    listener(
+      { type: "ONBOARDING_STAGE_DETECTED", stage: "factors_list_after_enroll" },
+      trustedOnboardingBridgeSender(9),
+      () => undefined
+    );
+
+    // The banner is revealed by the async side-effect after the storage read.
+    await vi.waitFor(() => {
+      const el = document.querySelector<HTMLElement>("[data-onboarding-recovery-message='true']");
+      expect(el?.hidden).toBe(false);
+      expect(el?.textContent).toContain("don't have its secret key");
+    });
+    // Must NOT advance without the secret.
+    expect(document.querySelector("[data-onboarding-screen='VERIFY_LOGIN_CODE']")).not.toBeNull();
+    expect(document.querySelector("[data-onboarding-screen='SET_DEFAULT']")).toBeNull();
+  });
+});
+
+// ── onboarding-core/RETRY_KEY-origin-resolution-untested [MEDIUM] ──────────────
+describe("mountOnboarding — RETRY_KEY returns to the origin paste screen", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    document.body.innerHTML = "";
+    vi.mocked(browser.storage.session.get).mockResolvedValue({});
+    vi.mocked(browser.storage.session.set).mockResolvedValue(undefined);
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue(undefined);
+  });
+
+  test("entered via KEY_FROM_AUTH_APP: RETRY_KEY from TEST_LOGIN_BAD_KEY returns to KEY_FROM_AUTH_APP, not the default", async () => {
+    renderOnboardingRoot();
+    mountOnboarding(document, {
+      qaJump: { controllerInit: { initialState: "CHOOSE_SETUP_PATH" }, qaVariant: undefined },
+    });
+
+    // Choose "import from auth app" → KEY_FROM_AUTH_APP (records the origin).
+    document.querySelector<HTMLButtonElement>("[data-onboarding-choice='import']")!.click();
+    expect(document.querySelector("[data-onboarding-screen='KEY_FROM_AUTH_APP']")).not.toBeNull();
+
+    // Paste a valid key and confirm → TEST_LOGIN. The Confirm handler awaits a
+    // storage.session write before dispatching KEY_CONFIRMED, so the transition
+    // lands a microtask later.
+    const keyInput = document.querySelector<HTMLInputElement>("[data-onboarding-key-input='true']")!;
+    keyInput.value = "MZXW6YTBOI7EU4DPNZSGK3TL";
+    keyInput.dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector<HTMLButtonElement>("[data-onboarding-key-confirm='true']")!.click();
+    await vi.waitFor(() =>
+      expect(document.querySelector("[data-onboarding-screen='TEST_LOGIN']")).not.toBeNull()
+    );
+
+    // A second consecutive verify failure routes TEST_LOGIN → TEST_LOGIN_BAD_KEY.
+    const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls[0]?.[0];
+    if (typeof listener !== "function") throw new Error("bridge listener missing");
+    listener(
+      { type: "ONBOARDING_VERIFY_STATUS", status: "second_failure" },
+      trustedOnboardingBridgeSender(11),
+      () => undefined
+    );
+    expect(document.querySelector("[data-onboarding-screen='TEST_LOGIN_BAD_KEY']")).not.toBeNull();
+
+    // Re-enter key → must return to the ORIGIN paste screen, not the static default.
+    document.querySelector<HTMLButtonElement>("[data-onboarding-bad-key-retry='true']")!.click();
+    expect(document.querySelector("[data-onboarding-screen='KEY_FROM_AUTH_APP']")).not.toBeNull();
+  });
+});
+
+// ── onboarding-core/resume-snapshot-debounce-timing-untested [MEDIUM] ──────────
+describe("mountOnboarding — resume-snapshot persistence timing", () => {
+  const RESUME_DEBOUNCE_MS = 500; // mirrors render.ts RESUME_SNAPSHOT_DEBOUNCE_MS
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    document.body.innerHTML = "";
+    vi.mocked(browser.storage.session.get).mockResolvedValue({});
+    vi.mocked(browser.storage.session.set).mockResolvedValue(undefined);
+    vi.mocked(browser.storage.session.remove).mockResolvedValue(undefined);
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue(undefined);
+  });
+
+  const writeCount = (): number =>
+    vi.mocked(browser.storage.session.set).mock.calls.length +
+    vi.mocked(browser.storage.session.remove).mock.calls.length;
+
+  // Other render tests mount on REAL timers without unmounting, leaking 500ms
+  // debounce setTimeouts that would otherwise fire on the shared storage mock
+  // mid-measurement here. Flush them on real timers before switching to fake.
+  const drainLeakedRealTimers = (): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, RESUME_DEBOUNCE_MS + 100));
+
+  test("state change persists immediately; rapid same-state edits coalesce to one trailing write", async () => {
+    await drainLeakedRealTimers();
+    vi.useFakeTimers();
+    try {
+      renderOnboardingRoot();
+      const unmount = mountOnboarding(document); // no qaJump → resume persistence is active
+      await vi.runAllTimersAsync(); // fully settle the async resume-load on mount
+      vi.mocked(browser.storage.session.set).mockClear();
+      vi.mocked(browser.storage.session.remove).mockClear();
+
+      // WELCOME → EMAIL_ENTRY: a state change persists immediately (synchronous).
+      document.querySelector<HTMLButtonElement>(WELCOME_CTA_SELECTOR)!.click();
+      expect(writeCount()).toBe(1);
+
+      // Two quick same-state email edits do NOT persist immediately (synchronous)…
+      const emailInput = document.querySelector<HTMLInputElement>(EMAIL_INPUT_SELECTOR)!;
+      emailInput.value = "a@login.cuny.edu";
+      emailInput.dispatchEvent(new Event("input", { bubbles: true }));
+      emailInput.value = "ab@login.cuny.edu";
+      emailInput.dispatchEvent(new Event("input", { bubbles: true }));
+      expect(writeCount()).toBe(1);
+
+      // …they coalesce into exactly one trailing write after the debounce window.
+      await vi.advanceTimersByTimeAsync(RESUME_DEBOUNCE_MS);
+      expect(writeCount()).toBe(2);
+
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("unmount clears the pending debounce timer (no trailing write)", async () => {
+    await drainLeakedRealTimers();
+    vi.useFakeTimers();
+    try {
+      renderOnboardingRoot();
+      const unmount = mountOnboarding(document);
+      await vi.runAllTimersAsync();
+
+      document.querySelector<HTMLButtonElement>(WELCOME_CTA_SELECTOR)!.click(); // schedules a trailing timer
+      vi.mocked(browser.storage.session.set).mockClear();
+      vi.mocked(browser.storage.session.remove).mockClear();
+
+      unmount(); // must clear the pending debounce timer
+      await vi.advanceTimersByTimeAsync(RESUME_DEBOUNCE_MS);
+      expect(writeCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

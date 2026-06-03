@@ -433,4 +433,45 @@ describe("startMfaEnrollVerifyOtpPolling", () => {
     expect(clickSpy).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
   });
+
+  // ── content/mfa-autosubmit-default-no-click [LOW] ─────────────────────────
+  // Default enrollment URL (no wrongCode=1): the tick fills the OTP and sends
+  // "pending" but must NOT auto-click Verify and Save — auto-submitting a fresh
+  // enrollment is a behavior change; the user submits the first one themselves.
+  test("default URL (no wrongCode): fills and sends pending but does NOT click Verify and Save", async () => {
+    vi.stubGlobal(
+      "location",
+      new URL("https://ssologin.cuny.edu/oaa/rui/index.html") as unknown as Location
+    );
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
+      success: true,
+      payload: {
+        email: "student@login.cuny.edu",
+        password: "pw",
+        totpSecret: "JBSWY3DPEHPK3PXP",
+      },
+    });
+
+    const otpInput = document.createElement("input");
+    otpInput.id = RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID;
+    document.body.appendChild(otpInput);
+
+    const verifyBtn = document.createElement("button");
+    verifyBtn.textContent = "Verify and Save";
+    document.body.appendChild(verifyBtn);
+    const clickSpy = vi.spyOn(verifyBtn, "click");
+
+    startMfaEnrollVerifyOtpPolling();
+    await vi.advanceTimersByTimeAsync(600);
+    await vi.runOnlyPendingTimersAsync();
+
+    expect(otpInput.value).toBe("123456"); // fill happened
+    expect(clickSpy).not.toHaveBeenCalled(); // but no auto-submit on first enrollment
+    const isPending = ([msg]: [unknown, ...unknown[]]): boolean =>
+      typeof msg === "object" && msg !== null &&
+      (msg as { type?: string }).type === "ONBOARDING_VERIFY_STATUS" &&
+      (msg as { status?: string }).status === "pending";
+    expect(vi.mocked(browser.runtime.sendMessage).mock.calls.filter(isPending)).toHaveLength(1);
+    vi.unstubAllGlobals();
+  });
 });

@@ -21,6 +21,7 @@ import {
   enrollBiometric,
   unlockWithBiometric,
 } from "./biometric";
+import { VAULT_STORAGE_KEY } from "./vault";
 
 afterEach(() => {
   vi.resetAllMocks();
@@ -807,5 +808,68 @@ describe("unlockWithBiometric — wrong or corrupted PRF", () => {
     const result = await unlockWithBiometric();
     expect(result.isErr()).toBe(true);
     if (result.isErr()) expect(result.error).toBe("crypto_error");
+  });
+});
+
+// ── crypto/biometric-clear-then-enrolled [MEDIUM] + clear-removes-only-key [LOW] ─
+
+describe("clear / enroll state transitions — stateful storage.local", () => {
+  // A fake that actually stores/retrieves so the transition is observed
+  // behaviorally (enrolled? unlock outcome?), not just by recording the
+  // remove() call against a no-op mock.
+  let store: Record<string, unknown>;
+
+  beforeEach(() => {
+    installCredentialsStub();
+    store = {};
+    vi.mocked(browser.storage.local.get).mockImplementation(async (key) => {
+      if (typeof key === "string") {
+        return key in store ? { [key]: store[key] } : {};
+      }
+      return { ...store };
+    });
+    vi.mocked(browser.storage.local.set).mockImplementation(async (obj) => {
+      Object.assign(store, obj as Record<string, unknown>);
+    });
+    vi.mocked(browser.storage.local.remove).mockImplementation(async (key) => {
+      const keys = Array.isArray(key) ? key : [key as string];
+      for (const oneKey of keys) delete store[oneKey];
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function enrollWith(master: string, prfByte = 0xde): Promise<void> {
+    vi.spyOn(navigator.credentials, "create").mockResolvedValue(
+      makeCreateCredential({ prfOutput: makePrfOutput(prfByte), getTransports: () => ["internal"] })
+    );
+    const result = await enrollBiometric(master);
+    expect(result.isOk(), `enroll failed: ${JSON.stringify(result)}`).toBe(true);
+  }
+
+  test("enroll → isBiometricEnrolled true; clear → false and unlock errors not_enrolled", async () => {
+    await enrollWith("masterClear");
+    expect(await isBiometricEnrolled()).toBe(true);
+
+    await clearBiometricCredential();
+
+    expect(await isBiometricEnrolled()).toBe(false);
+    const unlock = await unlockWithBiometric();
+    expect(unlock.isErr()).toBe(true);
+    if (unlock.isErr()) expect(unlock.error).toBe("not_enrolled");
+  });
+
+  test("clearBiometricCredential removes only the biometric key, leaving the vault intact", async () => {
+    const vaultEntry = { version: 1, saltB64: "s", ivB64: "i", ciphertextB64: "c" };
+    store[VAULT_STORAGE_KEY] = vaultEntry;
+    await enrollWith("masterX", 0xed);
+    expect(await isBiometricEnrolled()).toBe(true);
+
+    await clearBiometricCredential();
+
+    expect(await isBiometricEnrolled()).toBe(false);
+    expect(store[VAULT_STORAGE_KEY]).toEqual(vaultEntry);
   });
 });

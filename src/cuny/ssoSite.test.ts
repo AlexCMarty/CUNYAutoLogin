@@ -1,30 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
   BRIGHTSPACE_HOME_URL,
-  CREDENTIAL_ERROR_ELEMENT_ID,
-  CREDENTIAL_ERROR_TEXT_MARKER,
-  CREDENTIAL_INPUT_IDS,
-  CREDENTIAL_PAGE_PATH_MARKERS,
-  CUNY_ALLOW_GATE_BTN_SELECTOR,
-  CUNY_LOGIN_ENTRY_URL,
-  ENROLLED_FACTOR_ALIAS_SESSION_KEY,
-  EXTENSION_NAME,
   LOGIN_EMAIL_SUFFIX,
-  MFA_CONSENT_PAGE_PATH_MARKER,
-  OAA_RUI_LOGOUT_URL,
   OAA_RUI_OIDC_ACCESS_DENIED_ERROR,
   OAA_RUI_OIDC_REDIRECT_PATH,
-  PENDING_TOTP_SECRET_SESSION_KEY,
   RUI_MFA_ENROLL_VERIFY_PAGE_URL,
-  SESSION_MASTER_KEY,
   SSO_LOGIN_HOST,
   SSO_LOGIN_ORIGIN,
   SSO_LOGIN_TABS_QUERY_URL_PATTERN,
-  TOTP_ERROR_EMSG_PARAM,
-  TOTP_OTP_INPUT_ID,
-  TOTP_SECRET_LEN_MAX,
-  TOTP_SECRET_LEN_MIN,
-  TOTP_VERIFY_BUTTON_LABEL,
   WEBAUTHN_RP_ID,
   isAllowedReopenCunyTabUrl,
   isBrightspaceUrl,
@@ -181,113 +164,25 @@ describe("matchesOaaRuiAccessDeniedRedirect", () => {
   });
 });
 
-describe("constants", () => {
-  test("SSO_LOGIN_TABS_QUERY_URL_PATTERN matches manifest host pattern", () => {
+// ── vault-session/mirrored-constant-asserts [LOW] ─────────────────────────────
+// Pure "CONST === its own literal" self-mirror tests were removed (net-negative
+// coverage: they pin no behavior and break only on an intentional edit). Kept:
+// only constants that encode a genuine cross-file / security contract.
+describe("cross-module constant invariants", () => {
+  test("SSO_LOGIN_TABS_QUERY_URL_PATTERN is the manifest host pattern derived from the origin", () => {
     expect(SSO_LOGIN_TABS_QUERY_URL_PATTERN).toBe(`${SSO_LOGIN_ORIGIN}/*`);
   });
 
-  test('OAA_RUI_OIDC_ACCESS_DENIED_ERROR is "access_denied"', () => {
-    expect(OAA_RUI_OIDC_ACCESS_DENIED_ERROR).toBe("access_denied");
-  });
-
-  test('OAA_RUI_OIDC_REDIRECT_PATH is "/oaa/rui/oidc/redirect"', () => {
-    expect(OAA_RUI_OIDC_REDIRECT_PATH).toBe("/oaa/rui/oidc/redirect");
-  });
-
-  test('SSO_LOGIN_HOST is "ssologin.cuny.edu"', () => {
-    expect(SSO_LOGIN_HOST).toBe("ssologin.cuny.edu");
-  });
-
-  test('SSO_LOGIN_ORIGIN is "https://ssologin.cuny.edu"', () => {
+  test("SSO_LOGIN_ORIGIN matches the host the manifest + content scripts are pinned to", () => {
     expect(SSO_LOGIN_ORIGIN).toBe("https://ssologin.cuny.edu");
   });
 
-  test('LOGIN_EMAIL_SUFFIX is "@login.cuny.edu"', () => {
+  test("LOGIN_EMAIL_SUFFIX is the @login.cuny.edu hard rule for saved emails", () => {
     expect(LOGIN_EMAIL_SUFFIX).toBe("@login.cuny.edu");
   });
 
-  test("CREDENTIAL_PAGE_PATH_MARKERS has exactly 2 entries", () => {
-    expect(CREDENTIAL_PAGE_PATH_MARKERS).toHaveLength(2);
-  });
-
-  test('RUI_MFA_ENROLL_VERIFY_PAGE_URL is "https://ssologin.cuny.edu/oaa/rui/index.html?h_ra=1"', () => {
-    expect(RUI_MFA_ENROLL_VERIFY_PAGE_URL).toBe("https://ssologin.cuny.edu/oaa/rui/index.html?h_ra=1");
-  });
-});
-
-describe("additional constants", () => {
-  test('BRIGHTSPACE_HOME_URL is "https://brightspace.cuny.edu/d2l/home"', () => {
-    expect(BRIGHTSPACE_HOME_URL).toBe("https://brightspace.cuny.edu/d2l/home");
-  });
-
-  test('OAA_RUI_LOGOUT_URL is "https://ssologin.cuny.edu/oaa/rui/user/v1/logout"', () => {
-    expect(OAA_RUI_LOGOUT_URL).toBe("https://ssologin.cuny.edu/oaa/rui/user/v1/logout");
-  });
-
-  test('CUNY_LOGIN_ENTRY_URL is "https://ssologin.cuny.edu/oaa/rui"', () => {
-    expect(CUNY_LOGIN_ENTRY_URL).toBe("https://ssologin.cuny.edu/oaa/rui");
-  });
-
-  test('EXTENSION_NAME is "CUNYAutoLogin"', () => {
-    expect(EXTENSION_NAME).toBe("CUNYAutoLogin");
-  });
-
-  test('WEBAUTHN_RP_ID is "ssologin.cuny.edu"', () => {
-    expect(WEBAUTHN_RP_ID).toBe("ssologin.cuny.edu");
-  });
-
-  test('SESSION_MASTER_KEY is "cunySessionMaster"', () => {
-    expect(SESSION_MASTER_KEY).toBe("cunySessionMaster");
-  });
-
-  test('PENDING_TOTP_SECRET_SESSION_KEY is "cunyPendingTotpSecretFromSso"', () => {
-    expect(PENDING_TOTP_SECRET_SESSION_KEY).toBe("cunyPendingTotpSecretFromSso");
-  });
-
-  test('ENROLLED_FACTOR_ALIAS_SESSION_KEY is "cunyEnrolledFactorAlias"', () => {
-    expect(ENROLLED_FACTOR_ALIAS_SESSION_KEY).toBe("cunyEnrolledFactorAlias");
-  });
-
-  test('TOTP_OTP_INPUT_ID is "otpValue|input"', () => {
-    expect(TOTP_OTP_INPUT_ID).toBe("otpValue|input");
-  });
-
-  test('TOTP_VERIFY_BUTTON_LABEL is "Verify"', () => {
-    expect(TOTP_VERIFY_BUTTON_LABEL).toBe("Verify");
-  });
-
-  test('TOTP_ERROR_EMSG_PARAM is "emsg"', () => {
-    expect(TOTP_ERROR_EMSG_PARAM).toBe("emsg");
-  });
-
-  test("TOTP_SECRET_LEN_MIN is 10", () => {
-    expect(TOTP_SECRET_LEN_MIN).toBe(10);
-  });
-
-  test("TOTP_SECRET_LEN_MAX is 128", () => {
-    expect(TOTP_SECRET_LEN_MAX).toBe(128);
-  });
-
-  test('CUNY_ALLOW_GATE_BTN_SELECTOR is \'button[onclick="allow()"]\' ', () => {
-    expect(CUNY_ALLOW_GATE_BTN_SELECTOR).toBe('button[onclick="allow()"]');
-  });
-
-  test('MFA_CONSENT_PAGE_PATH_MARKER is "mfaConsent"', () => {
-    expect(MFA_CONSENT_PAGE_PATH_MARKER).toBe("mfaConsent");
-  });
-
-  test("CREDENTIAL_INPUT_IDS has correct field values", () => {
-    expect(CREDENTIAL_INPUT_IDS.username).toBe("CUNYLoginUsernameDisplay");
-    expect(CREDENTIAL_INPUT_IDS.password).toBe("CUNYLoginPassword");
-    expect(CREDENTIAL_INPUT_IDS.submitButton).toBe("submit");
-  });
-
-  test('CREDENTIAL_ERROR_ELEMENT_ID is "serverError"', () => {
-    expect(CREDENTIAL_ERROR_ELEMENT_ID).toBe("serverError");
-  });
-
-  test('CREDENTIAL_ERROR_TEXT_MARKER is "Incorrect Username or Password"', () => {
-    expect(CREDENTIAL_ERROR_TEXT_MARKER).toBe("Incorrect Username or Password");
+  test("WEBAUTHN_RP_ID equals the SSO host (a mismatch breaks biometric unlock)", () => {
+    expect(WEBAUTHN_RP_ID).toBe(SSO_LOGIN_HOST);
   });
 });
 

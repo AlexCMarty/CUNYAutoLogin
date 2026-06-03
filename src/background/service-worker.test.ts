@@ -91,10 +91,12 @@ const CS_SENDER = {
 };
 let handler: MessageHandler;
 let getStagedOverlayCommand: () => OnboardingOverlayCommand | null;
+let getStagedCredentials: typeof import("./service-worker")["__test_getStagedOnboardingCredentials"];
 
 beforeAll(async () => {
   const module = await import("./service-worker");
   getStagedOverlayCommand = module.__test_getStagedOverlayCommand;
+  getStagedCredentials = module.__test_getStagedOnboardingCredentials;
   handler = vi.mocked(browser.runtime.onMessage.addListener).mock
     .calls[0]![0]! as MessageHandler;
 });
@@ -778,6 +780,28 @@ describe("STAGE_ONBOARDING_CREDENTIALS", () => {
     expect(
       await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER)
     ).toEqual({ ok: true });
+  });
+
+  // ── background/dead-test-export [LOW] ─────────────────────────────────────
+  // Put the previously-unused __test_getStagedOnboardingCredentials export to
+  // work: pin that STAGE populates the in-memory buffer and CLEAR resets it to
+  // null (previously verified only indirectly via the AUTO_FILL fallback).
+  test("STAGE populates the in-memory staging buffer; CLEAR resets it to null", async () => {
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER);
+    expect(getStagedCredentials()).toBeNull();
+
+    await handler({
+      type: "STAGE_ONBOARDING_CREDENTIALS",
+      email: "student@login.cuny.edu",
+      password: "hunter2",
+    }, EXT_SENDER);
+    expect(getStagedCredentials()).toEqual({
+      email: "student@login.cuny.edu",
+      password: "hunter2",
+    });
+
+    await handler({ type: "CLEAR_ONBOARDING_CREDENTIALS" }, EXT_SENDER);
+    expect(getStagedCredentials()).toBeNull();
   });
 });
 

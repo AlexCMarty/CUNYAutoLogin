@@ -19,6 +19,7 @@ import {
   CREDENTIAL_ERROR_ELEMENT_ID,
   CREDENTIAL_ERROR_TEXT_MARKER,
   CREDENTIAL_INPUT_IDS,
+  POST_SUBMIT_ERROR_OBSERVE_MS,
 } from "../cuny/ssoSite";
 import { unwrapErr } from "../testUtils/resultUnwrap";
 
@@ -287,6 +288,20 @@ describe("handleAutoFillFailureCredentialError", () => {
       handleAutoFillFailureCredentialError(noop, "storage_error")
     ).resolves.toBeUndefined();
   });
+
+  // ── content/credflow-autofill-failure-reasons [LOW] ───────────────────────
+  // The URL gate: an error element present on an UNRELATED page (e.g. the TOTP
+  // factor page) must NOT report a credential error — keeps spurious banners off
+  // pages where the error DOM is not a credential rejection.
+  test("error DOM on an unrelated (TOTP) URL does NOT send a credential error", async () => {
+    vi.stubGlobal(
+      "location",
+      new URL("https://ssologin.cuny.edu/oaa-totp-factor/") as unknown as Location
+    );
+    insertCredentialError();
+    await handleAutoFillFailureCredentialError(noop, "no_session_master");
+    expect(vi.mocked(browser.runtime.sendMessage)).not.toHaveBeenCalled();
+  });
 });
 
 // ── content/credflow-refill-guard [MEDIUM] ────────────────────────────────────
@@ -345,5 +360,47 @@ describe("handleCredentialPageFlow refill guard (single module lifetime)", () =>
     expect(clickSpy).toHaveBeenCalledTimes(0);
     expect(username.value).toBe("");
     expect(password.value).toBe("");
+  });
+});
+
+// ── content/watch-observer-timeout-leak [LOW] ─────────────────────────────────
+// watchForPostSubmitCredentialError must disconnect its MutationObserver after
+// POST_SUBMIT_ERROR_OBSERVE_MS with no error, so it never leaks across a real
+// navigation. Driven via the credential-ERROR URL path with no DOM error, which
+// installs ONLY the watch observer (no fillCredentials) so the disconnect spy is
+// unambiguous.
+describe("watchForPostSubmitCredentialError — teardown on observe-window timeout", () => {
+  const noop = (): void => { /* no-op logger */ };
+  const validPayload = { email: "student@login.cuny.edu", password: "hunter2", totpSecret: "" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "location",
+      new URL("https://ssologin.cuny.edu/oam/server/auth_cred_submit") as unknown as Location
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  test("disconnects the observer and sends no report when the window elapses with no error", async () => {
+    const disconnectSpy = vi.spyOn(MutationObserver.prototype, "disconnect");
+    vi.resetModules();
+    const { handleCredentialPageFlow: fn } = await import("./credentialFlow");
+
+    await fn(validPayload, noop); // installs the watch observer + 8s teardown timer
+    expect(disconnectSpy).not.toHaveBeenCalled(); // still observing within the window
+
+    await vi.advanceTimersByTimeAsync(POST_SUBMIT_ERROR_OBSERVE_MS + 1);
+
+    expect(disconnectSpy).toHaveBeenCalled(); // torn down on timeout
+    expect(vi.mocked(browser.runtime.sendMessage)).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "ONBOARDING_CREDENTIAL_ERROR" })
+    );
   });
 });

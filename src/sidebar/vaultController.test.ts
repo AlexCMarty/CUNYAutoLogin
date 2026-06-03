@@ -791,3 +791,178 @@ describe("vaultController — management mode: empty TOTP field falls back to se
     }
   });
 });
+
+// ── sidebar/changed-master-only-clears-bio [MEDIUM] ───────────────────────────
+describe("vaultController — changed master re-encrypts under the new master", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    setupSidebarDom();
+    await configureSnapshot(await makeUnlockedSnapshot());
+    const browser = (await import("webextension-polyfill")).default;
+    vi.mocked(browser.storage.local.set).mockResolvedValue();
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    await loadController();
+  });
+
+  test("written vault decrypts with the NEW master and NOT the old; new master is staged to session", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    const newMaster = "brand-new-extension-password-x";
+    (document.getElementById("email") as HTMLInputElement).value = TEST_EMAIL;
+    (document.getElementById("password") as HTMLInputElement).value = TEST_PASSWORD;
+    (document.getElementById("totpSecret") as HTMLInputElement).value = TEST_TOTP;
+    (document.getElementById("newMasterPassword") as HTMLInputElement).value = newMaster;
+    (document.getElementById("confirmNewMasterPassword") as HTMLInputElement).value = newMaster;
+    // The polyfill mock is module-global; clear so we only observe THIS save.
+    vi.mocked(browser.storage.local.set).mockClear();
+    vi.mocked(browser.storage.session.set).mockClear();
+    submitForm();
+
+    await vi.waitFor(() => {
+      expect(browser.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({ [VAULT_STORAGE_KEY]: expect.any(Object) })
+      );
+    });
+
+    const setCalls = vi.mocked(browser.storage.local.set).mock.calls;
+    const vaultCall = [...setCalls].reverse().find((call) => VAULT_STORAGE_KEY in (call[0] as object));
+    const written = (vaultCall![0] as Record<string, StoredVault>)[VAULT_STORAGE_KEY];
+
+    expect((await decryptVault(written, newMaster)).isOk()).toBe(true);
+    expect((await decryptVault(written, MASTER)).isErr()).toBe(true);
+    expect(browser.storage.session.set).toHaveBeenCalledWith(
+      expect.objectContaining({ [SESSION_MASTER_KEY]: newMaster })
+    );
+  });
+});
+
+// ── sidebar/session-expired-empty-master [MEDIUM] ─────────────────────────────
+describe("vaultController — save with no session master and empty new-master fields", () => {
+  test("aborts with the 'Session expired' message instead of re-encrypting with a null master", async () => {
+    vi.resetModules();
+    setupSidebarDom();
+    const payload: VaultPayload = { email: TEST_EMAIL, password: TEST_PASSWORD, totpSecret: TEST_TOTP };
+    const vault = unwrap(await encryptVault(payload, MASTER));
+    await configureSnapshot({
+      mode: "unlocked",
+      storedVault: vault,
+      sessionMasterPassword: null,
+      sessionPayload: payload,
+    });
+    const browser = (await import("webextension-polyfill")).default;
+    vi.mocked(browser.storage.local.set).mockResolvedValue();
+    await loadController();
+
+    // New-master fields left empty; populated credential fields are valid.
+    // The polyfill mock is module-global; clear so we only observe THIS save.
+    vi.mocked(browser.storage.local.set).mockClear();
+    submitForm();
+
+    await vi.waitFor(() => {
+      expect(getStatusText()).toContain("Session expired");
+    });
+    expect(browser.storage.local.set).not.toHaveBeenCalled();
+  });
+});
+
+// ── sidebar/save-failed-encrypt-error [MEDIUM] ────────────────────────────────
+describe("vaultController — encryptVault failure on save", () => {
+  beforeEach(setupUnlockedController);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("shows 'Save failed' and re-enables the submit button when encryption fails", async () => {
+    vi.spyOn(globalThis.crypto.subtle, "encrypt").mockRejectedValue(new Error("crypto down"));
+
+    (document.getElementById("email") as HTMLInputElement).value = TEST_EMAIL;
+    (document.getElementById("password") as HTMLInputElement).value = TEST_PASSWORD;
+    (document.getElementById("totpSecret") as HTMLInputElement).value = TEST_TOTP;
+    submitForm();
+
+    await vi.waitFor(() => {
+      expect(getStatusText()).toContain("Save failed");
+    });
+    expect((document.getElementById("submit-btn") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+// ── sidebar/min-length-tautology [LOW] — real boundary in vaultController ──────
+describe("vaultController — new master length boundary on save", () => {
+  beforeEach(setupUnlockedController);
+
+  const fillCreds = (): void => {
+    (document.getElementById("email") as HTMLInputElement).value = TEST_EMAIL;
+    (document.getElementById("password") as HTMLInputElement).value = TEST_PASSWORD;
+    (document.getElementById("totpSecret") as HTMLInputElement).value = TEST_TOTP;
+  };
+
+  test(`a ${MIN_MASTER_PASSWORD_LENGTH - 1}-char new master is rejected as too short`, async () => {
+    const tooShort = "a".repeat(MIN_MASTER_PASSWORD_LENGTH - 1);
+    fillCreds();
+    (document.getElementById("newMasterPassword") as HTMLInputElement).value = tooShort;
+    (document.getElementById("confirmNewMasterPassword") as HTMLInputElement).value = tooShort;
+    submitForm();
+    await vi.waitFor(() => {
+      expect(getStatusText()).toContain(`at least ${MIN_MASTER_PASSWORD_LENGTH} characters`);
+    });
+  });
+
+  test(`a ${MIN_MASTER_PASSWORD_LENGTH}-char new master is accepted`, async () => {
+    const atMin = "a".repeat(MIN_MASTER_PASSWORD_LENGTH); // 12 chars, differs from CUNY password
+    fillCreds();
+    (document.getElementById("newMasterPassword") as HTMLInputElement).value = atMin;
+    (document.getElementById("confirmNewMasterPassword") as HTMLInputElement).value = atMin;
+    submitForm();
+    await vi.waitFor(() => {
+      expect(getStatusText()).toContain("Changes saved");
+    });
+  });
+});
+
+// ── sidebar/init-mode-header-panels-untested [LOW] ────────────────────────────
+describe("vaultController — header panel visibility per mode", () => {
+  const panelHidden = (id: string): boolean =>
+    (document.getElementById(id) as HTMLElement).hidden;
+
+  afterEach(() => {
+    document.body.removeAttribute("data-vault-ui");
+  });
+
+  test("locked mode: locked header + footer shown; status bar + totp card hidden", async () => {
+    vi.resetModules();
+    setupSidebarDom();
+    await configureSnapshot(await makeLockedSnapshot());
+    await loadController();
+
+    expect(panelHidden("vault-locked-header")).toBe(false);
+    expect(panelHidden("vault-footer")).toBe(false);
+    expect(panelHidden("vault-status-bar")).toBe(true);
+    expect(panelHidden("vault-totp-card")).toBe(true);
+  });
+
+  test("unlocked non-management: status bar shown; locked header, footer, totp card hidden", async () => {
+    await setupUnlockedController();
+
+    expect(panelHidden("vault-status-bar")).toBe(false);
+    expect(panelHidden("vault-locked-header")).toBe(true);
+    expect(panelHidden("vault-footer")).toBe(true);
+    expect(panelHidden("vault-totp-card")).toBe(true);
+  });
+
+  test("unlocked management mode: totp card is shown alongside the status bar", async () => {
+    vi.resetModules();
+    setupSidebarDom();
+    document.body.dataset.vaultUi = "sidebar-management";
+    await configureSnapshot(await makeUnlockedSnapshot());
+    const browser = (await import("webextension-polyfill")).default;
+    vi.mocked(browser.storage.local.set).mockResolvedValue();
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    await loadController();
+
+    expect(panelHidden("vault-totp-card")).toBe(false);
+    expect(panelHidden("vault-status-bar")).toBe(false);
+    expect(panelHidden("vault-locked-header")).toBe(true);
+    expect(panelHidden("vault-footer")).toBe(true);
+  });
+});

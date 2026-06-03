@@ -452,3 +452,22 @@ describe("decryptVault — error-code distinction: crypto_failed vs decrypt_fail
     expect(unwrapErr(await decryptVault(stored, MASTER))).toBe("decrypt_failed");
   });
 });
+
+// ── crypto/vault-encryptraw-drift [LOW] ──────────────────────────────────────
+// The encryptRaw helper hardcodes SALT_LENGTH (32) and IV_LENGTH (12) from
+// vault.ts's private constants. This guard derives the real lengths from a live
+// encryptVault output so changing those constants fails here loudly instead of
+// letting the helper silently encrypt with stale sizes (masking genuine drift).
+describe("encryptRaw helper stays in sync with vault.ts crypto params", () => {
+  const b64ByteLen = (b64: string): number => atob(b64).length;
+
+  test("real encryptVault salt/iv byte lengths match the helper's hardcoded sizes", async () => {
+    const real = unwrap(await encryptVault(PAYLOAD, MASTER));
+    expect(b64ByteLen(real.saltB64)).toBe(32); // SALT_LENGTH
+    expect(b64ByteLen(real.ivB64)).toBe(12); // IV_LENGTH
+
+    const raw = await encryptRaw("anything", MASTER);
+    expect(b64ByteLen(raw.saltB64)).toBe(b64ByteLen(real.saltB64));
+    expect(b64ByteLen(raw.ivB64)).toBe(b64ByteLen(real.ivB64));
+  });
+});

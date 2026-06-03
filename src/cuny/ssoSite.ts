@@ -26,7 +26,8 @@ export const LOGIN_EMAIL_SUFFIX = "@login.cuny.edu" as const;
  * - `obrareq.cgi`: typical redirect from CUNYFirst, Degreeworks, etc.
  * - `samlv20`: redirect from Brightspace; same form as obrareq but different path.
  */
-export const CREDENTIAL_PAGE_PATH_MARKERS = [
+// Module-private: consumed only by matchesCredentialPage below.
+const CREDENTIAL_PAGE_PATH_MARKERS = [
   "/oam/server/obrareq.cgi",
   "/oamfed/idp/samlv20",
 ] as const;
