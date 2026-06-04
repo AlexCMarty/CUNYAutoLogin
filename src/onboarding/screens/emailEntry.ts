@@ -29,12 +29,26 @@ const CREDENTIAL_ERROR_INLINE_COPY =
 const CTA_LABEL = "Continue";
 const BACK_LABEL = "Back";
 
-/** Strips repeated `@login.cuny.edu` tails (Playwright fill + seeded suffix can double in Chromium). */
+/**
+ * Strips spurious `@login.cuny.edu` tails that Playwright fill() can inject
+ * in Chromium when the input is seeded with `@login.cuny.edu` and the cursor
+ * lands at position 0 before fill types the new value there.
+ *
+ * Two cases handled:
+ *  1. Double suffix: `foo@login.cuny.edu@login.cuny.edu` → `foo@login.cuny.edu`
+ *  2. Appended suffix after a foreign domain: `foo@bar.edu@login.cuny.edu` → `foo@bar.edu`
+ */
 const stripDuplicateLoginSuffix = (value: string): string => {
   let out = value.trim();
   const double = `${LOGIN_EMAIL_SUFFIX}${LOGIN_EMAIL_SUFFIX}`;
   while (out.endsWith(double)) {
     out = out.slice(0, -LOGIN_EMAIL_SUFFIX.length);
+  }
+  if (out.endsWith(LOGIN_EMAIL_SUFFIX)) {
+    const beforeSuffix = out.slice(0, -LOGIN_EMAIL_SUFFIX.length);
+    if (beforeSuffix.includes("@")) {
+      out = beforeSuffix;
+    }
   }
   return out;
 };

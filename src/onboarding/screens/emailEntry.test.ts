@@ -194,6 +194,29 @@ describe("mountEmailEntryScreen", () => {
     expect(input?.value).toBe("returning@login.cuny.edu");
   });
 
+  test("strips spurious @login.cuny.edu suffix appended after a non-CUNY domain at mount", () => {
+    const { ctx } = buildCtx(root, "jane.doe@baruchmail.cuny.edu@login.cuny.edu");
+    mountEmailEntryScreen(ctx);
+
+    const input = root.querySelector<HTMLInputElement>(EMAIL_INPUT_SELECTOR);
+    expect(input?.value).toBe("jane.doe@baruchmail.cuny.edu");
+  });
+
+  test("handleInput strips spurious @login.cuny.edu suffix and keeps forward disabled", () => {
+    const { ctx, dispatch } = buildCtx(root);
+    mountEmailEntryScreen(ctx);
+
+    const input = root.querySelector<HTMLInputElement>(EMAIL_INPUT_SELECTOR)!;
+    const forward = root.querySelector<HTMLButtonElement>(EMAIL_FORWARD_SELECTOR)!;
+
+    setValue(input, "jane.doe@baruchmail.cuny.edu@login.cuny.edu");
+    expect(input.value).toBe("jane.doe@baruchmail.cuny.edu");
+    expect(forward.disabled).toBe(true);
+
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(dispatch).not.toHaveBeenCalledWith("NEXT");
+  });
+
   test("empty input on blur hides the hint (avoids shouting at an untouched field)", () => {
     const { ctx } = buildCtx(root);
     mountEmailEntryScreen(ctx);
