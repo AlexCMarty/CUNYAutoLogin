@@ -78,7 +78,7 @@ The service worker supplies the pasted TOTP secret for the login challenge: when
 `onboarding/render.ts` registers `runtime.onMessage` routing known `ONBOARDING_*` messages through `applyOnboardingMessage(controller, message)`:
 
 - `ONBOARDING_CREDENTIAL_ERROR { culprit }` → if state is `TEST_LOGIN`, dispatches `TEST_BAD_CREDENTIALS`; otherwise routes to `EMAIL_ENTRY` or `PASSWORD_ENTRY` with an inline red banner.
-- `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advances `OPENING_CUNY` or `TEST_LOGIN` to their respective next state (`CREDENTIALS_ACCEPTED`/`TOTP_DONE` or `TEST_SUCCEEDED`).
+- `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advances `OPENING_CUNY` (`CREDENTIALS_ACCEPTED`) or `CUNY_TOTP` (`TOTP_DONE`) toward `ALLOW_GATE`. **Not** `TEST_LOGIN`: the allow gate is a mid-flow consent page, not login proof, so TEST_LOGIN success comes only from the real Brightspace session cookie (`wireBrightspaceCookieDetection` → `TEST_SUCCEEDED`).
 - `ONBOARDING_REOPEN_CUNY_TAB` → service worker opens an allow-listed URL in a new tab (default `CUNY_LOGIN_ENTRY_URL` when `url` omitted; `COMPLETE_DEMO` sends `BRIGHTSPACE_HOME_URL`).
 - `ONBOARDING_VERIFY_STATUS { status }` → `"success"` advances `VERIFY_LOGIN_CODE` to `VERIFY_SUCCEEDED`; `"second_failure"` advances `TEST_LOGIN` to `TEST_BAD_KEY` (or shows pause banner on `VERIFY_LOGIN_CODE`).
 - `ONBOARDING_OVERLAY_COMMAND` / `ONBOARDING_TAB_REATTACHED` → validated and ack-only via service worker; sidebar handlers wired in `onboarding/render.ts`.

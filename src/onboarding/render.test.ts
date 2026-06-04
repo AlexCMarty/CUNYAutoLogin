@@ -306,6 +306,35 @@ describe("mountOnboarding", () => {
     expect(document.querySelector("[data-onboarding-screen='EXT_PASSWORD_SETUP']")).not.toBeNull();
   });
 
+  test("bridge allow_gate while mounted in TEST_LOGIN keeps the TEST_LOGIN screen (no premature jump to EXT_PASSWORD_SETUP)", () => {
+    renderOnboardingRoot();
+    mountOnboarding(document, {
+      qaJump: { controllerInit: { initialState: "TEST_LOGIN" }, qaVariant: undefined },
+    });
+    expect(document.querySelector("[data-onboarding-screen='TEST_LOGIN']")).not.toBeNull();
+
+    const listener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls[0]?.[0];
+    if (typeof listener !== "function") throw new Error("bridge listener missing");
+    listener(
+      { type: "ONBOARDING_STAGE_DETECTED", stage: "allow_gate" },
+      trustedOnboardingBridgeSender(123),
+      () => undefined
+    );
+
+    // Must still be on TEST_LOGIN (the in-progress beads), NOT jumped ahead.
+    expect(document.querySelector("[data-onboarding-screen='TEST_LOGIN']")).not.toBeNull();
+    expect(document.querySelector("[data-onboarding-screen='EXT_PASSWORD_SETUP']")).toBeNull();
+
+    // The REAL success signal (Brightspace cookie) must still advance the flow.
+    const cookieListener = vi.mocked(browser.cookies.onChanged.addListener).mock.calls[0]?.[0];
+    if (typeof cookieListener !== "function") throw new Error("cookies.onChanged listener missing");
+    cookieListener({
+      removed: false,
+      cookie: { name: "d2lSessionVal", domain: "brightspace.cuny.edu" },
+    } as never);
+    expect(document.querySelector("[data-onboarding-screen='EXT_PASSWORD_SETUP']")).not.toBeNull();
+  });
+
   test("cookies.onChanged is ignored when cookie is removed", () => {
     renderOnboardingRoot();
     mountOnboarding(document, {
@@ -479,6 +508,27 @@ describe("mountOnboarding", () => {
       stage: "allow_gate",
     });
     expect(controller.getSnapshot().state).toBe("ALLOW_GATE");
+  });
+
+  test("ONBOARDING_STAGE_DETECTED(allow_gate) while in TEST_LOGIN does NOT advance (allow gate is not login proof)", () => {
+    // TEST_LOGIN proves the pasted key works by completing a REAL Brightspace
+    // login; success is signalled only by the Brightspace session cookie
+    // (wireBrightspaceCookieDetection). Reaching CUNY's OAuth consent gate
+    // (mfaConsent.jsp) mid-flow is NOT proof of login — the user still has to
+    // click Allow and the SAML assertion must complete before the cookie is set.
+    // Treating allow_gate as TEST_SUCCEEDED jumps the student straight to
+    // "Pick a password" (EXT_PASSWORD_SETUP) before the login has finished:
+    // the bug seen when the OAA session is sitting at the allow gate.
+    const controller = createOnboardingController({
+      initialState: "TEST_LOGIN",
+      initialEmail: "jane@login.cuny.edu",
+      initialPassword: "pw",
+    });
+    applyOnboardingMessage(controller, {
+      type: "ONBOARDING_STAGE_DETECTED",
+      stage: "allow_gate",
+    });
+    expect(controller.getSnapshot().state).toBe("TEST_LOGIN");
   });
 
   test("ONBOARDING_CREDENTIAL_ERROR(password) routes to PASSWORD_ENTRY and stashes the error", () => {

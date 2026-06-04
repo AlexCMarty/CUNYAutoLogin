@@ -263,11 +263,18 @@ const handleCunyTotpChallenge = (controller: OnboardingController): void => {
 const handleAllowGate = (controller: OnboardingController): void => {
   // mfaConsent.jsp loaded. Advance from OPENING_CUNY (CUNY skipped TOTP) or
   // CUNY_TOTP (normal flow where TOTP was shown first).
+  //
+  // NOTE: TEST_LOGIN is deliberately NOT advanced here. The allow gate is a
+  // mid-flow OAuth consent page, not proof of a successful Brightspace login —
+  // the user still has to click Allow and the SAML assertion must complete
+  // before the session is established. TEST_LOGIN success is signalled solely
+  // by the real Brightspace session cookie (wireBrightspaceCookieDetection).
+  // Treating the allow gate as success here jumped the student to
+  // EXT_PASSWORD_SETUP before the login actually finished.
   if (controller.getSnapshot().state === "OPENING_CUNY") {
     controller.dispatch("CREDENTIALS_ACCEPTED");
   }
   dispatchIfState(controller, "CUNY_TOTP", "TOTP_DONE");
-  dispatchIfState(controller, "TEST_LOGIN", "TEST_SUCCEEDED");
 };
 
 const handleAllowButtonClicked = (controller: OnboardingController): void => {
