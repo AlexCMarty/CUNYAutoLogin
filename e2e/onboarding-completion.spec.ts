@@ -799,7 +799,7 @@ test.describe("biometric unlock after enrollment", () => {
         })
     );
     await page.goto(`chrome-extension://${extensionId}/sidebar.html`);
-    await expect(page.locator("#vault-status-bar")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#mode-hint")).toBeVisible({ timeout: 10_000 });
 
     await lockVault(page);
     const bioBtn = page.locator("#biometric-unlock-btn");
@@ -808,8 +808,8 @@ test.describe("biometric unlock after enrollment", () => {
 
     await bioBtn.click();
 
-    // Successful unlock re-renders the status bar and hides the locked header.
-    await expect(page.locator("#vault-status-bar")).toBeVisible({ timeout: 10_000 });
+    // Successful unlock re-renders the unlocked UI and hides the locked header.
+    await expect(page.locator("#mode-hint")).toBeVisible({ timeout: 10_000 });
     await expect(page.locator("#vault-locked-header")).toBeHidden();
     await expect(page.locator("#masterPassword")).toHaveValue("");
   });
@@ -853,7 +853,7 @@ test.describe("biometric unlock after enrollment", () => {
         })
     );
     await page.goto(`chrome-extension://${extensionId}/sidebar.html`);
-    await expect(page.locator("#vault-status-bar")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#mode-hint")).toBeVisible({ timeout: 10_000 });
 
     await lockVault(page);
     await expect(page.locator("#biometric-unlock-btn")).toBeHidden();

@@ -106,38 +106,6 @@ body {
   min-height: 100vh;
 }
 
-/* Status bar — unlocked mode */
-.vault-status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.vault-status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.vault-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: oklch(0.7 0.15 145);
-  flex-shrink: 0;
-}
-
-.vault-status-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--clr-text-secondary);
-}
-
-.vault-session-timer {
-  font-size: 11px;
-  color: var(--clr-text-muted);
-}
-
 /* Locked-mode header */
 .vault-locked-header {
   display: flex;

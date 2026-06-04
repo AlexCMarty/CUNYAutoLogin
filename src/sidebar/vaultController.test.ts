@@ -60,7 +60,6 @@ function setupSidebarDom(): void {
   document.body.innerHTML = `
     <div id="status"></div>
     <div id="vault-locked-header"></div>
-    <div id="vault-status-bar"></div>
     <div id="vault-totp-card">
       <button type="button" id="advanced-toggle" aria-expanded="false" aria-controls="advanced-body">Advanced</button>
       <div id="advanced-body" hidden>
@@ -939,7 +938,7 @@ describe("vaultController — header panel visibility per mode", () => {
     document.body.removeAttribute("data-vault-ui");
   });
 
-  test("locked mode: locked header + footer shown; status bar + totp card hidden", async () => {
+  test("locked mode: locked header + footer shown; totp card hidden", async () => {
     vi.resetModules();
     setupSidebarDom();
     await configureSnapshot(await makeLockedSnapshot());
@@ -947,20 +946,18 @@ describe("vaultController — header panel visibility per mode", () => {
 
     expect(panelHidden("vault-locked-header")).toBe(false);
     expect(panelHidden("vault-footer")).toBe(false);
-    expect(panelHidden("vault-status-bar")).toBe(true);
     expect(panelHidden("vault-totp-card")).toBe(true);
   });
 
-  test("unlocked non-management: status bar shown; locked header, footer, totp card hidden", async () => {
+  test("unlocked non-management: locked header, footer, totp card hidden", async () => {
     await setupUnlockedController();
 
-    expect(panelHidden("vault-status-bar")).toBe(false);
     expect(panelHidden("vault-locked-header")).toBe(true);
     expect(panelHidden("vault-footer")).toBe(true);
     expect(panelHidden("vault-totp-card")).toBe(true);
   });
 
-  test("unlocked management mode: totp card is shown alongside the status bar", async () => {
+  test("unlocked management mode: totp card is shown", async () => {
     vi.resetModules();
     setupSidebarDom();
     document.body.dataset.vaultUi = "sidebar-management";
@@ -971,7 +968,6 @@ describe("vaultController — header panel visibility per mode", () => {
     await loadController();
 
     expect(panelHidden("vault-totp-card")).toBe(false);
-    expect(panelHidden("vault-status-bar")).toBe(false);
     expect(panelHidden("vault-locked-header")).toBe(true);
     expect(panelHidden("vault-footer")).toBe(true);
   });

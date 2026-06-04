@@ -72,7 +72,8 @@ export async function setupVault(page: Page, extensionId: string): Promise<void>
   );
   await page.reload();
   // After reload the vault controller hydrates from snapshot → unlocked state.
-  await expect(page.locator("#vault-status-bar")).toBeVisible({ timeout: 15_000 });
+  // The mode hint is hidden in HTML and only shown once unlocked mode renders.
+  await expect(page.locator("#mode-hint")).toBeVisible({ timeout: 15_000 });
 }
 
 export async function clearVaultIfPossible(page: Page): Promise<void> {

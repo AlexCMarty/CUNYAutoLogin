@@ -42,6 +42,10 @@ export const decryptStatusMessage = (vaultError: VaultError): string =>
 export function setStatus(message: string, ok = false): void {
   const statusEl = document.getElementById("status");
   if (!statusEl) return;
+  // Collapse the line entirely when empty so it reserves no space — without a
+  // header above it (unlocked vault), a blank reserved line reads as a top gap.
+  // Un-hide before writing text so the aria-live region announces the change.
+  statusEl.hidden = message.length === 0;
   statusEl.textContent = message;
   statusEl.classList.toggle("ok", ok);
 }

@@ -19,15 +19,6 @@
     -->
     <div id="onboarding-root" hidden></div>
     <main class="vault-wrap">
-      <!-- Vault status bar (shown in unlocked mode) -->
-      <div id="vault-status-bar" class="vault-status-bar" hidden>
-        <div class="vault-status-indicator">
-          <span class="vault-status-dot"></span>
-          <span class="vault-status-label">Unlocked</span>
-        </div>
-        <span id="vault-session-timer" class="vault-session-timer"></span>
-      </div>
-
       <!-- Locked-mode header (shown only in locked mode) -->
       <div id="vault-locked-header" class="vault-locked-header" hidden>
         <span class="vault-locked-pill">Locked</span>
@@ -35,7 +26,7 @@
         <p id="vault-greeting-sub" class="vault-greeting-sub">Use your biometrics or type your password to fill your CUNY sign-in.</p>
       </div>
 
-      <p id="status" class="vault-status-msg" role="status" aria-live="polite"></p>
+      <p id="status" class="vault-status-msg" role="status" aria-live="polite" hidden></p>
 
       <form id="vault-form" autocomplete="off" novalidate>
         <p id="mode-hint" class="vault-mode-hint" hidden></p>

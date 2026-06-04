@@ -211,6 +211,19 @@ describe("setStatus", () => {
     document.body.innerHTML = "";
     expect(() => setStatus("no element")).not.toThrow();
   });
+
+  test("a non-empty message un-hides the element", () => {
+    const el = document.getElementById("status")!;
+    el.hidden = true;
+    setStatus("Saved.");
+    expect(el.hidden).toBe(false);
+  });
+
+  test("an empty message collapses the element (hidden) so it reserves no space", () => {
+    const el = document.getElementById("status")!;
+    setStatus("");
+    expect(el.hidden).toBe(true);
+  });
 });
 
 describe("hideTotpSecretSourceHint", () => {

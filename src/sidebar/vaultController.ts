@@ -250,12 +250,10 @@ function getEls(): Result<SidebarDom, "missing_dom"> {
 /** Show/hide the new design-system vault header panels using the `hidden` attribute. */
 const updateVaultHeaders = (mode: Mode): void => {
   const lockedHeader = document.getElementById("vault-locked-header");
-  const statusBar = document.getElementById("vault-status-bar");
   const totpCard = document.getElementById("vault-totp-card");
   const footer = document.getElementById("vault-footer");
 
   if (lockedHeader) lockedHeader.hidden = mode !== "locked";
-  if (statusBar) statusBar.hidden = mode !== "unlocked";
   if (totpCard) totpCard.hidden = mode !== "unlocked" || !isSidebarVaultManagement();
   if (footer) footer.hidden = mode !== "locked";
 };

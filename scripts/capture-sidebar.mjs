@@ -348,9 +348,11 @@ async function captureVaultUnlocked(page, url, opts, outPath) {
   );
   // Second nav — sidebar boots, loadVaultSessionSnapshot decrypts, mode=unlocked.
   await page.goto(url, { waitUntil: "load", timeout: 30_000 });
-  // Wait for vaultController to finish renderMode("unlocked") — status bar starts hidden in HTML.
+  // Wait for vaultController to finish renderMode("unlocked"). The mode hint is
+  // `hidden` in the HTML and only un-hidden once the vault decrypts into unlocked
+  // mode, so its visibility is a reliable "unlocked rendered" signal.
   await page
-    .locator("#vault-status-bar:not([hidden])")
+    .locator("#mode-hint:not([hidden])")
     .waitFor({ state: "visible", timeout: 15_000 });
   await page.screenshot({ path: outPath, fullPage: opts.fullPage });
 }
