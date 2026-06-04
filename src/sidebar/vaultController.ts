@@ -23,6 +23,7 @@ import {
   hideTotpSecretSourceHint,
   clearPendingTotpFromSession,
   effectiveTotpSecretForSave,
+  groupSecretForDisplay,
 } from "./sidebar.utils";
 export type { SidebarDom } from "./sidebar.utils";
 
@@ -67,6 +68,108 @@ function setupPasswordToggles(): void {
   });
 }
 
+/** How long the Copy button shows its "Copied" confirmation before resetting. */
+const COPY_FEEDBACK_MS = 1600;
+
+interface AdvancedRevealEls {
+  toggle: HTMLButtonElement;
+  body: HTMLElement;
+  showBtn: HTMLButtonElement;
+  secretBlock: HTMLElement;
+  secretValue: HTMLElement;
+  copyBtn: HTMLButtonElement;
+  hideBtn: HTMLButtonElement;
+}
+
+/** Resolve the Advanced secret-key reveal elements; null when the markup is
+ *  absent (non-management contexts and most unit-test fixtures). */
+function getAdvancedRevealEls(): AdvancedRevealEls | null {
+  const toggle = document.getElementById("advanced-toggle");
+  const body = document.getElementById("advanced-body");
+  const showBtn = document.getElementById("show-secret-btn");
+  const secretBlock = document.getElementById("secret-block");
+  const secretValue = document.getElementById("secret-value");
+  const copyBtn = document.getElementById("copy-secret-btn");
+  const hideBtn = document.getElementById("hide-secret-btn");
+  if (
+    toggle instanceof HTMLButtonElement &&
+    body instanceof HTMLElement &&
+    showBtn instanceof HTMLButtonElement &&
+    secretBlock instanceof HTMLElement &&
+    secretValue instanceof HTMLElement &&
+    copyBtn instanceof HTMLButtonElement &&
+    hideBtn instanceof HTMLButtonElement
+  ) {
+    return { toggle, body, showBtn, secretBlock, secretValue, copyBtn, hideBtn };
+  }
+  return null;
+}
+
+/** Copy the raw (ungrouped) secret to the clipboard. Failures are non-fatal —
+ *  the key is still visible for manual copy. */
+async function copySecretToClipboard(rawSecret: string): Promise<void> {
+  if (!rawSecret) return;
+  try {
+    await navigator.clipboard?.writeText(rawSecret);
+  } catch (error) {
+    if (import.meta.env.MODE !== "production") {
+      // eslint-disable-next-line no-console
+      console.warn("[CUNYAutoLogin] sidebar: clipboard copy failed", error);
+    }
+  }
+}
+
+/**
+ * Wire the Advanced secret-key reveal inside the Six-digit code card.
+ * Friction is intentional: Advanced disclosure → caution → "Show secret key".
+ * The display is grouped in 4s; Copy uses the raw secret. Reassigns
+ * `resetAdvancedSecretReveal` so lock re-conceals before any re-unlock.
+ */
+function setupAdvancedSecretReveal(): void {
+  const adv = getAdvancedRevealEls();
+  if (!adv) return;
+
+  const copyLabel = adv.copyBtn.querySelector("span");
+  let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const resetCopy = (): void => {
+    adv.copyBtn.classList.remove("is-ok");
+    if (copyLabel) copyLabel.textContent = "Copy";
+    if (copyTimer !== null) clearTimeout(copyTimer);
+    copyTimer = null;
+  };
+  const concealKey = (): void => {
+    adv.secretBlock.hidden = true;
+    adv.showBtn.hidden = false;
+    resetCopy();
+  };
+  resetAdvancedSecretReveal = (): void => {
+    adv.toggle.setAttribute("aria-expanded", "false");
+    adv.body.hidden = true;
+    concealKey();
+  };
+
+  adv.toggle.addEventListener("click", () => {
+    const open = adv.toggle.getAttribute("aria-expanded") === "true";
+    adv.toggle.setAttribute("aria-expanded", String(!open));
+    adv.body.hidden = open;
+    if (open) concealKey(); // collapsing re-conceals the key
+  });
+  adv.showBtn.addEventListener("click", () => {
+    adv.secretValue.textContent = groupSecretForDisplay(sessionPayload?.totpSecret ?? "");
+    adv.showBtn.hidden = true;
+    adv.secretBlock.hidden = false;
+  });
+  adv.hideBtn.addEventListener("click", concealKey);
+  adv.copyBtn.addEventListener("click", async () => {
+    await copySecretToClipboard(sessionPayload?.totpSecret ?? "");
+    adv.copyBtn.classList.add("is-ok");
+    if (copyLabel) copyLabel.textContent = "Copied";
+    if (copyTimer !== null) clearTimeout(copyTimer);
+    copyTimer = setTimeout(resetCopy, COPY_FEEDBACK_MS);
+  });
+}
+
 // In-memory session state — never written to storage
 type Mode = "locked" | "unlocked";
 let currentMode: Mode = "locked";
@@ -74,6 +177,9 @@ let sessionMasterPassword: string | null = null;
 let sessionPayload: VaultPayload | null = null;
 let storedVault: StoredVault | null = null;
 let isBiometricAvailable = false;
+/** Collapses the Advanced disclosure and re-conceals the secret key. Replaced
+ *  with the real reset by setupAdvancedSecretReveal(); no-op until then. */
+let resetAdvancedSecretReveal: () => void = () => {};
 
 const isSidebarVaultManagement = (): boolean =>
   document.body.dataset.vaultUi === "sidebar-management";
@@ -336,6 +442,7 @@ async function handleLock(els: SidebarDom): Promise<void> {
   await clearSessionMaster();
   await clearPendingTotpFromSession();
   hideTotpSecretSourceHint(els);
+  resetAdvancedSecretReveal();
   currentMode = "locked";
   setStatus("");
   renderMode(els);
@@ -442,6 +549,7 @@ async function init(): Promise<void> {
 
   renderMode(els);
   setupPasswordToggles();
+  setupAdvancedSecretReveal();
 
   els.totpSecret.addEventListener("input", () => hideTotpSecretSourceHint(els));
 

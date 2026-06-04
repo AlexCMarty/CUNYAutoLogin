@@ -61,7 +61,17 @@ function setupSidebarDom(): void {
     <div id="status"></div>
     <div id="vault-locked-header"></div>
     <div id="vault-status-bar"></div>
-    <div id="vault-totp-card"></div>
+    <div id="vault-totp-card">
+      <button type="button" id="advanced-toggle" aria-expanded="false" aria-controls="advanced-body">Advanced</button>
+      <div id="advanced-body" hidden>
+        <button type="button" id="show-secret-btn">Show secret key</button>
+        <div id="secret-block" hidden>
+          <div id="secret-value" aria-label="Secret key"></div>
+          <button type="button" id="copy-secret-btn"><span>Copy</span></button>
+          <button type="button" id="hide-secret-btn"><span>Hide</span></button>
+        </div>
+      </div>
+    </div>
     <div id="vault-footer"></div>
     <div>
       <form id="vault-form">
@@ -964,5 +974,93 @@ describe("vaultController — header panel visibility per mode", () => {
     expect(panelHidden("vault-status-bar")).toBe(false);
     expect(panelHidden("vault-locked-header")).toBe(true);
     expect(panelHidden("vault-footer")).toBe(true);
+  });
+});
+
+describe("vaultController — Advanced secret-key reveal", () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+
+  beforeEach(async () => {
+    writeText.mockClear();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    // Reveal lives in the post-onboarding management sidebar.
+    document.body.dataset.vaultUi = "sidebar-management";
+    await setupUnlockedController();
+  });
+
+  const advToggle = (): HTMLButtonElement =>
+    document.getElementById("advanced-toggle") as HTMLButtonElement;
+  const advBody = (): HTMLElement => document.getElementById("advanced-body") as HTMLElement;
+  const showBtn = (): HTMLButtonElement =>
+    document.getElementById("show-secret-btn") as HTMLButtonElement;
+  const secretBlock = (): HTMLElement => document.getElementById("secret-block") as HTMLElement;
+  const secretValue = (): HTMLElement => document.getElementById("secret-value") as HTMLElement;
+  const copyBtn = (): HTMLButtonElement =>
+    document.getElementById("copy-secret-btn") as HTMLButtonElement;
+  const hideBtn = (): HTMLButtonElement =>
+    document.getElementById("hide-secret-btn") as HTMLButtonElement;
+
+  test("starts collapsed and concealed", () => {
+    expect(advToggle().getAttribute("aria-expanded")).toBe("false");
+    expect(advBody().hidden).toBe(true);
+    expect(secretBlock().hidden).toBe(true);
+  });
+
+  test("toggling Advanced expands the body but keeps the key behind Show", () => {
+    advToggle().click();
+    expect(advToggle().getAttribute("aria-expanded")).toBe("true");
+    expect(advBody().hidden).toBe(false);
+    expect(secretBlock().hidden).toBe(true);
+    expect(showBtn().hidden).toBe(false);
+  });
+
+  test("Show secret key reveals the secret grouped in 4-char blocks", () => {
+    advToggle().click();
+    showBtn().click();
+    expect(secretBlock().hidden).toBe(false);
+    expect(showBtn().hidden).toBe(true);
+    expect(secretValue().textContent).toBe("JBSW Y3DP EHPK 3PXP");
+  });
+
+  test("Copy writes the raw ungrouped secret to the clipboard and confirms", async () => {
+    advToggle().click();
+    showBtn().click();
+    copyBtn().click();
+    await vi.waitFor(() => {
+      expect(copyBtn().classList.contains("is-ok")).toBe(true);
+    });
+    expect(writeText).toHaveBeenCalledWith(TEST_TOTP);
+    expect(copyBtn().querySelector("span")?.textContent).toBe("Copied");
+  });
+
+  test("Hide re-conceals the revealed secret", () => {
+    advToggle().click();
+    showBtn().click();
+    hideBtn().click();
+    expect(secretBlock().hidden).toBe(true);
+    expect(showBtn().hidden).toBe(false);
+  });
+
+  test("collapsing Advanced re-conceals a revealed key", () => {
+    advToggle().click();
+    showBtn().click();
+    advToggle().click();
+    expect(advBody().hidden).toBe(true);
+    expect(secretBlock().hidden).toBe(true);
+    expect(showBtn().hidden).toBe(false);
+  });
+
+  test("locking resets the reveal to collapsed and concealed", async () => {
+    advToggle().click();
+    showBtn().click();
+    clickLockBtn();
+    await vi.waitFor(() => {
+      expect(advToggle().getAttribute("aria-expanded")).toBe("false");
+    });
+    expect(advBody().hidden).toBe(true);
+    expect(secretBlock().hidden).toBe(true);
   });
 });

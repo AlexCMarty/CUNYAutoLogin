@@ -281,6 +281,194 @@ body {
   line-height: 1.45;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Advanced secret-key reveal (inside the Six-digit code card)
+   ───────────────────────────────────────────────────────────────
+   Deliberate friction: Advanced disclosure → caution → Show key.
+   Copy puts the raw (ungrouped) secret on the clipboard; the display
+   is grouped in 4s by vaultController (groupSecretForDisplay).
+   Written in the existing token language. Handoff: advanced-key-reveal.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Faint divider separating the everyday copy from the advanced affordance */
+.vault-totp-divider {
+  height: 1px;
+  background: var(--clr-border);
+  opacity: 0.85;
+  margin: 8px 0 2px;
+}
+
+.vault-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vault-advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 0 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--clr-text);
+
+  &:focus-visible {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  &:hover .vault-advanced-label { color: var(--clr-text); }
+  &:hover .vault-advanced-chevron { color: var(--clr-text-secondary); }
+  &[aria-expanded="true"] .vault-advanced-chevron { transform: rotate(180deg); }
+}
+
+.vault-advanced-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  color: var(--clr-text-secondary);
+}
+
+.vault-advanced-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--clr-text-muted);
+  flex-shrink: 0;
+  transition: transform 0.18s ease, color 0.15s;
+}
+
+/* Collapsible body */
+.vault-advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+/* Caution copy — borrows the warn-banner token language for "handle with care" */
+.vault-advanced-warn {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--clr-warn-ink);
+  background: var(--clr-warn-bg);
+  border: 1px solid oklch(0.5 0.1 75 / 0.22);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  display: flex;
+  gap: 8px;
+
+  &::before {
+    content: "⚠";
+    flex-shrink: 0;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  & strong { font-weight: 700; }
+}
+
+/* Secondary "Show secret key" button (mirrors .secondary) */
+.vault-reveal-btn {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--clr-border-input);
+  cursor: pointer;
+  background: transparent;
+  color: var(--clr-text-secondary);
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--clr-border);
+    border-color: var(--clr-text-muted);
+    color: var(--clr-text);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 1px;
+  }
+
+  & svg { width: 14px; height: 14px; flex-shrink: 0; }
+}
+
+/* Revealed key block */
+.vault-secret {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vault-secret-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--clr-text);
+  background: var(--clr-hint-bg);
+  border: 1px dashed var(--clr-border-input);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  word-break: break-all;
+  line-height: 1.5;
+  user-select: all;
+}
+
+.vault-secret-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.vault-secret-action {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--clr-border-input);
+  cursor: pointer;
+  background: transparent;
+  color: var(--clr-text-secondary);
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--clr-border);
+    border-color: var(--clr-text-muted);
+    color: var(--clr-text);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 1px;
+  }
+
+  & svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  &.is-ok {
+    color: var(--clr-ok-ink);
+    border-color: oklch(0.45 0.08 145 / 0.4);
+  }
+}
+
 /* Vault actions */
 .vault-actions {
   display: flex;

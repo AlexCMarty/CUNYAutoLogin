@@ -10,6 +10,7 @@ import {
   applyPendingTotpFromPage,
   clearPendingTotpFromSession,
   effectiveTotpSecretForSave,
+  groupSecretForDisplay,
   MIN_MASTER_PASSWORD_LENGTH,
   type SidebarDom,
 } from "./sidebar.utils";
@@ -86,6 +87,27 @@ describe("effectiveTotpSecretForSave", () => {
 
   test("returns empty when not management and field empty", () => {
     expect(effectiveTotpSecretForSave("", "JBSWY3DPEHPK3PXP", false)).toBe("");
+  });
+});
+
+describe("groupSecretForDisplay", () => {
+  test("groups a 32-char Base32 secret into 4-char blocks", () => {
+    expect(groupSecretForDisplay("JBSWY3DPEHPK3PXPNVSWG33OMFWWK3DM")).toBe(
+      "JBSW Y3DP EHPK 3PXP NVSW G33O MFWW K3DM"
+    );
+  });
+
+  test("keeps a trailing partial block when length is not a multiple of 4", () => {
+    expect(groupSecretForDisplay("JBSWY3DPEHPK3PXPNV")).toBe("JBSW Y3DP EHPK 3PXP NV");
+  });
+
+  test("strips existing whitespace before regrouping", () => {
+    expect(groupSecretForDisplay("  JBSW Y3DP EHPK 3PXP  ")).toBe("JBSW Y3DP EHPK 3PXP");
+  });
+
+  test("returns empty string for an empty secret", () => {
+    expect(groupSecretForDisplay("")).toBe("");
+    expect(groupSecretForDisplay("   ")).toBe("");
   });
 });
 

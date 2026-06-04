@@ -93,6 +93,17 @@ export async function applyPendingTotpFromPage(els: SidebarDom): Promise<void> {
 }
 
 /**
+ * Group a Base32 secret into space-separated 4-character blocks for legibility
+ * in the Advanced "Show secret key" reveal. Whitespace is stripped first, so
+ * an already-grouped value re-groups cleanly. Copy still uses the raw,
+ * ungrouped secret (see vaultController copy handler).
+ */
+export function groupSecretForDisplay(secret: string): string {
+  const normalized = secret.trim().replace(/\s+/g, "");
+  return normalized.match(/.{1,4}/g)?.join(" ") ?? "";
+}
+
+/**
  * Sidebar management hides the TOTP field; when the field is empty,
  * re-encrypt using the session payload secret.
  */
