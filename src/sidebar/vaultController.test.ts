@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, test, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import { encryptVault, decryptVault } from "../crypto/vault";
 import type { StoredVault, VaultPayload } from "../crypto/vault";
 import { unwrap } from "../testUtils/resultUnwrap";
@@ -155,6 +155,33 @@ function getStatusText(): string {
 
 function getSubmitBtnText(): string {
   return (document.getElementById("submit-btn") as HTMLButtonElement).textContent ?? "";
+}
+
+/**
+ * The webextension-polyfill mock is shared across parallel test files. After a save,
+ * wait until a vault in local.set calls (from `sinceCallIndex` onward) decrypts with
+ * `master` — not merely until any file writes any vault.
+ */
+async function waitForVaultWrittenWithMaster(
+  localSetMock: Mock,
+  master: string,
+  sinceCallIndex: number
+): Promise<StoredVault> {
+  let written: StoredVault | undefined;
+  await vi.waitFor(async () => {
+    const calls = localSetMock.mock.calls.slice(sinceCallIndex);
+    for (const call of calls) {
+      const record = call[0] as Record<string, unknown>;
+      if (!(VAULT_STORAGE_KEY in record)) continue;
+      const candidate = record[VAULT_STORAGE_KEY] as StoredVault;
+      if ((await decryptVault(candidate, master)).isOk()) {
+        written = candidate;
+        return;
+      }
+    }
+    throw new Error("vault not yet written with expected master");
+  });
+  return written!;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -821,20 +848,17 @@ describe("vaultController — changed master re-encrypts under the new master", 
     (document.getElementById("totpSecret") as HTMLInputElement).value = TEST_TOTP;
     (document.getElementById("newMasterPassword") as HTMLInputElement).value = newMaster;
     (document.getElementById("confirmNewMasterPassword") as HTMLInputElement).value = newMaster;
-    // The polyfill mock is module-global; clear so we only observe THIS save.
+    // The polyfill mock is module-global; clear so we only observe calls from this save onward.
     vi.mocked(browser.storage.local.set).mockClear();
     vi.mocked(browser.storage.session.set).mockClear();
+    const localSetCallsAtStart = vi.mocked(browser.storage.local.set).mock.calls.length;
     submitForm();
 
-    await vi.waitFor(() => {
-      expect(browser.storage.local.set).toHaveBeenCalledWith(
-        expect.objectContaining({ [VAULT_STORAGE_KEY]: expect.any(Object) })
-      );
-    });
-
-    const setCalls = vi.mocked(browser.storage.local.set).mock.calls;
-    const vaultCall = [...setCalls].reverse().find((call) => VAULT_STORAGE_KEY in (call[0] as object));
-    const written = (vaultCall![0] as Record<string, StoredVault>)[VAULT_STORAGE_KEY];
+    const written = await waitForVaultWrittenWithMaster(
+      vi.mocked(browser.storage.local.set),
+      newMaster,
+      localSetCallsAtStart
+    );
 
     expect((await decryptVault(written, newMaster)).isOk()).toBe(true);
     expect((await decryptVault(written, MASTER)).isErr()).toBe(true);
