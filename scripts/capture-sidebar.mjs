@@ -285,6 +285,22 @@ async function encryptQaVault(masterPassword, payload) {
 }
 
 /**
+ * Remove dev/e2e-only chrome that must never appear in marketing captures:
+ * the `#qa=` jump banner ([data-dev-qa-jump-banner], onboarding) and the vault
+ * debug panel (section.dev-test). Both render only in dev builds, so stripping
+ * them lets a dev/e2e build (the one that honours `#qa=`) yield production-clean
+ * shots. No-op on production builds, where neither element exists.
+ *
+ * @param {import("@playwright/test").Page} page
+ */
+async function stripDevChrome(page) {
+  await page.evaluate(() => {
+    document.querySelector("[data-dev-qa-jump-banner]")?.remove();
+    document.querySelector("section.dev-test")?.remove();
+  });
+}
+
+/**
  * Capture the vault-locked UI. Injects a dummy (non-decryptable) StoredVault
  * so the sidebar controller renders instead of onboarding, then shows the locked state.
  *
@@ -319,6 +335,7 @@ async function captureVaultLocked(page, url, opts, outPath, showBiometric = true
       if (btn) btn.hidden = false;
     });
   }
+  await stripDevChrome(page);
   await page.screenshot({ path: outPath, fullPage: opts.fullPage });
 }
 
@@ -354,6 +371,7 @@ async function captureVaultUnlocked(page, url, opts, outPath) {
   await page
     .locator("#mode-hint:not([hidden])")
     .waitFor({ state: "visible", timeout: 15_000 });
+  await stripDevChrome(page);
   await page.screenshot({ path: outPath, fullPage: opts.fullPage });
 }
 
@@ -393,6 +411,7 @@ async function captureBiometricOffer(page, url, opts, outPath) {
     await page
       .locator("[data-onboarding-biometric-use='true']")
       .waitFor({ state: "visible", timeout: 15_000 });
+    await stripDevChrome(page);
     await page.screenshot({ path: outPath, fullPage: opts.fullPage });
   } finally {
     await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId }).catch(() => {});
@@ -414,6 +433,7 @@ async function captureHash(page, url, opts, outPath) {
     .locator("#onboarding-root:not([hidden]), main.vault-wrap:not([hidden])")
     .first()
     .waitFor({ state: "visible", timeout: 15_000 });
+  await stripDevChrome(page);
   await page.screenshot({ path: outPath, fullPage: opts.fullPage });
 }
 
