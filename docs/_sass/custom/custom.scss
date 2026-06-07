@@ -1,0 +1,201 @@
+// Custom components for the CUNYAutoLogin site. Auto-imported by just-the-docs
+// after the theme + color scheme. Mirrors the extension's design language
+// (src/sidebar/sidebar.css). Uses CSS custom properties + oklch directly so the
+// public site matches the extension exactly (no Sass color math on these).
+
+:root {
+  --clr-bg: #f6f3ec;
+  --clr-surface: #ffffff;
+  --clr-border: #e3ddcd;
+  --clr-border-input: #cfc8b5;
+  --clr-text: #15140f;
+  --clr-text-secondary: #54514a;
+  --clr-text-muted: #9a9587;
+  --clr-accent: oklch(0.55 0.12 35);
+  --clr-accent-dark: oklch(0.45 0.12 35);
+  --clr-hint-bg: #efeadd;
+  --clr-ok-bg: #ecf2e4;
+  --clr-ok-ink: oklch(0.45 0.08 145);
+
+  --radius: 8px;
+  --radius-sm: 5px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+}
+
+// ── Hero ──────────────────────────────────────────────────────────────────
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: clamp(24px, 5vw, 56px);
+  padding: clamp(24px, 5vw, 56px) 0 clamp(16px, 4vw, 40px);
+  border-bottom: 1px solid var(--clr-border);
+  margin-bottom: var(--space-lg);
+}
+
+.hero-copy {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.hero-logo {
+  width: 56px;
+  height: 56px;
+  margin-bottom: var(--space-md);
+  border-radius: var(--radius-sm);
+}
+
+.hero-title {
+  font-size: clamp(28px, 6vw, 44px);
+  line-height: 1.1;
+  font-weight: 600;
+  color: var(--clr-text);
+  margin: 0 0 var(--space-sm);
+  letter-spacing: -0.02em;
+}
+
+.hero-tagline {
+  font-size: clamp(16px, 2.5vw, 20px);
+  color: var(--clr-text-secondary);
+  margin: 0 0 var(--space-lg);
+  max-width: 46ch;
+}
+
+.hero-shot {
+  flex: 0 1 300px;
+  display: flex;
+  justify-content: center;
+}
+
+.hero-shot img {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--clr-border);
+  box-shadow: 0 8px 28px rgba(21, 20, 15, 0.08);
+}
+
+// ── Buttons (mirror .primary / .secondary from the extension) ───────────────
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.btn-cta {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 11px 20px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-cta--primary {
+  background: var(--clr-accent);
+  color: #fff;
+
+  &:hover {
+    background: var(--clr-accent-dark);
+    color: #fff;
+  }
+}
+
+.btn-cta--secondary {
+  background: transparent;
+  color: var(--clr-text);
+  border-color: var(--clr-border-input);
+
+  &:hover {
+    border-color: var(--clr-text-muted);
+    background: var(--clr-border);
+  }
+}
+
+.hero-note {
+  font-size: 13px;
+  color: var(--clr-text-muted);
+  margin: 0;
+}
+
+// ── Feature cards ───────────────────────────────────────────────────────────
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+  margin: var(--space-lg) 0;
+}
+
+.feature-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  padding: var(--space-md);
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: var(--space-sm);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--clr-text);
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--clr-text-secondary);
+  }
+}
+
+// ── Screenshot strip ────────────────────────────────────────────────────────
+.shot-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-md);
+  margin: var(--space-lg) 0;
+}
+
+.shot-strip figure {
+  margin: 0;
+  text-align: center;
+}
+
+.shot-strip img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+}
+
+.shot-strip figcaption {
+  margin-top: var(--space-sm);
+  font-size: 13px;
+  color: var(--clr-text-muted);
+}
+
+// ── Trust callout (mirrors .onboarding-reassurance) ─────────────────────────
+.trust-callout {
+  background: var(--clr-hint-bg);
+  border-left: 3px solid var(--clr-accent);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  margin: var(--space-lg) 0;
+  color: var(--clr-text-secondary);
+
+  strong { color: var(--clr-text); }
+}
+
+// Keep focus rings on-brand and never suppressed.
+a:focus-visible,
+.btn-cta:focus-visible {
+  outline: 2px solid var(--clr-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}

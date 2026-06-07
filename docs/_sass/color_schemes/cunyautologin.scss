@@ -1,0 +1,33 @@
+// CUNYAutoLogin color scheme — mirrors the extension's sidebar design tokens
+// (src/sidebar/sidebar.css :root). Hex equivalents are used for theme variables
+// the theme runs Sass color math on; the accent hex matches oklch(0.55 0.12 35).
+
+$cuny-bg: #f6f3ec; // --clr-bg
+$cuny-surface: #ffffff; // --clr-surface
+$cuny-border: #e3ddcd; // --clr-border
+$cuny-border-input: #cfc8b5; // --clr-border-input
+$cuny-text: #15140f; // --clr-text
+$cuny-text-secondary: #54514a; // --clr-text-secondary
+$cuny-text-muted: #9a9587; // --clr-text-muted
+$cuny-accent: #b44d34; // --clr-accent  (oklch(0.55 0.12 35))
+$cuny-accent-dark: #8c3a27; // --clr-accent-dark
+$cuny-hint-bg: #efeadd; // --clr-hint-bg
+
+$body-background-color: $cuny-bg;
+$sidebar-color: $cuny-bg;
+$search-background-color: $cuny-surface;
+$table-background-color: $cuny-surface;
+$code-background-color: $cuny-hint-bg;
+
+$body-text-color: $cuny-text-secondary;
+$body-heading-color: $cuny-text;
+$nav-child-link-color: $cuny-text-secondary;
+$search-result-preview-color: $cuny-text-secondary;
+
+$link-color: $cuny-accent;
+$btn-primary-color: $cuny-accent;
+
+$border-color: $cuny-border;
+
+$body-font-family: "Geist", "Helvetica Neue", Helvetica, Arial, sans-serif;
+$mono-font-family: "Geist Mono", ui-monospace, monospace;

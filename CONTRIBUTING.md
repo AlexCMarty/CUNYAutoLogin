@@ -238,6 +238,46 @@ Deeper architecture, security, flows, TypeScript style, and testing conventions 
 
 ---
 
+## Website (`docs/`)
+
+The marketing/docs site at **`cunyautologin.alexmarty.dev`** is a Jekyll
+[just-the-docs](https://just-the-docs.github.io/just-the-docs/) site that lives in
+`docs/` on `main`, so it travels with the code and can be updated in the same PR.
+It is built and deployed by `.github/workflows/pages.yml` (GitHub Actions) on any
+push that touches `docs/**`.
+
+Local preview (needs Ruby + a C toolchain; on Debian/Ubuntu install
+`ruby-dev build-essential`):
+
+```bash
+cd docs
+bundle install
+bundle exec jekyll serve   # http://127.0.0.1:4000
+```
+
+Styling mirrors the extension's design tokens (`src/sidebar/sidebar.css`):
+`_sass/color_schemes/cunyautologin.scss` maps tokens onto theme variables and
+`_sass/custom/custom.scss` holds the landing-page components. Page copy is sourced
+from `README.md` / `PRIVACY.md` — keep `docs/privacy.md` in sync with `PRIVACY.md`.
+
+> **TODO — screenshots:** `docs/assets/screenshots/` currently holds a single
+> `placeholder.png`. Real marketing shots are deferred: the `capture-sidebar`
+> script (a `build:dev`/`build:e2e` artifact) bakes in dev-only chrome — the
+> "Dev QA jump" banner on onboarding states and the debug-panel buttons on the
+> vault — so a later pass must capture/crop artifact-free images.
+
+### One-time GitHub Pages setup (manual)
+
+1. **DNS** at the `alexmarty.dev` provider: add a `CNAME` record
+   `cunyautologin` → `alexmarty.github.io`. (The apex `alexmarty.dev` is served by
+   a separate repo and is unaffected — a project repo may claim a subdomain.)
+2. **Repo → Settings → Pages:** set **Source = GitHub Actions**, set
+   **Custom domain = `cunyautologin.alexmarty.dev`**, and enable **Enforce HTTPS**
+   once the certificate provisions. The committed `docs/CNAME` keeps the domain
+   sticky across deploys.
+
+---
+
 ## Commit messages
 
 Use `<type>(<scope>): summary` (≤50 chars in the subject); body explains **why**, not what.
