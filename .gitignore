@@ -33,3 +33,6 @@ agent_screenshots/
 
 # Agent worktrees (temporary isolated sandboxes, not source)
 .claude/worktrees/
+
+# Flake-finder reports
+flake-reports/

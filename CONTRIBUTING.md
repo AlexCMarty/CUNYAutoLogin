@@ -65,6 +65,22 @@ npm run test        # unit, then e2e
 
 After changing **only** Playwright specs, you can run `npx playwright test`; the config still starts the fixture server. Keep **`dist/`** in sync with a recent `npm run build:e2e` so `manifest.json` matches the E2E host permissions.
 
+### Hunting flaky tests (`scripts/flake-finder.nu`)
+
+To surface intermittent failures, run each suite many times in a row with **`scripts/flake-finder.nu`** (requires [Nushell](https://www.nushell.sh/), `nu`):
+
+```bash
+nu scripts/flake-finder.nu <e2e_runs> <unit_runs>   # e.g. 100 100 for an errand-length hunt
+```
+
+It runs `npm run test:unit` `unit_runs` times, builds E2E once (`npm run build:e2e`), then runs `npx playwright test` `e2e_runs` times. Every result lands under **`flake-reports/<timestamp>/`** (git-ignored):
+
+- `transcript.log` — timestamped PASS/FAIL for every iteration.
+- `summary.txt` — pass/fail counts and the run numbers that flaked.
+- `unit/run-NNN.log`, `e2e/run-NNN.log` — captured stdout+stderr for each failed iteration only.
+
+Exits non-zero if any iteration failed, so it's CI-friendly.
+
 ---
 
 ## CUNY page contract (`src/cuny/ssoSite.ts`)
