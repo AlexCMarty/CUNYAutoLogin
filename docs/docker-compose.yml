@@ -1,0 +1,25 @@
+# Local preview for the Jekyll site. Requires only Docker.
+#   docker compose up        # build (first run) + serve at http://localhost:4000
+#   docker compose up --build  # rebuild after editing the Gemfile
+services:
+  site:
+    build: .
+    # Run as the host user so generated files (Gemfile.lock, .jekyll-cache)
+    # are owned by you, not root. Defaults suit a typical single-user Linux box;
+    # override with DOCKER_UID/DOCKER_GID if your ids differ (`id -u` / `id -g`).
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    environment:
+      # uid has no /etc/passwd entry in the image; give bundler a writable HOME.
+      HOME: /tmp
+    ports:
+      - "4000:4000"   # site
+      - "35729:35729" # livereload
+    volumes:
+      # Live-edit: source is mounted so changes rebuild on save.
+      - .:/site
+      # Keep the gem cache (and Gemfile.lock) out of the bind mount so the
+      # baked-in /usr/local/bundle gems stay visible inside the container.
+      - bundle:/usr/local/bundle
+
+volumes:
+  bundle:

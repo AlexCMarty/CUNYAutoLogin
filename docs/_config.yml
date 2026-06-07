@@ -44,3 +44,5 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - vendor
+  - Dockerfile
+  - docker-compose.yml

@@ -246,14 +246,30 @@ The marketing/docs site at **`cunyautologin.alexmarty.dev`** is a Jekyll
 It is built and deployed by `.github/workflows/pages.yml` (GitHub Actions) on any
 push that touches `docs/**`.
 
-Local preview (needs Ruby + a C toolchain; on Debian/Ubuntu install
-`ruby-dev build-essential`):
+Local preview — **Docker only, no host Ruby needed** (the toolchain is pinned in
+`docs/Dockerfile`, so it still works months from now without "what do I install
+again?"):
+
+```bash
+cd docs
+docker compose up          # first run builds the image, then serves
+# → http://localhost:4000  (live-reloads on save; Ctrl-C to stop)
+docker compose up --build  # rebuild only after editing docs/Gemfile
+```
+
+The bind mount means edits to pages/SCSS rebuild live; build output stays inside
+the container (destination `/tmp/_site`) so it never litters the worktree.
+
+<details><summary>Without Docker (native Ruby)</summary>
+
+Needs Ruby + a C toolchain (Debian/Ubuntu: `ruby-dev build-essential`):
 
 ```bash
 cd docs
 bundle install
 bundle exec jekyll serve   # http://127.0.0.1:4000
 ```
+</details>
 
 Styling mirrors the extension's design tokens (`src/sidebar/sidebar.css`):
 `_sass/color_schemes/cunyautologin.scss` maps tokens onto theme variables and
