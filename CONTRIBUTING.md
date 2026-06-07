@@ -276,11 +276,21 @@ Styling mirrors the extension's design tokens (`src/sidebar/sidebar.css`):
 `_sass/custom/custom.scss` holds the landing-page components. Page copy is sourced
 from `README.md` / `PRIVACY.md` — keep `docs/privacy.md` in sync with `PRIVACY.md`.
 
-> **TODO — screenshots:** `docs/assets/screenshots/` currently holds a single
-> `placeholder.png`. Real marketing shots are deferred: the `capture-sidebar`
-> script (a `build:dev`/`build:e2e` artifact) bakes in dev-only chrome — the
-> "Dev QA jump" banner on onboarding states and the debug-panel buttons on the
-> vault — so a later pass must capture/crop artifact-free images.
+**Regenerating screenshots.** `docs/assets/screenshots/` holds the marketing
+shots. `scripts/capture-sidebar.mjs` strips dev-only chrome (the `#qa=` jump
+banner and the vault debug panel) before each capture, so a dev build yields
+production-clean images. Onboarding states need a dev build (production ignores
+`#qa=`); vault states inject storage directly and look identical from any build:
+
+```bash
+npm run build:dev   # or build:e2e — production ignores #qa= hashes
+npm run capture-sidebar -- '#qa=WELCOME'        # → guided-setup / welcome shots
+npm run capture-sidebar -- --qa-vault-locked    # locked-vault.png
+npm run capture-sidebar -- --qa-vault-unlocked  # 2fa-autofill.png
+```
+
+Output lands in `agent_screenshots/`; copy the chosen PNGs into
+`docs/assets/screenshots/` with the names referenced by `index.md` / `hero.html`.
 
 ### One-time GitHub Pages setup (manual)
 

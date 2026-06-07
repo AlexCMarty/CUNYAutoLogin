@@ -34,23 +34,21 @@ Probably more than once. CUNY signs you out often. CUNYAutoLogin fills in your C
 
 ## See it in action
 
-<!-- TODO(screenshots): swap these placeholders for clean production sidebar shots
-     (guided setup, locked vault, 2FA auto-fill, done). See note in _includes/hero.html. -->
 <div class="shot-strip" markdown="0">
   <figure>
-    <img src="{{ '/assets/screenshots/placeholder.png' | relative_url }}" alt="Onboarding welcome screen (coming soon)" loading="lazy">
+    <img src="{{ '/assets/screenshots/guided-setup.png' | relative_url }}" alt="Guided setup step walking through your first CUNY login" width="380" height="800" loading="lazy">
     <figcaption>Guided setup</figcaption>
   </figure>
   <figure>
-    <img src="{{ '/assets/screenshots/placeholder.png' | relative_url }}" alt="Locked vault (coming soon)" loading="lazy">
+    <img src="{{ '/assets/screenshots/locked-vault.png' | relative_url }}" alt="Locked vault asking for biometrics or your vault password" width="380" height="800" loading="lazy">
     <figcaption>Locked vault</figcaption>
   </figure>
   <figure>
-    <img src="{{ '/assets/screenshots/placeholder.png' | relative_url }}" alt="2FA auto-fill (coming soon)" loading="lazy">
+    <img src="{{ '/assets/screenshots/2fa-autofill.png' | relative_url }}" alt="Unlocked vault showing the six-digit code that auto-fills on CUNY sign-in" width="380" height="800" loading="lazy">
     <figcaption>2FA auto-fill</figcaption>
   </figure>
   <figure>
-    <img src="{{ '/assets/screenshots/placeholder.png' | relative_url }}" alt="Setup complete (coming soon)" loading="lazy">
+    <img src="{{ '/assets/screenshots/done.png' | relative_url }}" alt="Setup complete confirmation screen" width="380" height="800" loading="lazy">
     <figcaption>Done in ~5 min</figcaption>
   </figure>
 </div>
