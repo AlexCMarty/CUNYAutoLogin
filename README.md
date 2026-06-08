@@ -12,17 +12,16 @@ If something breaks or feels confusing, please [open an issue](https://github.co
 
 ## Install
 
-### Recommended: Chrome Web Store
+### Recommended: official stores
 
-**[Install CUNYAutoLogin from the Chrome Web Store →](https://chromewebstore.google.com/detail/cunyautologin/nkkoameonkenaahfjkkicaphfncjikin)**
+- **Chrome / Edge:** **[Install from the Chrome Web Store →](https://chromewebstore.google.com/detail/cunyautologin/nkkoameonkenaahfjkkicaphfncjikin)**
+- **Firefox:** **[Install from Firefox Add-ons (AMO) →](https://addons.mozilla.org/en-US/firefox/addon/cunyautologin/)**
 
-Works in Chrome, Edge, and other Chromium browsers. You get automatic updates and don’t have to enable Developer mode.
-
-**Firefox users:** the listing on Firefox Add-ons (AMO) is **pending review**. Until it’s published, use the GitHub Release path below — it works fine on Firefox 128+.
+Either store gives you automatic updates and doesn’t require enabling Developer mode.
 
 ### Advanced: GitHub Release
 
-Prefer to load it yourself, want to try a pre-release, or installing on Firefox while AMO review is pending? Grab a release zip.
+Prefer to load it yourself or want to try a pre-release before it reaches the stores? Grab a release zip.
 
 1. On GitHub, open this repository’s **[Releases](https://github.com/AlexCMarty/CUNYAutoLogin/releases)** page (also linked from the right-hand sidebar).
 2. Download the **zip** for the version you want (for example `CUNYAutoLogin-v0.8.3.zip`).

@@ -55,7 +55,7 @@ Probably more than once. CUNY signs you out often. CUNYAutoLogin fills in your C
 
 ## Get started
 
-1. [Install the extension](/install/) from the Chrome Web Store (or load a GitHub release on Firefox).
+1. [Install the extension](/install/) from the Chrome Web Store or Firefox Add-ons.
 2. The sidebar walks you through setup in about five minutes: your CUNY email &rarr; first login &rarr; login codes &rarr; vault password &rarr; optional biometrics.
 3. From then on, visit CUNYFirst, Brightspace, or DegreeWorks and it fills automatically while the vault is unlocked.
 

@@ -168,12 +168,12 @@ Rebuild and reload after source changes.
 The release pipeline has **three stages**, only the last of which reaches real users:
 
 1. **Tag a version on GitHub** — `npm run test`, then `scripts/bump-version.sh <major|minor|patch|x.y.z>` (updates `package.json`, `src/manifest.json`, `src/manifest.e2e.json`, and `package-lock.json` in one shot). Commit the bump, then tag **`vX.Y.Z`** matching that version and push the tag. The release workflow zips `dist/` as `CUNYAutoLogin-<tag>.zip`. Tags containing `beta` or `rc` become GitHub **prereleases**.
-2. **Upload to the Chrome Web Store** — `npm run build` locally, zip `dist/`, and **manually upload that zip to the Chrome Web Store developer dashboard**. Review currently takes about a day. Until that review completes and the listing is republished, the new version is **not** in users' hands. (AMO listing is pending its initial review; once published, a parallel upload step there will be needed for each release.)
+2. **Upload to the extension stores** — `npm run build` locally, zip `dist/`, and **manually upload that zip to both the Chrome Web Store developer dashboard and the Firefox Add-ons (AMO) developer hub**. Review currently takes about a day per store. Until each review completes and the listing is republished, the new version is **not** in those users' hands.
 3. **Chrome auto-update propagates** — within a few hours of CWS publishing, installed Chrome / Edge browsers pick up the new version automatically. No user action required.
 
 **What this means for "is my change live?":** Only the **last tagged version that has cleared CWS review** is what users are running (run `git tag --sort=-v:refname | head -1` for the current latest tag, and confirm against the CWS listing that this tag has actually been uploaded and published, not just cut locally). A merged commit on `main`, or even a fresh tag that hasn't been uploaded and approved yet, is not yet shipping. Do not assume in-progress work has reached users — and conversely, once you've uploaded a release zip, treat it as effectively unrecallable, because auto-update is fast and unconditional.
 
-**GitHub-only installers:** download the release zip, unzip so `manifest.json` is at the top level, then load unpacked / temporary add-on as above. This path is documented in [README.md](README.md) for Firefox users (AMO review pending) and for anyone who wants to try a pre-release before CWS approves it.
+**GitHub-only installers:** download the release zip, unzip so `manifest.json` is at the top level, then load unpacked / temporary add-on as above. This path is documented in [README.md](README.md) for anyone who wants to try a pre-release before the stores approve it.
 
 ---
 
@@ -188,7 +188,7 @@ Do not add new `storage.local` keys without a security review (see `.agents/rule
 
 ## Backward compatibility (we have live users now)
 
-The extension is **live on the [Chrome Web Store](https://chromewebstore.google.com/detail/cunyautologin/nkkoameonkenaahfjkkicaphfncjikin)** and ships to installed users via Chrome auto-update. The Firefox AMO listing is **pending review**. Real installs mean:
+The extension is **live on the [Chrome Web Store](https://chromewebstore.google.com/detail/cunyautologin/nkkoameonkenaahfjkkicaphfncjikin)** and **[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/cunyautologin/)**, shipping to installed users via browser auto-update. Real installs mean:
 
 - **`StoredVault` schema changes are breaking changes.** Bump `StoredVault.version`, write a forward migration in `src/crypto/vault.ts`, and keep the previous decrypt path readable until the migration is proven. A vault you can read but can’t re-encrypt is a lockout.
 - **Crypto parameters (PBKDF2 iterations, salt/IV lengths, KDF, cipher mode) are part of the on-disk format.** Changing them without a migration locks every existing user out. If you must raise iterations, key-stretch lazily on next unlock and re-write.
