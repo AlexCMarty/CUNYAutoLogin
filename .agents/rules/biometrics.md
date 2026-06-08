@@ -27,7 +27,7 @@ PRF / HMAC-secret support is the tight constraint — extension-page WebAuthn is
 | Windows 11 22H2 (without KB5077181) | **no** | common misconception — 22H2 did not add hmac-secret |
 | Chrome < 122 or Firefox < 150 | **no** | extension-page WebAuthn not allowed |
 
-Minimum browsers for this extension (`src/manifest.json`) are Firefox 128+ and Chromium 141+, so the Firefox 128–149 case must degrade gracefully — it cannot be raised as a hard minimum.
+Minimum browsers for this extension (`src/manifest.json`) are Firefox 140+ and Chromium 141+, so the Firefox 140–149 case must degrade gracefully (extension-page WebAuthn shipped in FF150) — it cannot be raised as a hard minimum.
 
 ## WebAuthn from extension pages
 

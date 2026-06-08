@@ -31,7 +31,7 @@ No. This is an independent open-source project, not affiliated with or endorsed 
 
 ## Where is my data stored?
 
-Your CUNY email, password, and authenticator secret are encrypted (PBKDF2 + AES-GCM) and stored only in your browser's local storage. Your vault password is never written to disk — it's kept in the browser session while the vault is unlocked. See the [Privacy Policy](/privacy/) for details.
+Your CUNY email, password, and authenticator secret are encrypted (PBKDF2 + AES-GCM) and stored only in your browser's extension storage (`storage.local`). Your vault password is kept in the browser's session storage while the vault is unlocked, and is cleared when the session ends according to browser rules. See the [Privacy Policy](/privacy/) for details.
 
 ---
 

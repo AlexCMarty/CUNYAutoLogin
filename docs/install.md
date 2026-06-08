@@ -8,7 +8,7 @@ description: "How to install CUNYAutoLogin on Chrome, Edge, and Firefox — from
 # Install CUNYAutoLogin
 {: .no_toc }
 
-**Browsers:** Firefox 128+ or Chrome / Edge 141+.
+**Browsers:** Firefox 140+ or Chrome / Edge 141+.
 {: .fs-5 }
 
 1. TOC

@@ -1,6 +1,6 @@
 # Contributing to CUNYAutoLogin
 
-Manifest V3 extension for **Chromium 141+** and **Firefox 128+** (see `src/manifest.json`). The sidebar stores an encrypted vault (**PBKDF2 + AES-GCM**), keeps the session master in **`browser.storage.session`**, and ships a content script on the CUNY SSO host that auto-fills login and TOTP when the vault is unlocked.
+Manifest V3 extension for **Chromium 141+** and **Firefox 140+** (see `src/manifest.json`). The sidebar stores an encrypted vault (**PBKDF2 + AES-GCM**), keeps the session master in **`browser.storage.session`**, and ships a content script on the CUNY SSO host that auto-fills login and TOTP when the vault is unlocked.
 
 For day-to-day product copy and install steps, see **[README.md](README.md)**. This file is for **developers and maintainers**: build, test, release, and where things live in the tree.
 
@@ -34,7 +34,7 @@ npm run build         # lint → knip → tsc → Vite (sidebar + background) �
 npm run build:dev     # Same pipeline, development mode + sidebar debug controls
 npm run build:e2e     # build:dev + E2E manifest (local fixture origin)
 npm run build:content # dist/content.js only (default Vite mode unless you pass flags)
-npm run watch         # vite --watch for sidebar/background (dev mode); rerun build:content / build:dev when content changes
+npm run watch         # vite --watch for sidebar/background only (dev mode); the content script is NOT rebuilt — run `npm run build:content` manually after content changes
 ```
 
 **Outputs:** everything lands in **`dist/`**. Load that folder as an unpacked / temporary extension (see below).
@@ -45,10 +45,10 @@ npm run watch         # vite --watch for sidebar/background (dev mode); rerun bu
 | `npm run build:dev` | Development builds for sidebar, background, and content; sidebar includes **Send test FILL_CREDENTIALS** and **Clear vault — debug**. |
 | `npm run build:e2e` | Same as `build:dev`, but `E2E_MANIFEST=1` so Vite emits **`src/manifest.e2e.json`** into `dist/manifest.json`. That manifest adds `http://127.0.0.1:4173/*` to **`host_permissions`** and to **`content_scripts[0].matches`** so Playwright fixtures load the content script. |
 | `npm run build:content` | Rebuild only `dist/content.js` (single-file IIFE). |
-| `npm run watch` | Watch sidebar/background in dev mode. |
+| `npm run watch` | Watch sidebar/background in dev mode; does **not** rebuild `dist/content.js` — rerun `npm run build:content` after content changes. |
 | `npm run typecheck` | `tsc --noEmit` only. |
 
-The [ci workflow](.github/workflows/ci.yml) runs lint, type-checking, **`npm run test:unit`**, and **`npm run test:e2e`** on every push and PR to `main`. The [release workflow](.github/workflows/release.yml) also runs **`npm run test:unit`** and **`npm run test:e2e`** before **`npm run build`** on every version tag. Run **`npm run test`** locally before merging.
+The [ci workflow](.github/workflows/ci.yml) runs three separate jobs on every push and PR to `main`: **lint + type-checking + `npm run test:unit`**, a production **`npm run build`**, and **`npm run test:e2e`**. The [release workflow](.github/workflows/release.yml) also runs **`npm run test:unit`** and **`npm run test:e2e`** before **`npm run build`** on every version tag. Run **`npm run test`** locally before merging.
 
 ---
 
@@ -61,7 +61,7 @@ npm run test        # unit, then e2e
 ```
 
 - **Unit tests:** `src/**/*.test.ts` (see `vitest.config.ts`).
-- **E2E:** specs under `e2e/` (`onboarding.spec.ts`, `onboarding-guided.spec.ts`, `onboarding-completion.spec.ts`, `locked.spec.ts`, `unlocked.spec.ts`). **Firefox is not automated** — load `dist/` manually via `about:debugging` when you need Gecko coverage.
+- **E2E:** specs under `e2e/` (`onboarding.spec.ts`, `onboarding-guided.spec.ts`, `onboarding-completion.spec.ts`, `locked.spec.ts`, `unlocked.spec.ts`, `narrow-width.spec.ts`). **Firefox is not automated** — load `dist/` manually via `about:debugging` when you need Gecko coverage.
 
 After changing **only** Playwright specs, you can run `npx playwright test`; the config still starts the fixture server. Keep **`dist/`** in sync with a recent `npm run build:e2e` so `manifest.json` matches the E2E host permissions.
 

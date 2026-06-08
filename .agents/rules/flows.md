@@ -7,13 +7,14 @@
 Three modes: `setup`, `locked`, `unlocked`. On every side panel open, `init()` calls `loadVaultSessionSnapshot()` (`src/vaultSession/snapshot.ts`), which reads `storage.local` + `storage.session`, attempts PBKDF2 + AES-GCM decrypt, and returns the mode. If decryption fails the session master is purged and sidebar falls back to `locked`.
 
 `sidebar/sidebar.ts` loads `onboarding/render.ts` when:
+- A `#qa=<STATE>` dev-jump hash is present (dev/e2e only) — this branch also clears the resume snapshot (`clearResumeSnapshotSession`) and mounts with `{ qaJump }`
+- URL hash has `#onboarding=1` (dev/e2e only)
 - No vault exists yet
 - A session resume snapshot exists
-- URL hash has `#onboarding=1` (dev/e2e only)
 
 The master password writes to `storage.session` after every successful unlock or save. It clears immediately on **Lock vault**.
 
-`storage.session` writes/reads are wrapped in try/catch and degrade to always-locked on unsupported browsers (Firefox < 128, Chromium below `minimum_chrome_version` in `src/manifest.json`, currently **141**).
+`storage.session` writes/reads are wrapped in try/catch and degrade to always-locked on unsupported browsers (below the manifest floors in `src/manifest.json`: Firefox < **140**, Chromium below `minimum_chrome_version`, currently **141**).
 
 ## Auto-fill flow
 
@@ -29,7 +30,7 @@ Oracle JET renders inputs after `document_idle` — content script uses `Mutatio
 
 1. **Content script** (`watchTotpSecretOnEnrollPage`): On pages matching `matchesTotpEnrollPage`, waits via `MutationObserver` for `TOTP_SECRET_DISPLAY_ARIA_LABELLEDBY`. Normalizes (strip whitespace, uppercase, strip trailing `=`; reject if invalid Base32) and sends `{ type: "TOTP_SECRET_FROM_PAGE", secret }`.
 2. **Service worker**: Validates and writes to `storage.session` under `PENDING_TOTP_SECRET_SESSION_KEY`.
-3. **Side panel** (`guidedSecretCapture.ts`): Polls `storage.session` at `RUI_ONBOARDING_POLL_INTERVAL_MS` (no `onChanged` listener) — shows a capture confirmation when the key appears. On the `factors_list_after_enroll` stage, `render.ts` reads the key directly: if present, fast-forwards the flow to `SET_DEFAULT`; if absent, shows a recovery message prompting the user to re-enroll.
+3. **Side panel** (`guidedSecretCapture.ts`): Polls `storage.session` at `RUI_ONBOARDING_POLL_INTERVAL_MS` (no `onChanged` listener) — shows a capture confirmation when the key appears. On the `factors_list_after_enroll` stage, `render.ts` (`handleFactorsListAfterEnroll`) reads the key directly. If absent, it shows a recovery message prompting re-enroll. If present, the next step depends on the current state: from `VERIFY_LOGIN_CODE` it dispatches `VERIFY_SUCCEEDED`; from `CUNY_TOTP` / `ALLOW_GATE` / `OAA_SPA_HOME` / the `GUIDED_*` states it fast-forwards to `SET_DEFAULT`.
 
 ## MFA self-service verify OTP flow
 
@@ -56,10 +57,10 @@ Both `KEY_FROM_*` screens use the shared `pasteKeyScreen.ts` component. On **Con
 
 ### TEST_LOGIN on-mount behaviour
 
-`testLogin.ts` fires three messages immediately on mount (best-effort, errors are dev-only logged):
-1. `LOGOUT_CUNY_SESSIONS` — terminates any existing OAA session.
-2. `STAGE_ONBOARDING_CREDENTIALS` — stages email + password so the content script can fill them.
-3. `browser.tabs.create` — opens `BRIGHTSPACE_HOME_URL` (overridable via `#cuny=<url>` in dev mode). Brightspace redirects through SAML (`/oamfed/idp/samlv20`) for credential/TOTP autofill, then lands on Brightspace home — no allow gate.
+`testLogin.ts` fires two runtime messages plus a `tabs.create` call immediately on mount (best-effort, errors are dev-only logged):
+1. `LOGOUT_CUNY_SESSIONS` — runtime message; terminates any existing OAA session.
+2. `STAGE_ONBOARDING_CREDENTIALS` — runtime message; stages email + password so the content script can fill them.
+3. `browser.tabs.create` — a tabs API call (not a `sendMessage`); opens `BRIGHTSPACE_HOME_URL` (overridable via `#cuny=<url>` in dev mode). Brightspace redirects through SAML (`/oamfed/idp/samlv20`) for credential/TOTP autofill, then lands on Brightspace home — no allow gate.
 
 `TEST_LOGIN` is listed in `CUNY_REATTACHABLE_STATES`, so the tab-reattach resume mechanism works the same way as `OPENING_CUNY`.
 
@@ -78,14 +79,33 @@ The service worker supplies the pasted TOTP secret for the login challenge: when
 `onboarding/render.ts` registers `runtime.onMessage` routing known `ONBOARDING_*` messages through `applyOnboardingMessage(controller, message)`:
 
 - `ONBOARDING_CREDENTIAL_ERROR { culprit }` → if state is `TEST_LOGIN`, dispatches `TEST_BAD_CREDENTIALS`; otherwise routes to `EMAIL_ENTRY` or `PASSWORD_ENTRY` with an inline red banner.
-- `ONBOARDING_STAGE_DETECTED { stage: "allow_gate" }` → advances `OPENING_CUNY` (`CREDENTIALS_ACCEPTED`) or `CUNY_TOTP` (`TOTP_DONE`) toward `ALLOW_GATE`. **Not** `TEST_LOGIN`: the allow gate is a mid-flow consent page, not login proof, so TEST_LOGIN success comes only from the real Brightspace session cookie (`wireBrightspaceCookieDetection` → `TEST_SUCCEEDED`).
+- `ONBOARDING_STAGE_DETECTED { stage }` → dispatched through a frozen handler map keyed by stage (`render.ts`). The handlers are catch-up routers: each fast-forwards the state machine to match the live CUNY page detected by the content script. The full map:
+
+  | Stage | Handler / effect |
+  |---|---|
+  | `credential_page` | no-op |
+  | `cuny_totp_challenge` | advances `CUNY_TOTP` |
+  | `allow_gate` | advances `OPENING_CUNY` (`CREDENTIALS_ACCEPTED`) or `CUNY_TOTP` (`TOTP_DONE`) toward `ALLOW_GATE` — **not** `TEST_LOGIN` (see below) |
+  | `allow_button_clicked` | `handleAllowButtonClicked` |
+  | `oaa_spa_home` | `handleOaaSpaHome` |
+  | `factors_list` | from `CUNY_TOTP` / `ALLOW_GATE` / `OAA_SPA_HOME`, fast-forwards via a `FACTORS_LIST_READY` sequence to the guided manage step |
+  | `add_factor` | `handleAddFactor` |
+  | `factor_type_select` | `GUIDED_ADD_FACTOR` → `GUIDED_STEP_DONE` |
+  | `totp_enroll_secret` | fast-forwards the guided enroll steps toward secret capture |
+  | `totp_enroll_verify` | from `GUIDED_SECRET_CAPTURE` dispatches `SECRET_CAPTURED`; from `CUNY_TOTP` / `ALLOW_GATE` / `OAA_SPA_HOME` fast-forwards to `VERIFY_LOGIN_CODE` |
+  | `factors_list_after_enroll` | reads the pending TOTP secret and routes to `SET_DEFAULT` / `VERIFY_SUCCEEDED` (see "TOTP enroll secret scraping" above) |
+  | `set_default_menu_opened` | `handleSetDefaultMenuOpened` |
+  | `set_default_confirmed` | `handleSetDefaultConfirmed` |
+  | `unverified_cunyautologin`, `totp_factor_limit`, `access_denied`, `target_not_found` | no-op |
+
+  The `allow_gate` handler is **not** wired to `TEST_LOGIN`: the allow gate is a mid-flow consent page, not login proof, so TEST_LOGIN success comes only from the real Brightspace session cookie (`wireBrightspaceCookieDetection` → `TEST_SUCCEEDED`).
 - `ONBOARDING_REOPEN_CUNY_TAB` → service worker opens an allow-listed URL in a new tab (default `CUNY_LOGIN_ENTRY_URL` when `url` omitted; `COMPLETE_DEMO` sends `BRIGHTSPACE_HOME_URL`).
 - `ONBOARDING_VERIFY_STATUS { status }` → `"success"` advances `VERIFY_LOGIN_CODE` to `VERIFY_SUCCEEDED`; `"second_failure"` advances `TEST_LOGIN` to `TEST_BAD_KEY` (or shows pause banner on `VERIFY_LOGIN_CODE`).
 - `ONBOARDING_OVERLAY_COMMAND` / `ONBOARDING_TAB_REATTACHED` → validated and ack-only via service worker; sidebar handlers wired in `onboarding/render.ts`.
 
 On sidebar unmount, `mountOnboarding` fires `CLEAR_ONBOARDING_CREDENTIALS`.
 
-Session resume snapshot (`cunyOnboardingResumeSnapshot` in `storage.session`) stores `{ state, email, password }` for resumable states only. Never persisted to `storage.local`.
+Session resume snapshot (`cunyOnboardingResumeSnapshot` in `storage.session`) stores `{ state, email, password, advancedKeyFlow }` for resumable states only. Never persisted to `storage.local`.
 
 ## Extension banner on CUNY tab
 
