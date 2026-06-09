@@ -15,7 +15,8 @@ Here's the problem us CUNY students all face:
 0. It logs you out anyway!!!
 0. **Repeat several times a day, for four years.**
 
-<div class="central-point bold">That's hours of your degree spent on a login form.</div>
+{: .central-point bold }
+That's hours of your degree spent on a login form.
 
 ## How it works
 
@@ -30,10 +31,6 @@ Here's the problem us CUNY students all face:
     <p>Lock your credentials behind your fingerprint, face, or an extension password</p>
   </div>
 
-  <!--div class="feature-card">
-    <h3>Encrypted on your device</h3>
-    <p>Your credentials are encrypted with PBKDF2 + AES-GCM and a vault password only you know.</p>
-  </div-->
   <div class="feature-card">
     <h3>Forget</h3>
     <p>Next time a CUNY login page loads, it's already filled and submitted before you touch the keyboard.</p>
