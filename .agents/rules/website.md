@@ -50,31 +50,4 @@ The bind mount live-reloads page/SCSS edits; build output stays in the container
 - Browser minimums and feature claims on the site must match `src/manifest.json`
   (Firefox **140+**, Chromium **141+**).
 
-## Regenerating marketing screenshots
-
-`docs/assets/screenshots/` holds the marketing shots.
-`scripts/capture-sidebar.mjs` strips dev-only chrome (the `#qa=` jump banner and
-the vault debug panel) before each capture, so a dev build yields
-production-clean images. Onboarding states need a dev/e2e build (production
-ignores `#qa=`); vault states inject storage directly and look identical from any
-build.
-
-```bash
-npm run build:dev   # or build:e2e — production ignores #qa= hashes
-npm run capture-sidebar -- '#qa=WELCOME'        # → guided-setup / welcome shots
-npm run capture-sidebar -- --qa-vault-locked    # locked-vault.png
-npm run capture-sidebar -- --qa-vault-unlocked  # 2fa-autofill.png
-```
-
-Output lands in `agent_screenshots/`; copy the chosen PNGs into
-`docs/assets/screenshots/` with the names referenced by `index.md` / `hero.html`.
-
-## One-time GitHub Pages setup (already done — reference only)
-
-1. DNS at the `alexmarty.dev` provider: `CNAME` record `cunyautologin` →
-   `alexmarty.github.io`.
-2. Repo → Settings → Pages: **Source = GitHub Actions**, **Custom domain =
-   `cunyautologin.alexmarty.dev`**, **Enforce HTTPS** on. `docs/CNAME` keeps the
-   domain sticky across deploys.
-
 Full human-facing version: `CONTRIBUTING.md` § "Website (`docs/`)".
