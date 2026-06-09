@@ -44,10 +44,5 @@ Here's the problem us CUNY students all face:
 **Your secrets never leave your machine.** CUNYAutoLogin does not send your email, password, or authenticator secret to any server. There is no account to create. Read the full [Privacy Policy](/privacy/).
 </div>
 
-## Get started
-
-1. [Install the extension](/install/) from the Chrome Web Store or Firefox Add-ons.
-2. The sidebar walks you through setup in about five minutes: your CUNY email &rarr; first login &rarr; login codes &rarr; vault password &rarr; optional biometrics.
-3. From then on, visit CUNYFirst, Brightspace, or DegreeWorks and it fills automatically while the vault is unlocked.
 
 Questions? Check the [FAQ](/faq/) or [open an issue](https://github.com/AlexCMarty/CUNYAutoLogin/issues).
