@@ -98,6 +98,8 @@ e2e/
                                 totp, self-service, allow-gate HTML pages
   constants.ts                  FIXTURE_PORT, FIXTURE_ORIGIN, fixture URLs
   test-credentials.ts           Fabricated test credentials for E2E only
+docs/                           Jekyll just-the-docs marketing/docs site → cunyautologin.alexmarty.dev
+                                Deployed by .github/workflows/pages.yml. See .agents/rules/website.md
 .plans/                         Engineering plan documents — not part of the build
 .map/                           AI-optimized reference for the live CUNY SSO flow.
                                 pages/ — per-page markdown (selectors, timing, HTML skeleton)
