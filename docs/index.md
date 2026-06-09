@@ -5,52 +5,43 @@ nav_order: 1
 description: "CUNYAutoLogin fills your CUNY email, password, and 2FA code on the official sign-in page. Encrypted on your device. No cloud sync, no analytics."
 ---
 
-## How many times a day do you log into CUNYFirst?
+## Why do you log in so much?!
 
-Probably more than once. CUNY signs you out often. CUNYAutoLogin fills in your CUNY login and authenticator code on the official sign-in page, so you spend less time typing and more time studying.
+Here's the problem us CUNY students all face:
+
+0. Open Brightspace for the 8th time today
+0. Get bounced to portal, enter email &amp; password
+0. Take out phone and enter 2FA code
+0. It logs you out anyway!!!
+0. **Repeat several times a day, for four years.**
+
+<div class="central-point bold">That's hours of your degree spent on a login form.</div>
+
+## How it works
 
 <div class="feature-grid" markdown="0">
   <div class="feature-card">
-    <h3>Fills everything</h3>
-    <p>Email, password, and the 6-digit authenticator code &mdash; entered for you on CUNY Login.</p>
+    <h3><a href="{{ '/install/' | relative_url }}">Install</a> the extension</h3>
+    <p>Set it up with your CUNY credentials <b>once</b></p>
   </div>
+
   <div class="feature-card">
+    <h3>Lock</h3>
+    <p>Lock your credentials behind your fingerprint, face, or an extension password</p>
+  </div>
+
+  <!--div class="feature-card">
     <h3>Encrypted on your device</h3>
     <p>Your credentials are encrypted with PBKDF2 + AES-GCM and a vault password only you know.</p>
-  </div>
+  </div-->
   <div class="feature-card">
-    <h3>Unlock with biometrics</h3>
-    <p>Optionally use Face ID, Touch ID, or Windows Hello instead of typing your vault password.</p>
-  </div>
-  <div class="feature-card">
-    <h3>No cloud, no tracking</h3>
-    <p>No account system, no cloud sync, and no analytics. Everything stays on your computer.</p>
+    <h3>Forget</h3>
+    <p>Next time a CUNY login page loads, it's already filled and submitted before you touch the keyboard.</p>
   </div>
 </div>
 
 <div class="trust-callout" markdown="1">
 **Your secrets never leave your machine.** CUNYAutoLogin does not send your email, password, or authenticator secret to any server. There is no account to create. Read the full [Privacy Policy](/privacy/).
-</div>
-
-## See it in action
-
-<div class="shot-strip" markdown="0">
-  <figure>
-    <img src="{{ '/assets/screenshots/guided-setup.png' | relative_url }}" alt="Guided setup step walking through your first CUNY login" width="380" height="800" loading="lazy">
-    <figcaption>Guided setup</figcaption>
-  </figure>
-  <figure>
-    <img src="{{ '/assets/screenshots/locked-vault.png' | relative_url }}" alt="Locked vault asking for biometrics or your vault password" width="380" height="800" loading="lazy">
-    <figcaption>Locked vault</figcaption>
-  </figure>
-  <figure>
-    <img src="{{ '/assets/screenshots/2fa-autofill.png' | relative_url }}" alt="Unlocked vault showing the six-digit code that auto-fills on CUNY sign-in" width="380" height="800" loading="lazy">
-    <figcaption>2FA auto-fill</figcaption>
-  </figure>
-  <figure>
-    <img src="{{ '/assets/screenshots/done.png' | relative_url }}" alt="Setup complete confirmation screen" width="380" height="800" loading="lazy">
-    <figcaption>Done in ~5 min</figcaption>
-  </figure>
 </div>
 
 ## Get started
