@@ -3,6 +3,9 @@ description: Stop manually logging into CUNY. We do that for you. An encrypted, 
 url: https://cunyautologin.alexmarty.dev
 baseurl: ""
 
+# /install/, /faq/, /privacy/ — not /install.html (GitHub Pages + jekyll serve)
+permalink: pretty
+
 theme: just-the-docs
 color_scheme: cunyautologin
 
