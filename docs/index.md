@@ -73,4 +73,6 @@ Every claim above is a file path, not a marketing line. Read it, build it from s
 
 Honesty section: storing your TOTP secret means anyone who gets your **master password** on your **unlocked device** could log in as you. That's the same trade-off as putting CUNY in 1Password or Bitwarden — the security collapses to the strength of your master password and the physical security of your machine. So pick a real master password, not `password123`. And if you ever change your CUNY password or re-enroll MFA, update the vault — old secrets don't linger anywhere else.
 
-Questions? Check the [FAQ](/faq/) or [open an issue](https://github.com/AlexCMarty/CUNYAutoLogin/issues).
+## Questions, comments, concerns?
+
+If you have questions, first check the [FAQ](/faq/). If that doesn't help, please [open an issue](https://github.com/AlexCMarty/CUNYAutoLogin/issues). Also see our [Privacy Policy](/privacy).
