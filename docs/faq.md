@@ -1,7 +1,7 @@
 ---
 title: FAQ
 layout: default
-nav_order: 3
+nav_order: 4
 description: "Common questions about CUNYAutoLogin: whether it's secure, how it fills your 2FA code, mobile support, cloud sync, and troubleshooting tips."
 ---
 
@@ -17,7 +17,7 @@ description: "Common questions about CUNYAutoLogin: whether it's secure, how it 
 
 ### Is this secure?
 
-Your credentials never leave your device. Your CUNY email, password, and 2FA secret are sealed in an encrypted vault (PBKDF2 + AES-256-GCM) in your browser's extension storage — there is no server, no account, and no analytics. The extension can only access the CUNY sign-in pages, and the code is open source, so every claim is verifiable. The [homepage](/) walks through the cryptography claim by claim, and the [Privacy Policy](/privacy/) covers everything else.
+Your credentials never leave your device. Your CUNY email, password, and 2FA secret are sealed in an encrypted vault (PBKDF2 + AES-256-GCM) in your browser's extension storage — there is no server, no account, and no analytics. The extension can only access the CUNY sign-in pages, and the code is open source, so every claim is verifiable. The [Security page](/security/) walks through the cryptography claim by claim, and the [Privacy Policy](/privacy/) covers everything else.
 
 ### Where is my data stored?
 

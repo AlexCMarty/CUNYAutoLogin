@@ -1,7 +1,7 @@
 ---
 title: Privacy
 layout: default
-nav_order: 4
+nav_order: 5
 description: "How CUNYAutoLogin handles your information: encrypted on-device storage, no cloud sync, no analytics, no credential upload."
 ---
 
