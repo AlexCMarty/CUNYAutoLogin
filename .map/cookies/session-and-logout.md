@@ -1,77 +1,173 @@
-# Session cookies — CUNY SSO / OAM (`ssologin.cuny.edu`)
+# Session cookies — CUNY SSO / OAM (`ssologin.cuny.edu`) + Brightspace
 
-Observed May 2026 via live flows through `ssologin.cuny.edu` MFA. Values are intentionally omitted — only cookie **names**, hosts, attachment points, and behavior.
+Cookie **names**, hosts, attachment points, and behavior. Values are intentionally
+omitted.
 
-## Logging out of `/oaa/rui` — session behavior differs by OAuth consent state
+**Provenance:** Sections marked **[live 2026-06-10]** were verified end-to-end with
+the `manage_cookies` MCP tool, which reads at the Playwright/browser layer — it sees
+`httpOnly` cookies **and every domain**, regardless of the extension's
+`host_permissions`. Earlier notes (May 2026) were captured through the extension's
+`chrome.cookies` API (scoped to `ssologin.cuny.edu`) and were both incomplete and, in
+one respect, wrong — see the correction below.
 
-The logout mechanism behaves differently depending on whether the user has passed the OAuth allow gate (`mfaConsent.jsp`).
+## ⚠️ Correction: the post-consent session is NOT "server-side / cookie-independent"
 
-### After the allow gate (full session)
+A previous revision of this file claimed that after the Allow gate the OAM server holds
+a session "independent of cookies," and that "even with zero browser cookies the SPA
+loads as authenticated." **That is false.** **[live 2026-06-10]**
 
-Once the user clicks Allow on `mfaConsent.jsp`, the OAM server establishes a full server-side session that is **independent of cookies**. Client-side cookie deletion alone does not log the user out — even with zero browser cookies, the SPA loads as authenticated because the OAM server still considers the session valid.
+The mistake came from trusting the **SPA shell as an auth signal**. The OAA SPA shell
+(`/oaa/rui/index.html`, "Hi, what are you managing today?") is a **cacheable static
+asset**. After clearing every cookie it still renders as if logged in — but it is just
+cache. Any authenticated request fails:
 
-**The correct logout procedure is to navigate to the OAA logout endpoint:**
+```
+GET /oaa/rui/user/v1   (credentials: include)
+  authed   → 200 JSON  [{"key":"user","val":"…@login.cuny.edu"}, …]
+  logged out → 302 → /oam/server/obrareq.cgi  (CUNY Login HTML)
+```
+
+**Always probe an API/dynamic endpoint, never the shell.** A full-page navigation to
+`/oaa/rui` is only a reliable logout check once **all** cookies are gone (then it
+redirects to `obrareq.cgi`); a partial cookie delete can still serve the cached shell.
+
+## Does deleting cookies clear login? Minimum cookie set per stage **[live 2026-06-10]**
+
+Yes at every stage — login is cookie-dependent. The minimal set whose deletion logs you
+out differs by stage because two independent session layers are involved: the **OAM SSO
+front door** (WebGate) and each **application's own session** (Helidon/WebLogic OIDC for
+OAA; D2L for Brightspace).
+
+| Stage | Auth oracle | Minimum cookies to delete | Notes |
+|-------|-------------|---------------------------|-------|
+| **Pre-Allow-gate** (`mfaConsent.jsp`, authenticated, pre-consent) | nav `/oaa/rui` → `mfaConsent` (in) vs `obrareq.cgi` (out) | **`OAM_ID` + `OAMAuthnCookie_ssologin.cuny.edu_443`** (both) | OAM **re-mints the survivor**: delete only one and you stay logged in (`OAMAuthnCookie` reappears with a fresh value). Both are on `ssologin.cuny.edu`. |
+| **Post-Allow-gate** (OAA SPA `/oaa/rui`, post-consent) | `fetch('/oaa/rui/user/v1')` JSON vs 302 | **`JSESSIONID`** (alone) | The OIDC app-session JWT. **OAM cookies are not needed here** — deleting `OAM_ID`+`OAMAuthnCookie` leaves the API authed. `_WL_AUTHCOOKIE_JSESSIONID` alone is **not** sufficient to keep the session. |
+| **Brightspace** (`brightspace.cuny.edu/d2l`) | `fetch('/d2l/api/lp/1.43/users/whoami')` JSON vs 403 | **`d2lSecureSessionVal`** (alone) → 403 | Kills the D2L app session, **but see the re-federation trap below.** |
+
+### The Brightspace silent re-federation trap **[live 2026-06-10]**
+
+Deleting the `brightspace.cuny.edu` cookies invalidates the D2L session, **but it is not
+a real logout.** Brightspace authenticates via **SAML** (`/oamfed/idp/samlv20`), and the
+upstream OAM/federation session on `ssologin.cuny.edu` survives. The next visit to
+`brightspace.cuny.edu` **silently re-federates** and mints fresh `d2l*` cookies with **no
+credential prompt** (verified: `whoami` returns the user again).
+
+To force a full re-authentication (CUNY Login + TOTP), you must **also** clear the
+upstream OAM/federation session. Verified sufficient: delete the `d2l*` cookies **and**
+`OAM_ID` **and** `ORA_OSFS_SESSION` on `ssologin.cuny.edu` → the next Brightspace visit
+redirects to the CUNY Login form.
+
+## Logout via the OAA logout endpoint (server-side termination)
+
+Independent of cookie deletion, the OAA app exposes a server-side logout endpoint:
 
 ```
 GET https://ssologin.cuny.edu/oaa/rui/user/v1/logout
 ```
 
-This endpoint:
-- Terminates the server-side OAA session
-- Redirects the browser to `https://ssologin.cuny.edu/cunylogin/pages/Logout.jsp` ("You Have Logged Out")
-- After which any navigation to `/oaa/rui` requires full re-authentication (redirects to `obrareq.cgi`)
+- **Post-consent:** terminates the OAA session and redirects to
+  `https://ssologin.cuny.edu/cunylogin/pages/Logout.jsp` ("You Have Logged Out").
+- **Pre-consent (at the Allow gate):** does **not** terminate — it redirects back to a
+  fresh `mfaConsent.jsp`. Cookie deletion is the only logout at that stage.
 
-The logout URL is also available from the authenticated API: `GET /oaa/rui/user/v1` returns `{"key":"logout_location","val":"/oaa/rui/user/v1/logout"}`.
+The logout URL is also advertised by the authenticated API: `GET /oaa/rui/user/v1`
+returns a `{"key":"logout_location","val":"/oaa/rui/user/v1/logout"}` entry.
 
-### At the allow gate (pre-consent)
+> The endpoint **redirect behavior** above is carried over from May 2026 and was **not**
+> re-verified on 2026-06-10; the cookie-deletion results in this file were. Treat the
+> endpoint as a belt-and-suspenders supplement to the cookie sweep, not the sole logout.
 
-If the user has logged in and reached `mfaConsent.jsp` but has **not yet clicked Allow**, the session state is different:
+## Extension logout procedure (current code)
 
-- The logout endpoint **does not work** from this state. Navigating to or fetching `GET /oaa/rui/user/v1/logout` redirects back to a fresh `mfaConsent.jsp` rather than to `Logout.jsp`. The server-side session is not terminated.
-- **Clearing all `ssologin.cuny.edu` cookies is sufficient for logout** at this stage. After cookie removal, navigating to `/oaa/rui` redirects to `obrareq.cgi` and requires full re-authentication.
+`terminateOaaRuiSessions` (`src/background/service-worker.ts`) does three things:
 
-This asymmetry is why the extension's `terminateOaaRuiSessions` function runs both the logout fetch **and** a full cookie sweep: the fetch handles the post-consent case, and the cookie sweep handles the pre-consent (allow-gate) case.
+1. `logOutOaaRuiInTabs()` — navigates open SSO tabs to `OAA_RUI_LOGOUT_URL`.
+2. `fetchLogOutOaaRui()` — `fetch(OAA_RUI_LOGOUT_URL, { credentials: "include" })`.
+3. `clearSsoLoginCookies()` — `browser.cookies.getAll({ domain: SSO_LOGIN_HOST })`, then
+   `cookies.remove` for each.
 
-### Extension logout procedure (combined approach)
+Brightspace is handled separately by `clearBrightspaceSessionCookies()` (removes
+`d2lSessionVal` + `d2lSecureSessionVal` at `BRIGHTSPACE_HOME_URL`; names in
+`BRIGHTSPACE_SESSION_COOKIE_NAMES`), called alongside `terminateOaaRuiSessions`.
 
-The extension `terminateOaaRuiSessions` function:
-1. Navigates open SSO tabs to `OAA_RUI_LOGOUT_URL` (terminates post-consent sessions via redirect)
-2. Fetches `OAA_RUI_LOGOUT_URL` with `credentials: "include"` (belt-and-suspenders server-side termination)
-3. Calls `browser.cookies.getAll({ domain: SSO_LOGIN_HOST })` and removes every cookie (handles pre-consent sessions where the fetch fails)
+**Scope limits of the `chrome.cookies` sweep (vs. the Playwright-layer `manage_cookies`
+tool used to gather this doc):**
 
-## Cookies observed after a complete MFA login (May 2026, Chrome)
+- `getAll({ domain: "ssologin.cuny.edu" })` matches that host and its subdomains
+  (incl. `.ssologin.cuny.edu`), so it **does** catch `OAM_ID`, `OAMAuthnCookie_*`,
+  `JSESSIONID`, `_WL_AUTHCOOKIE_JSESSIONID`, `ORA_OSFS_SESSION`, `OAM_JSESSIONID`, etc.
+- It does **not** catch the parent-domain `OAMAuthnHintCookie` (`.cuny.edu`) — but that is
+  only a username hint, not a session token, so it does not matter for logout.
+- It does **not** catch `brightspace.cuny.edu` cookies — those need the dedicated
+  Brightspace clear. The extension's `host_permissions` is `https://ssologin.cuny.edu/*`
+  only, which is why the `manage_cookies` tool (browser layer) sees cookies the
+  extension's own API never can.
 
-Extension `host_permissions`: `https://ssologin.cuny.edu/*`.
+## Observed cookies by stage **[live 2026-06-10, Chrome]**
 
-| Cookie | Domain | SameSite | Typical role |
-|--------|--------|----------|--------------|
-| **`OAM_ID`** | `ssologin.cuny.edu` | `no_restriction` | Oracle OAM session artifact (HttpOnly, Secure) |
-| **`OAMAuthnCookie_ssologin.cuny.edu_443`** | `ssologin.cuny.edu` | `no_restriction` | Oracle WebGate bearer for this host/port (HttpOnly, Secure) |
-| **`oaaCtx`** | `.ssologin.cuny.edu` | `unspecified` | OAM auxiliary context blob; domain cookie sent to all subdomains of ssologin.cuny.edu (HttpOnly, Secure) |
-| **`_WL_AUTHCOOKIE_JSESSIONID`** | `ssologin.cuny.edu` | `unspecified` | WebLogic HTTP session affinity (HttpOnly, Secure) |
-| `OAM_REQ_0`, `OAM_REQ_1` | `ssologin.cuny.edu` | `no_restriction` | In-flight request state; set to `invalid` after successful auth |
-| `OAM_REQ_COUNT` | `ssologin.cuny.edu` | `no_restriction` | Request counter |
-| `BIGipServer/…`, `BIGipServera/…` | `ssologin.cuny.edu` | `unspecified` | Load-balancer affinity — **not** auth proofs |
-| `OAMAuthnHintCookie` | `.cuny.edu` | `no_restriction` | **Username hint only** — pre-fills login form username. Not a session token. Only visible to the extension with `https://*.cuny.edu/*` in `host_permissions` (intentionally absent — too broad). |
+SameSite is shown in standard terms (`None`/`Lax`/`Strict`); the extension's
+`chrome.cookies` API surfaces these as `no_restriction`/`lax`/`strict`/`unspecified`.
 
-`ObSSOCookie`, `ORA_OSFS_SESSION`, and `OAM_JSESSIONID` were **not observed** in the May 2026 Chrome session post-login; they may be present in other flows or environments.
+### `ssologin.cuny.edu` / `.cuny.edu`
 
-## Verification protocol
+| Cookie | Domain | httpOnly | secure | SameSite | Role |
+|--------|--------|----------|--------|----------|------|
+| **`OAM_ID`** | `ssologin.cuny.edu` | ✓ | ✓ | None | OAM master SSO session. Pre-consent: pairs with `OAMAuthnCookie` (delete both to log out). Post-consent: **not** required by the OAA app. |
+| **`OAMAuthnCookie_ssologin.cuny.edu_443`** | `ssologin.cuny.edu` | ✓ | ✓ | None | WebGate bearer for this host/port. Re-minted from a valid `OAM_ID`. |
+| **`JSESSIONID`** | `ssologin.cuny.edu` | ✓ | **✗** | **Strict** | **OAA OIDC app session — a signed JWT** (`iss …/oauth2`, `sub`, `groups`, `cunyeduemplid`). The load-bearing post-consent cookie. *Not previously documented.* |
+| **`_WL_AUTHCOOKIE_JSESSIONID`** | `ssologin.cuny.edu` | ✓ | ✓ | Lax | WebLogic auth cookie paired with the app `JSESSIONID`. |
+| **`OAM_JSESSIONID`** | `ssologin.cuny.edu` | **✗** | ✓ | Lax | OAM server's WebLogic session. *Previously listed as "not observed" — it appears in the SAML federation flow.* |
+| **`ORA_OSFS_SESSION`** | `ssologin.cuny.edu` | ✓ | ✓ | None | OAM **Federation (SAML IdP)** session. The SSO behind Brightspace. *Previously "not observed."* |
+| **`OAACtxCookie`** | `ssologin.cuny.edu` | ✓ | **✗** | Lax | OAuth/MFA partner-context blob (base64 `v2.0~CUNY-OAM-MFAPartner~…`). *Not previously documented.* |
+| **`HELIDON_TENANT`** | `ssologin.cuny.edu` | ✓ | **✗** | **Strict** | Helidon tenant routing (`@default`). *Not previously documented.* |
+| `oaaCtx` | `.ssologin.cuny.edu` | ✓ | ✓ | Lax | OAM auxiliary context (domain cookie, sent to all subdomains). |
+| `OAMRequestContext_…_<hex>` | `ssologin.cuny.edu` | ✓ | ✓ | None | Transient in-flight OAM request context. *Not previously documented.* |
+| `OAM_REQ_0`, `OAM_REQ_1` | `ssologin.cuny.edu` | ✓ | ✓ | None | In-flight request state; set to `invalid` after successful auth. |
+| `OAM_REQ_COUNT` | `ssologin.cuny.edu` | ✓ | ✓ | None | Request counter. |
+| `BIGipServer/…`, `BIGipServera/…` | `ssologin.cuny.edu` | ✓ | ✓ | Lax | F5 load-balancer affinity — **not** auth proofs. |
+| `OAMAuthnHintCookie` | `.cuny.edu` | ✓ | ✓ | None | **Username hint only**, not a session token. On the parent domain, so the `ssologin.cuny.edu`-scoped sweep misses it (harmless). Visible to `manage_cookies` regardless. |
 
-**Post-consent (past the allow gate):**
-1. Establish a fully authenticated session at `https://ssologin.cuny.edu/oaa/rui` (past `mfaConsent.jsp`).
-2. Trigger logout (`LOGOUT_CUNY_SESSIONS` runtime message).
-3. Confirm the tab navigated to `Logout.jsp` ("You Have Logged Out").
-4. Navigate to `https://ssologin.cuny.edu/oaa/rui` and verify redirect to `obrareq.cgi`.
+Which appear when: pre-login → `BIGipServer*`, `OAMAuthnHintCookie`, `OAM_REQ_*`,
+`OAMRequestContext_*`. Pre-Allow-gate adds `OAM_ID`, `OAMAuthnCookie_*`, `oaaCtx`,
+`OAACtxCookie`. Post-Allow-gate adds `_WL_AUTHCOOKIE_JSESSIONID`, `HELIDON_TENANT`,
+`JSESSIONID`. The SAML/Brightspace flow is where `OAM_JSESSIONID` and `ORA_OSFS_SESSION`
+appear. `ObSSOCookie` was still not observed.
 
-**Pre-consent (at the allow gate):**
-1. Log in through TOTP but stop at `mfaConsent.jsp` without clicking Allow.
-2. Trigger logout (`LOGOUT_CUNY_SESSIONS` runtime message).
-3. The tab will navigate to the logout URL, but it redirects back to `mfaConsent.jsp` (not `Logout.jsp`) — this is expected and not a failure.
-4. Navigate to `https://ssologin.cuny.edu/oaa/rui` and verify redirect to `obrareq.cgi` (cookie sweep did the work).
+### `brightspace.cuny.edu` (D2L) — outside `host_permissions`
 
-Record evidence as final URL + visible page text (never cookie values).
+| Cookie | httpOnly | secure | SameSite | Role |
+|--------|----------|--------|----------|------|
+| **`d2lSecureSessionVal`** | ✓ | ✓ | None | **Load-bearing** D2L secure session (HTTPS). Deleting it alone → `whoami` 403. |
+| `d2lSessionVal` | ✓ | ✓ | None | D2L session value. |
+| `d2lSameSiteCanaryA` | ✓ | ✓ | None | SameSite capability canary. |
+| `d2lSameSiteCanaryB` | ✓ | ✓ | Lax | SameSite capability canary. |
+
+## Verification protocol **[live 2026-06-10]**
+
+Use an **API probe** as the auth oracle (the SPA/portal shell is cached and unreliable).
+Record evidence as `{API endpoint, status, final URL}` — never cookie values.
+
+**Post-consent (OAA SPA):**
+1. Authenticate past `mfaConsent.jsp` to `/oaa/rui`.
+2. Confirm authed: `fetch('/oaa/rui/user/v1')` → 200 JSON.
+3. Trigger logout (`LOGOUT_CUNY_SESSIONS`) or delete `JSESSIONID`.
+4. Confirm: `fetch('/oaa/rui/user/v1')` → 302 → `obrareq.cgi` (login HTML).
+
+**Pre-consent (Allow gate):**
+1. Log in through TOTP, stop at `mfaConsent.jsp`.
+2. Delete `OAM_ID` **and** `OAMAuthnCookie_*` (deleting one is not enough — OAM re-mints).
+3. Navigate `/oaa/rui` → redirects to `obrareq.cgi`.
+
+**Brightspace:**
+1. Authenticate to `brightspace.cuny.edu/d2l/home`.
+2. Confirm authed: `fetch('/d2l/api/lp/1.43/users/whoami')` → 200 JSON `{Identifier,…}`.
+3. Delete `d2lSecureSessionVal` → `whoami` returns 403.
+4. To prove **full** logout (no silent re-fed): also delete `OAM_ID` + `ORA_OSFS_SESSION`
+   on `ssologin.cuny.edu`, then visit `brightspace.cuny.edu` → CUNY Login form.
 
 ## Disclaimer
 
-Oracle and WebGate may add or rename cookies; always confirm in DevTools **Application → Cookies** for failing cases. Observations above are from `ssologin.cuny.edu` May 2026.
+Oracle/WebGate/Helidon and D2L may add or rename cookies; confirm with the
+`manage_cookies` MCP tool (or DevTools **Application → Cookies**) for failing cases.
+Observations above are from `ssologin.cuny.edu` + `brightspace.cuny.edu`, Chrome,
+2026-06-10.

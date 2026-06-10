@@ -7,3 +7,5 @@
 - [Onboarding state injection limitation](feedback_state_injection.md) — Cannot fake stage messages from page inspect_dom
 - [Live final confirmation defaults](feedback_live_final_confirmation_defaults.md) — COMPLETE_DEMO checks and environment caveats
 - [End-of-run Bitwarden restore](feedback_end_of_run_restore_bitwarden_default.md) — Restore remembered default after factor changes
+- [Cookie/auth probe — API not SPA shell](feedback_cookie_auth_probe.md) — Cached SPA shell looks logged-in with zero cookies; probe the API
+- [Cookie/session behavior verified live](project_cookie_session_map_2026_06.md) — Minimal logout sets per state + undocumented cookies (2026-06-10)
