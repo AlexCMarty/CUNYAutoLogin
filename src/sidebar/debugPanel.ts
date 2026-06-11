@@ -12,28 +12,23 @@ export interface DebugPanelDeps {
   onClearLiveSessions: () => Promise<boolean>;
 }
 
+const createDebugButton = (id: string, textContent: string) => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.id = id;
+  button.className = "secondary";
+  button.textContent = textContent;
+  return button;
+}
+
 export function mountDebugPanel(deps: DebugPanelDeps): void {
   const section = document.createElement("section");
   section.className = "dev-test";
   section.setAttribute("aria-label", "Development test");
 
-  const testBtn = document.createElement("button");
-  testBtn.type = "button";
-  testBtn.id = "test-message-btn";
-  testBtn.className = "secondary";
-  testBtn.textContent = "Send test FILL_CREDENTIALS to active tab";
-
-  const clearVaultBtn = document.createElement("button");
-  clearVaultBtn.type = "button";
-  clearVaultBtn.id = "clear-vault-debug-btn";
-  clearVaultBtn.className = "secondary";
-  clearVaultBtn.textContent = "Clear vault — debug (reset like fresh install)";
-
-  const clearLiveSessionsBtn = document.createElement("button");
-  clearLiveSessionsBtn.type = "button";
-  clearLiveSessionsBtn.id = "clear-live-sessions-debug-btn";
-  clearLiveSessionsBtn.className = "secondary";
-  clearLiveSessionsBtn.textContent = "Log out of /oaa/rui";
+  const testBtn = createDebugButton("test-message-btn", "Send test FILL_CREDENTIALS to active tab");
+  const clearVaultBtn = createDebugButton("clear-vault-debug-btn", "Clear vault — debug (reset like fresh install)")
+  const clearLiveSessionsBtn = createDebugButton("clear-live-sessions-debug-btn", "Log out of /oaa/rui");
 
   section.append(testBtn, clearVaultBtn, clearLiveSessionsBtn);
   deps.els.form.parentElement?.appendChild(section);
