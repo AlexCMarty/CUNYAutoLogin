@@ -200,18 +200,18 @@ describe("clear-vault-debug-btn", () => {
 });
 
 describe("clear-live-sessions-debug-btn", () => {
-  test("setStatus says could not log out when onClearLiveSessions returns false", async () => {
+  test("setStatus says could not clear cookies when onClearLiveSessions returns false", async () => {
     const deps = makeDeps({ onClearLiveSessions: vi.fn().mockResolvedValue(false) });
     mountDebugPanel(deps);
 
     document.getElementById("clear-live-sessions-debug-btn")?.click();
 
     await vi.waitFor(() => {
-      expect(deps.setStatus).toHaveBeenCalledWith("Could not log out of /oaa/rui.");
+      expect(deps.setStatus).toHaveBeenCalledWith("Could not clear CUNY session cookies.");
     });
   });
 
-  test("setStatus contains 'Navigated /oaa/rui' when onClearLiveSessions returns true", async () => {
+  test("setStatus reports cleared cookies when onClearLiveSessions returns true", async () => {
     const deps = makeDeps({ onClearLiveSessions: vi.fn().mockResolvedValue(true) });
     mountDebugPanel(deps);
 
@@ -219,7 +219,7 @@ describe("clear-live-sessions-debug-btn", () => {
 
     await vi.waitFor(() => {
       const call = (deps.setStatus as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect((call?.[0] as string)).toContain("Navigated /oaa/rui");
+      expect((call?.[0] as string)).toContain("Cleared CUNY session cookies");
     });
   });
 });

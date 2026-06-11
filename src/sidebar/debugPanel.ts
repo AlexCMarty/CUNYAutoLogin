@@ -87,9 +87,9 @@ export function mountDebugPanel(deps: DebugPanelDeps): void {
   clearLiveSessionsBtn.addEventListener("click", async () => {
     const ok = await deps.onClearLiveSessions();
     if (!ok) {
-      deps.setStatus("Could not log out of /oaa/rui.");
+      deps.setStatus("Could not clear CUNY session cookies.");
       return;
     }
-    deps.setStatus("Navigated /oaa/rui tab to logout endpoint.", true);
+    deps.setStatus("Cleared CUNY session cookies (ssologin + Brightspace).", true);
   });
 }
