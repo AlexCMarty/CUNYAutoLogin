@@ -2,11 +2,11 @@
  * Screen 4 — "Opening CUNY…" transition.
  *
  * Behavior on mount:
- *   1. Ask the service worker to terminate any live OAA session via
- *      `LOGOUT_CUNY_SESSIONS` (navigates open SSO tabs to `OAA_RUI_LOGOUT_URL`
- *      in `src/cuny/ssoSite.ts` and performs a best-effort fetch logout). Without
- *      this step, a student who is already signed in at the RUI entry would skip
- *      the credential page and Screen 4 would hang waiting for auto-fill.
+ *   1. Ask the service worker to clear any live CUNY session via
+ *      `LOGOUT_CUNY_SESSIONS` (deletes every `ssologin.cuny.edu` cookie plus the
+ *      Brightspace session cookies). Without this step, a student who is already
+ *      signed in at the RUI entry would skip the credential page and Screen 4
+ *      would hang waiting for auto-fill.
  *   2. Stage the in-memory email+password into the service worker's ephemeral
  *      cache via `STAGE_ONBOARDING_CREDENTIALS`. The content script asks for
  *      credentials via the existing `AUTO_FILL_REQUEST` flow, which falls back

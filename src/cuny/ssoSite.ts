@@ -96,15 +96,6 @@ export const isAllowedReopenCunyTabUrl = (urlString: string): boolean => {
   return host === SSO_LOGIN_HOST || host === BRIGHTSPACE_HOST;
 };
 
-/**
- * OAA server-side logout endpoint. Navigating here terminates the Oracle Access
- * Manager session on the server so subsequent page loads require re-authentication.
- * Client-side cookie deletion alone is insufficient — OAA maintains a server-side
- * session that survives cookie removal.
- */
-export const OAA_RUI_LOGOUT_URL =
-  `${SSO_LOGIN_ORIGIN}/oaa/rui/user/v1/logout` as const;
-
 /** `error` query value on Oracle OIDC redirect when the user denies consent. */
 export const OAA_RUI_OIDC_ACCESS_DENIED_ERROR = "access_denied" as const;
 

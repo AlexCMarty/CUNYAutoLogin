@@ -58,12 +58,10 @@ import {
   BRIGHTSPACE_HOME_URL,
   CUNY_LOGIN_ENTRY_URL,
   ENROLLED_FACTOR_ALIAS_SESSION_KEY,
-  OAA_RUI_LOGOUT_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
   SSO_LOGIN_HOST,
   SSO_LOGIN_ORIGIN,
-  SSO_LOGIN_TABS_QUERY_URL_PATTERN,
 } from "../cuny/ssoSite";
 import type { OnboardingOverlayCommand } from "../onboarding/messages";
 import { ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY } from "../onboarding/resumeSession";
@@ -1051,18 +1049,14 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
     expect(vi.mocked(tabsApi.create)).not.toHaveBeenCalled();
   });
 
-  test("with allowed ssologin url → terminates OAA session then opens tab", async () => {
+  test("with allowed ssologin url → clears the SSO session then opens tab", async () => {
     const url = `${SSO_LOGIN_ORIGIN}/oam/server/obrareq.cgi`;
     const tabsApi = (browser as unknown as {
-      tabs: { create: ReturnType<typeof vi.fn>; query: ReturnType<typeof vi.fn> };
+      tabs: { create: ReturnType<typeof vi.fn> };
     }).tabs;
     expect(
       await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB", url }, EXT_SENDER)
     ).toEqual({ ok: true });
-    expect(vi.mocked(tabsApi.query)).toHaveBeenCalledWith({
-      url: [SSO_LOGIN_TABS_QUERY_URL_PATTERN],
-    });
-    expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
     expect(vi.mocked(browser.cookies.getAll)).toHaveBeenCalledWith({ domain: SSO_LOGIN_HOST });
     expect(vi.mocked(browser.cookies.remove)).not.toHaveBeenCalled();
     expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({ url, active: true });
@@ -1070,14 +1064,11 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
 
   test("without url → falls back to CUNY_LOGIN_ENTRY_URL", async () => {
     const tabsApi = (browser as unknown as {
-      tabs: { create: ReturnType<typeof vi.fn>; query: ReturnType<typeof vi.fn> };
+      tabs: { create: ReturnType<typeof vi.fn> };
     }).tabs;
     expect(
       await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" }, EXT_SENDER)
     ).toEqual({ ok: true });
-    expect(vi.mocked(tabsApi.query)).toHaveBeenCalledWith({
-      url: [SSO_LOGIN_TABS_QUERY_URL_PATTERN],
-    });
     expect(vi.mocked(tabsApi.create)).toHaveBeenCalledWith({
       url: CUNY_LOGIN_ENTRY_URL,
       active: true,
@@ -1094,34 +1085,19 @@ describe("ONBOARDING_REOPEN_CUNY_TAB", () => {
     ).toEqual({ ok: false, reason: "forward_failed" });
   });
 
-  test("fetch failure does not prevent tab from opening", async () => {
-    vi.mocked(fetch).mockRejectedValueOnce(new Error("network error"));
-    expect(
-      await handler({ type: "ONBOARDING_REOPEN_CUNY_TAB" }, EXT_SENDER)
-    ).toEqual({ ok: true });
-  });
 });
 
 describe("LOGOUT_CUNY_SESSIONS", () => {
-  test("navigates ssologin tabs to the OAA logout URL and fetches logout", async () => {
+  test("logs out by deleting cookies only — no server-side endpoint call", async () => {
     const tabsApi = (browser as unknown as {
-      tabs: {
-        query: ReturnType<typeof vi.fn>;
-        update: ReturnType<typeof vi.fn>;
-      };
+      tabs: { update: ReturnType<typeof vi.fn> };
     }).tabs;
-    vi.mocked(tabsApi.query).mockResolvedValueOnce([
-      { id: 42, url: `${SSO_LOGIN_ORIGIN}/oaa/rui/index.html` },
-    ]);
     expect(await handler({ type: "LOGOUT_CUNY_SESSIONS" }, EXT_SENDER)).toEqual({ ok: true });
-    expect(vi.mocked(tabsApi.query)).toHaveBeenCalledWith({
-      url: [SSO_LOGIN_TABS_QUERY_URL_PATTERN],
-    });
-    expect(vi.mocked(tabsApi.update)).toHaveBeenCalledWith(42, {
-      url: OAA_RUI_LOGOUT_URL,
-    });
-    expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
+    // Logout is cookie-deletion only: it sweeps the ssologin jar and never
+    // navigates a tab to, or fetches, the OAA logout endpoint.
     expect(vi.mocked(browser.cookies.getAll)).toHaveBeenCalledWith({ domain: SSO_LOGIN_HOST });
+    expect(vi.mocked(tabsApi.update)).not.toHaveBeenCalled();
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 
   test("removes every ssologin cookie after logout", async () => {
@@ -1163,11 +1139,10 @@ describe("LOGOUT_CUNY_SESSIONS", () => {
     });
   });
 
-  test("returns ok:true even when no ssologin tabs are open (fetch still runs)", async () => {
+  test("returns ok:true even when the cookie store is empty", async () => {
     expect(await handler({ type: "LOGOUT_CUNY_SESSIONS" }, EXT_SENDER)).toEqual({ ok: true });
-    expect(vi.mocked(fetch)).toHaveBeenCalledWith(OAA_RUI_LOGOUT_URL, { credentials: "include" });
+    expect(vi.mocked(browser.cookies.getAll)).toHaveBeenCalledWith({ domain: SSO_LOGIN_HOST });
   });
-
 });
 
 // ──── cross-extension-sender-gate [CRITICAL] ─────────────────────────────────

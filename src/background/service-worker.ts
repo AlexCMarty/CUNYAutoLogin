@@ -9,11 +9,9 @@ import {
   BRIGHTSPACE_HOME_URL,
   CUNY_LOGIN_ENTRY_URL,
   ENROLLED_FACTOR_ALIAS_SESSION_KEY,
-  OAA_RUI_LOGOUT_URL,
   PENDING_TOTP_SECRET_SESSION_KEY,
   SESSION_MASTER_KEY,
   SSO_LOGIN_HOST,
-  SSO_LOGIN_TABS_QUERY_URL_PATTERN,
   isAllowedReopenCunyTabUrl,
   isBrightspaceUrl,
   isTrustedContentScriptMessageHostname,
@@ -136,38 +134,21 @@ const clearBrightspaceSessionCookies = async (): Promise<void> => {
   }
 };
 
-const logOutOaaRuiInTabs = async (): Promise<void> => {
-  const ssoTabs = await browser.tabs.query({ url: [SSO_LOGIN_TABS_QUERY_URL_PATTERN] });
-  for (const ssoTab of ssoTabs) {
-    if (typeof ssoTab.id !== "number") continue;
-    try {
-      await browser.tabs.update(ssoTab.id, { url: OAA_RUI_LOGOUT_URL });
-    } catch {
-      // Ignore tabs that cannot be navigated (e.g. already closed).
-    }
-  }
-};
-
-/**
- * Terminate the OAA server-side session via a direct fetch from the service
- * worker. Supplements tab navigation when no SSO login host tab is open.
- * Best-effort — a network failure does not block callers.
- */
-const fetchLogOutOaaRui = async (): Promise<void> => {
-  try {
-    await fetch(OAA_RUI_LOGOUT_URL, { credentials: "include" });
-  } catch {
-    // Best-effort; proceed regardless.
-  }
-};
-
 const ssoLoginCookieRemovalUrl = (cookie: browser.Cookies.Cookie): string => {
   const protocol = cookie.secure ? "https:" : "http:";
   const host = cookie.domain.startsWith(".") ? cookie.domain.slice(1) : cookie.domain;
   return `${protocol}//${host}${cookie.path}`;
 };
 
-/** Remove every cookie visible for {@link SSO_LOGIN_HOST} (post server-side logout). */
+/**
+ * Log the user out of `ssologin.cuny.edu` by deleting every cookie the cookie
+ * store exposes for that host. This is the load-bearing logout mechanism: the
+ * sweep removes the OAM SSO cookies (`OAM_ID`, `OAMAuthnCookie_*`), the OAA OIDC
+ * app session (`JSESSIONID`), and the SAML federation session
+ * (`ORA_OSFS_SESSION`) that would otherwise silently re-federate Brightspace.
+ * Deleting the whole jar (rather than a hardcoded subset) keeps logout correct
+ * even when Oracle renames or adds cookies.
+ */
 const clearSsoLoginCookies = async (): Promise<void> => {
   let cookies: browser.Cookies.Cookie[];
   try {
@@ -186,13 +167,6 @@ const clearSsoLoginCookies = async (): Promise<void> => {
       // Best-effort per cookie.
     }
   }
-};
-
-/** Navigate open SSO tabs to the OAA logout URL, then hit logout over fetch. */
-const terminateOaaRuiSessions = async (): Promise<void> => {
-  await logOutOaaRuiInTabs();
-  await fetchLogOutOaaRui();
-  await clearSsoLoginCookies();
 };
 
 /** Exported only for tests; not part of any wire contract. */
@@ -306,7 +280,7 @@ const handleOnboardingMessage = async (
     if (resolvedUrl === null) {
       return { ok: false, reason: "invalid_payload" };
     }
-    await terminateOaaRuiSessions();
+    await clearSsoLoginCookies();
     if (isBrightspaceUrl(resolvedUrl)) {
       await clearBrightspaceSessionCookies();
     }
@@ -569,7 +543,7 @@ const coreMessageRoutes = (
       if (!isLogoutCunySessionsRequest(message)) {
         return { ok: false as const };
       }
-      await terminateOaaRuiSessions();
+      await clearSsoLoginCookies();
       await clearBrightspaceSessionCookies();
       return { ok: true as const };
     })(),
