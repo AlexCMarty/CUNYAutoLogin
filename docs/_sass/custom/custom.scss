@@ -133,6 +133,23 @@
   margin: 0;
 }
 
+// ── Promo video ─────────────────────────────────────────────────────────────
+.promo-video {
+  margin: 0 0 var(--space-lg);
+  display: flex;
+  justify-content: center;
+}
+
+.promo-video video {
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--clr-border);
+  box-shadow: 0 8px 28px rgba(21, 20, 15, 0.08);
+  background: var(--clr-surface);
+}
+
 // -- Unsorted
 
 .central-point {

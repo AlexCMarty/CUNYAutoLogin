@@ -5,6 +5,18 @@ layout: default
 <script src="{{ '/assets/js/cta-autodetect.js' | relative_url }}" defer></script>
 {% include hero.html %}
 
+<div class="promo-video">
+  <video
+    src="{{ '/assets/video/promo.mp4' | relative_url }}"
+    autoplay
+    muted
+    loop
+    playsinline
+    controls
+    preload="metadata"
+  ></video>
+</div>
+
 {{ content }}
 
 {% include closing-cta.html %}
