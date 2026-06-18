@@ -292,6 +292,19 @@ npm run capture-sidebar -- --qa-vault-unlocked  # 2fa-autofill.png
 Output lands in `agent_screenshots/`; copy the chosen PNGs into
 `docs/assets/screenshots/` with the names referenced by `index.md` / `hero.html`.
 
+**Regenerating the social-share card.** The Open Graph / Twitter preview image
+(`docs/assets/img/og-card.png`, shown whenever the site is linked in a chat or on
+social) is rasterized from `docs/assets/img/og-card.svg`. Scrapers ignore an SVG
+`og:image`, so the served asset must be a PNG. Edit the SVG, then:
+
+```bash
+npm run og   # headless Chromium → og-card.png (1200×630), Geist font baked in
+```
+
+It is wired through `jekyll-seo-tag` via the `image:` key in `_config.yml`, so no
+template edits are needed. The card embeds the favicon (`icon.svg`) — both share
+the brand cream (`#f6f3ec`), so the logo sits seamlessly with no visible box.
+
 ### One-time GitHub Pages setup (manual)
 
 1. **DNS** at the `alexmarty.dev` provider: add a `CNAME` record

@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:e2e": "npm run build:e2e && playwright test",
     "capture-sidebar": "node scripts/capture-sidebar.mjs",
+    "og": "node scripts/render-og-card.mjs",
     "postinstall": "playwright install chromium",
     "bump": "bash scripts/bump-version.sh",
     "knip": "knip"

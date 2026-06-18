@@ -24,6 +24,7 @@ docs/
   _sass/color_schemes/cunyautologin.scss   Maps extension design tokens → theme vars
   _sass/custom/custom.scss     Landing-page components
   assets/img/icon.svg
+  assets/img/og-card.{svg,png}  Social-share card: SVG source → PNG via `npm run og`
   assets/screenshots/          Marketing shots referenced by index.md / hero.html
 ```
 

@@ -3,6 +3,15 @@ description: Stop manually logging into CUNY. We do that for you. An encrypted, 
 url: https://cunyautologin.alexmarty.dev
 baseurl: ""
 
+# Social share card (Open Graph + Twitter), consumed by jekyll-seo-tag.
+# Source: assets/img/og-card.svg — re-rasterize to og-card.png after edits.
+image:
+  path: /assets/img/og-card.png
+  width: 1200
+  height: 630
+twitter:
+  card: summary_large_image
+
 # /install/, /faq/, /privacy/ — not /install.html (GitHub Pages + jekyll serve)
 permalink: pretty
 
