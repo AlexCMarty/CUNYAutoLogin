@@ -1,4 +1,4 @@
-<!-- Load when: editing anything under docs/**, the marketing/docs site, GitHub Pages deploy, or regenerating marketing screenshots -->
+<!-- Load when: editing anything under docs/**, the marketing/docs site, GitHub Pages deploy, or updating marketing assets (promo video, social-share card) -->
 
 # CUNYAutoLogin — marketing/docs website (`docs/`)
 
@@ -19,13 +19,13 @@ docs/
   Dockerfile / docker-compose.yml   Pinned local-preview toolchain (no host Ruby)
   Gemfile                      Jekyll/just-the-docs gem pins
   _layouts/home-custom.html    Landing-page layout
-  _includes/hero.html          Hero block + screenshot references
+  _includes/hero.html          Hero block + CTA + trust bar
   _includes/head_custom.html   Extra <head> tags
   _sass/color_schemes/cunyautologin.scss   Maps extension design tokens → theme vars
   _sass/custom/custom.scss     Landing-page components
   assets/img/icon.svg
   assets/img/og-card.{svg,png}  Social-share card: SVG source → PNG via `npm run og`
-  assets/screenshots/          Marketing shots referenced by index.md / hero.html
+  assets/video/promo.mp4        Landing demo video (poster: promo-poster.jpg)
 ```
 
 ## Local preview (Docker — no host Ruby needed)

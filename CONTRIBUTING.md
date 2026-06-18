@@ -276,21 +276,17 @@ Styling mirrors the extension's design tokens (`src/sidebar/sidebar.css`):
 `_sass/custom/custom.scss` holds the landing-page components. Page copy is sourced
 from `README.md` / `PRIVACY.md` — keep `docs/privacy.md` in sync with `PRIVACY.md`.
 
-**Regenerating screenshots.** `docs/assets/screenshots/` holds the marketing
-shots. `scripts/capture-sidebar.mjs` strips dev-only chrome (the `#qa=` jump
-banner and the vault debug panel) before each capture, so a dev build yields
-production-clean images. Onboarding states need a dev build (production ignores
-`#qa=`); vault states inject storage directly and look identical from any build:
+**Promo video & poster.** The landing page leads with a hand-recorded screen
+capture of an auto-login (`docs/assets/video/promo.mp4`), autoplayed muted and
+looping in `_layouts/home-custom.html`. Its poster frame
+(`docs/assets/video/promo-poster.jpg`) — shown before the video loads so a slow
+connection never flashes a black box above the fold — is pulled straight from
+the clip with ffmpeg. Re-extract it whenever you replace the video:
 
 ```bash
-npm run build:dev   # or build:e2e — production ignores #qa= hashes
-npm run capture-sidebar -- '#qa=WELCOME'        # → guided-setup / welcome shots
-npm run capture-sidebar -- --qa-vault-locked    # locked-vault.png
-npm run capture-sidebar -- --qa-vault-unlocked  # 2fa-autofill.png
+ffmpeg -y -ss 3 -i docs/assets/video/promo.mp4 -frames:v 1 \
+  -vf scale=1440:-1 -q:v 3 docs/assets/video/promo-poster.jpg
 ```
-
-Output lands in `agent_screenshots/`; copy the chosen PNGs into
-`docs/assets/screenshots/` with the names referenced by `index.md` / `hero.html`.
 
 **Regenerating the social-share card.** The Open Graph / Twitter preview image
 (`docs/assets/img/og-card.png`, shown whenever the site is linked in a chat or on
