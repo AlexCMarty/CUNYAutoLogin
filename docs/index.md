@@ -1,7 +1,7 @@
 ---
-title: Home
+title: "Auto-fill your CUNY login, password & 2FA"
 layout: home-custom
-nav_order: 1
+nav_exclude: true
 description: "CUNYAutoLogin fills your CUNY email, password, and 2FA code on the official sign-in page. Encrypted on your device. No cloud sync, no analytics."
 ---
 
@@ -49,3 +49,36 @@ Yes. That's exactly the right question to ask, and you shouldn't take anyone's w
 ## Questions, comments, concerns?
 
 If you have questions, first check the [FAQ](/faq/). If that doesn't help, please [open an issue](https://github.com/AlexCMarty/CUNYAutoLogin/issues). Also see our [Privacy Policy](/privacy).
+
+<!-- SoftwareApplication structured data for search engines + AI answer engines.
+     Keep claims (browser minimums, price, license) in sync with src/manifest.json and the site copy. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "CUNYAutoLogin",
+  "applicationCategory": "BrowserApplication",
+  "operatingSystem": "Windows, macOS, Linux, ChromeOS",
+  "browserRequirements": "Requires Firefox 140+ or Chromium 141+ (Chrome, Edge).",
+  "description": "Free, open-source browser extension that automatically fills and submits your CUNY Login — email, password, and six-digit 2FA code — on CUNY's official sign-in page. Credentials are encrypted on your device; no account, no cloud sync, no analytics.",
+  "url": "https://cunyautologin.alexmarty.dev/",
+  "image": "https://cunyautologin.alexmarty.dev/assets/img/og-card.png",
+  "downloadUrl": "https://chromewebstore.google.com/detail/cunyautologin/nkkoameonkenaahfjkkicaphfncjikin",
+  "isAccessibleForFree": true,
+  "license": "https://github.com/AlexCMarty/CUNYAutoLogin/blob/main/LICENSE",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Alexander C. Marty"
+  },
+  "sameAs": [
+    "https://chromewebstore.google.com/detail/cunyautologin/nkkoameonkenaahfjkkicaphfncjikin",
+    "https://addons.mozilla.org/en-US/firefox/addon/cunyautologin/",
+    "https://github.com/AlexCMarty/CUNYAutoLogin"
+  ]
+}
+</script>

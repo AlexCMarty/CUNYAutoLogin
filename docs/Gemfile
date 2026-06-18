@@ -3,6 +3,7 @@ source "https://rubygems.org"
 gem "jekyll", "~> 4.3"
 gem "just-the-docs", "~> 0.10"
 gem "jekyll-seo-tag", "~> 2.8"
+gem "jekyll-sitemap", "~> 1.4"
 
 # Required by Ruby 3.4+ (no longer bundled with the standard library)
 gem "webrick", "~> 1.9"

@@ -8,6 +8,8 @@ description: "How CUNYAutoLogin protects your CUNY credentials: an on-device AES
 # Is CUNYAutoLogin secure?
 {: .no_toc }
 
+**Last updated:** June 18, 2026
+
 You're trusting it with your CUNY password *and* your authenticator secret. That's exactly the right thing to be suspicious about — and you shouldn't take anyone's word for the answer, including ours. Here's precisely what happens to your credentials, and where you can verify every claim in the source code.
 {: .fs-5 }
 

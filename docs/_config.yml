@@ -15,8 +15,6 @@ defaults:
         path: /assets/img/og-card.png
         width: 1200
         height: 630
-twitter:
-  card: summary_large_image
 
 # /install/, /faq/, /privacy/ — not /install.html (GitHub Pages + jekyll serve)
 permalink: pretty
@@ -56,6 +54,7 @@ aux_links_new_tab: true
 
 plugins:
   - jekyll-seo-tag
+  - jekyll-sitemap
 
 # Exclude project files that aren't part of the site
 exclude:

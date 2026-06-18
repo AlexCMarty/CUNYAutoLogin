@@ -8,10 +8,18 @@ description: "Common questions about CUNYAutoLogin: whether it's secure, how it 
 # Frequently asked questions
 {: .no_toc }
 
+**Last updated:** June 18, 2026
+
 1. TOC
 {:toc}
 
 ---
+
+## The basics
+
+### What is CUNYAutoLogin?
+
+CUNYAutoLogin is a free, open-source browser extension for Chrome, Edge, and Firefox that automatically fills and submits your CUNY Login — email, password, and six-digit 2FA code — on CUNY's official sign-in page. Your credentials are encrypted on your device; there is no account, no cloud sync, and no analytics.
 
 ## Security & privacy
 
@@ -81,6 +89,14 @@ Unlock the extension first. Then try refreshing the CUNY page after unlocking.
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is CUNYAutoLogin?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "CUNYAutoLogin is a free, open-source browser extension for Chrome, Edge, and Firefox that automatically fills and submits your CUNY Login — email, password, and six-digit 2FA code — on CUNY's official sign-in page. Your credentials are encrypted on your device; there is no account, no cloud sync, and no analytics."
+      }
+    },
     {
       "@type": "Question",
       "name": "Is this secure?",

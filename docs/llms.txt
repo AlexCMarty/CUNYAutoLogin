@@ -1,0 +1,17 @@
+# CUNYAutoLogin
+
+> CUNYAutoLogin is a free, open-source browser extension (Chrome, Edge, Firefox) that automatically fills and submits your CUNY Login — email, password, and six-digit 2FA code — on CUNY's official sign-in page. Credentials are encrypted on your device with PBKDF2 + AES-256-GCM; there is no server, no account, no cloud sync, and no analytics.
+
+## Pages
+
+- [Home](https://cunyautologin.alexmarty.dev/): What it does, how it works, and why it's safe
+- [Install](https://cunyautologin.alexmarty.dev/install/): Install on Chrome, Edge, or Firefox from the official stores
+- [Security](https://cunyautologin.alexmarty.dev/security/): How credentials are encrypted and stored, verified claim by claim against the source
+- [FAQ](https://cunyautologin.alexmarty.dev/faq/): Security, 2FA, mobile support, cloud sync, and troubleshooting
+- [Privacy Policy](https://cunyautologin.alexmarty.dev/privacy/): Exactly what is stored, where, and how it is protected
+
+## Notes
+
+- Independent open-source project under the MIT License; not affiliated with or endorsed by CUNY.
+- Desktop only: Firefox 140+ and Chrome / Edge 141+.
+- Source code: https://github.com/AlexCMarty/CUNYAutoLogin

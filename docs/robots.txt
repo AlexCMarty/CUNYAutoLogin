@@ -1,0 +1,7 @@
+# https://cunyautologin.alexmarty.dev/robots.txt
+# Allow all crawlers, including AI answer engines (GPTBot, PerplexityBot,
+# ClaudeBot, Google-Extended). Citation requires access.
+User-agent: *
+Allow: /
+
+Sitemap: https://cunyautologin.alexmarty.dev/sitemap.xml
