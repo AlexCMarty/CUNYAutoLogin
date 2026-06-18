@@ -9,11 +9,11 @@ description: "CUNYAutoLogin fills your CUNY email, password, and 2FA code on the
 
 Here's the problem us CUNY students all face:
 
-0. Open Brightspace for the 8th time today
-0. Get bounced to portal, enter email &amp; password
-0. Take out phone and enter 2FA code
-0. It logs you out anyway!!!
-0. **Repeat several times a day, for four years.**
+1. Open Brightspace for the 8th time today
+2. Get bounced to portal, enter email &amp; password
+3. Take out phone and enter 2FA code
+4. It logs you out anyway!!!
+5. **Repeat several times a day, for four years.**
 
 {: .central-point bold }
 That's hours of your degree spent on a login form.
@@ -37,6 +37,8 @@ That's hours of your degree spent on a login form.
   </div>
 </div>
 
+{: .central-point }
+Set it up once, and you get those hours of your degree back.
 
 ## "Hold on — you want my password *and* my authenticator secret?"
 

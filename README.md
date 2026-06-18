@@ -47,7 +47,7 @@ After updates, download a new release zip, unzip to replace the old folder, then
 
 ## First-time setup
 
-The first time you use the extension, the **sidebar** walks you through setup in a few stages. **Your info** → **First login** → **Set up login codes** → **Extension password** → **Optional biometrics** → **Done**. Plan on about **five minutes**.
+The first time you use the extension, the **sidebar** walks you through setup in a few stages. **Your info** → **First login** → **Set up login codes** → **Extension password** → **Optional biometrics** → **Done**. Plan on about **ten minutes**.
 
 1. **Open the extension** (puzzle piece → pin CUNYAutoLogin if you want it visible)
 2. **Your CUNY email** must end with `@login.cuny.edu` (your CUNY Login address — not a campus @stu-mail.school.cuny.edu). Enter the password for this email too.

@@ -16,6 +16,10 @@ You're trusting it with your CUNY password *and* your authenticator secret. That
 
 ---
 
+## It does exactly what you'd do by hand
+
+CUNYAutoLogin doesn't bypass anything or exploit a loophole — it performs the **same login steps you already do by hand**, on CUNY's own official sign-in page, with your own credentials, just without the typing. The six-digit code comes from a 2FA method *you* enrolled through CUNY's official MFA Self-Service, so nothing about your account's security is weakened or worked around. It's an independent project, so if you're unsure about your campus's policy, check with your campus IT office.
+
 ## Everything stays on your machine
 
 There is no CUNYAutoLogin server. No account, no sync, no analytics, no telemetry. Your email, password, and TOTP secret are sealed into an encrypted vault in your browser's local extension storage and never transmitted anywhere. The only network requests involved in logging you in are the ones your browser was already making — to CUNY.
@@ -35,6 +39,8 @@ When you unlock the vault, the session lives in `storage.session` — memory the
 ## The extension can't touch the rest of your browsing
 
 The manifest requests access to exactly two domains: `ssologin.cuny.edu` and `brightspace.cuny.edu`. Not `<all_urls>`, not your bank, not your email. Your browser enforces this — it's not a promise, it's a permission boundary. Check [`src/manifest.json`](https://github.com/AlexCMarty/CUNYAutoLogin/blob/main/src/manifest.json), or just look at the permission prompt when you install.
+
+So how does it sign you into CUNYFirst, Brightspace, *and* DegreeWorks? It never touches them directly — they all hand sign-in off to the **same** CUNY Login page. Fill that one page and you're into everything, while the extension still can't see anything you do inside those services. Narrow access, full coverage.
 
 ## It's all open source (MIT)
 
