@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CUNYAutoLogin",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Stop manually logging into CUNY. We do that for you.",
   "permissions": [
     "storage",
