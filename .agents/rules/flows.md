@@ -19,7 +19,7 @@ The master password writes to `storage.session` after every successful unlock or
 ## Auto-fill flow
 
 1. **Content script** (`content.ts`): On each `ssologin.cuny.edu` tab load, `autoFill()` sends `{ type: "AUTO_FILL_REQUEST" }` to the service worker.
-2. **Service worker** (`service-worker.ts`): Reads session master + encrypted vault, decrypts, returns `{ success: true, payload }` or a failure reason (`no_session_master`, `no_vault`, `decrypt_error`). **Onboarding fallback:** when no vault exists and the sidebar staged credentials via `STAGE_ONBOARDING_CREDENTIALS`, the SW returns those for first-login steps. It can also merge a pending TOTP secret override (`PENDING_TOTP_SECRET_SESSION_KEY`) into that fallback payload.
+2. **Service worker** (`service-worker.ts`): Reads session master + encrypted vault, decrypts, returns `{ success: true, payload }` or a failure reason (`no_session_master`, `no_vault`, `decrypt_error`, `storage_error`). **Onboarding fallback:** when no vault exists and the sidebar staged credentials via `STAGE_ONBOARDING_CREDENTIALS`, the SW returns those for first-login steps. It can also merge a pending TOTP secret override (`PENDING_TOTP_SECRET_SESSION_KEY`) into that fallback payload.
 3. **Content script** (`main()`): Chooses behavior by URL using helpers from `src/cuny/ssoSite.ts` (`matchesCredentialPage`, `matchesTotpPage`). `fillCredentials` / `fillTotp` wait for Oracle JET–rendered controls, set values in a Knockout-aware way, then click submit / Verify.
 
 Oracle JET renders inputs after `document_idle` — content script uses `MutationObserver` + timeouts.
@@ -37,7 +37,7 @@ Oracle JET renders inputs after `document_idle` — content script uses `Mutatio
 After TOTP factor enrollment, the IdP requires a one-time verification code. Page: `…/oaa/rui/index.html?h_ra=1`.
 
 1. **Content script** (`startMfaEnrollVerifyOtpPolling`): On pages matching `matchesRuiMfaEnrollVerifyPage`, starts a `setInterval` at `RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS`. On each tick, looks for `RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID`.
-2. When the field appears, sends `AUTO_FILL_REQUEST`, generates TOTP from vault secret, fills the field. Interval clears after successful fill.
+2. When the field appears, sends `AUTO_FILL_REQUEST`, generates TOTP from vault secret, fills the field. The interval keeps running after a successful fill to watch for a server-side "Incorrect code" (one auto-retry on the first failure); it clears only on a client-side empty-OTP error or on the second server-side failure.
 
 Polling instead of `MutationObserver` because the Oracle SPA re-renders in ways that made observers flaky.
 

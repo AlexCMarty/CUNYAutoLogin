@@ -90,7 +90,7 @@ Each subagent focuses on one category. These are the canonical issues for this T
 - Commented-out code blocks (any committed commented-out code is a finding)
 - Imports that are never used
 - Variables assigned but never read
-- `console.log` / `console.debug` left in production code paths (not guarded by `import.meta.env.DEV`)
+- `console.log` / `console.debug` left in production code paths (not gated by `import.meta.env.MODE !== "production"`; note the content script legitimately uses `import.meta.env.DEV` for tree-shaking)
 - Exports that are never imported by any other module
 - TODO/FIXME comments that have been sitting long enough to become permanent fixtures
 
@@ -186,7 +186,7 @@ Fix: <concrete corrective action>
 
 ## Project Context
 
-This is a TypeScript MV3 browser extension. Conventions enforced by `code-quality.mdc`, `typescript-style.mdc`, `unit-testing.mdc` (in `.cursor/rules/` or `.claude/rules/`):
+This is a TypeScript MV3 browser extension. Conventions enforced by `.agents/rules/code-quality.md`, `.agents/rules/typescript.md`, and `.agents/rules/unit-testing.md`:
 
 - `neverthrow` `Result`/`ResultAsync` for fallible functions — no raw `throw` without a comment
 - `async`/`await` only — no `.then()`
@@ -197,6 +197,6 @@ This is a TypeScript MV3 browser extension. Conventions enforced by `code-qualit
 - SSO URL/DOM constants only in `src/cuny/ssoSite.ts`
 - Test names are plain behavior sentences (no "should", no "test X")
 - `unwrap`/`unwrapErr` helpers in tests, never `_unsafeUnwrap`
-- `import.meta.env.DEV` guards for dev-only code paths
+- `import.meta.env.MODE !== "production"` guards for dev-only code paths (the content script is excepted — it uses `import.meta.env.DEV` for tree-shaking)
 
 Violations of the above are **always** findings — no exceptions unless a comment in the source explains the deviation.

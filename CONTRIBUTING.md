@@ -274,7 +274,7 @@ bundle exec jekyll serve   # http://127.0.0.1:4000
 Styling mirrors the extension's design tokens (`src/sidebar/sidebar.css`):
 `_sass/color_schemes/cunyautologin.scss` maps tokens onto theme variables and
 `_sass/custom/custom.scss` holds the landing-page components. Page copy is sourced
-from `README.md` / `PRIVACY.md` — keep `docs/privacy.md` in sync with `PRIVACY.md`.
+from `README.md`; `docs/privacy.md` is the canonical privacy policy (there is no repo-root `PRIVACY.md`).
 
 **Promo video & poster.** The landing page leads with a hand-recorded screen
 capture of an auto-login (`docs/assets/video/promo.mp4`), autoplayed muted and

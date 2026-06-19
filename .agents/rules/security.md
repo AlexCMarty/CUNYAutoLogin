@@ -38,16 +38,16 @@ Some flows (for example onboarding “try again”) must end the IdP session so 
 
 ### What the code does today
 
-`src/background/service-worker.ts` terminates the Oracle OAA server-side session by:
+`src/background/service-worker.ts` terminates the CUNY SSO session by **deleting cookies** — there is no logout-URL navigation and no `fetch`. On `LOGOUT_CUNY_SESSIONS` it:
 
-1. Navigating open `https://ssologin.cuny.edu/*` tabs to **`OAA_RUI_LOGOUT_URL`** (`src/cuny/ssoSite.ts`), and  
-2. A best-effort **`fetch(OAA_RUI_LOGOUT_URL, { credentials: "include" })`** so logout still runs when no SSO tab is open.
+1. `clearSsoLoginCookies()` — `browser.cookies.getAll({ domain: SSO_LOGIN_HOST })`, then `cookies.remove` for **every** returned cookie. The full-jar sweep removes the OAM SSO cookies (`OAM_ID`, `OAMAuthnCookie_*`), the OAA OIDC app session (`JSESSIONID`), and the SAML federation session (`ORA_OSFS_SESSION`), and stays correct even when Oracle renames or adds cookies.
+2. `clearBrightspaceSessionCookies()` — `cookies.remove` on the fixed pair `d2lSessionVal` / `d2lSecureSessionVal` with `url: BRIGHTSPACE_HOME_URL`.
 
-That matches the live-site procedure documented in [.map/cookies/session-and-logout.md](../../.map/cookies/session-and-logout.md). It uses the browser’s normal jar for **same-origin** logout — it is **not** “scrape cookies” or “attach `Cookie` to a random API”.
+The cookie sweep is the load-bearing logout mechanism (see the comment on `clearSsoLoginCookies`). It uses `browser.cookies` on documented **same-origin** hosts only — it is **not** “scrape cookies” or “attach `Cookie` to a random API”. The cookie names and live-site behavior are mapped in [.map/cookies/session-and-logout.md](../../.map/cookies/session-and-logout.md).
 
 ### Rules for **implementers and reviewers** (including agents)
 
-1. **Same-origin session flows only** — Use `credentials: "include"` only for requests that are explicitly part of the supported CUNY logout or session contract (e.g. the documented OAA logout URL). Do **not** attach manual `Cookie` headers to arbitrary `fetch` / XHR / WebSocket / third-party endpoints.
+1. **Same-origin session flows only** — Use `credentials: "include"` only for requests that are explicitly part of a supported same-origin CUNY session contract. (Today there is **no** such request — logout is cookie-deletion only.) Do **not** attach manual `Cookie` headers to arbitrary `fetch` / XHR / WebSocket / third-party endpoints.
 2. **Never store or exfiltrate cookie material** — Cookie **names** in source are fine as string literals aligned with the live map. Cookie **values** must **never** land in `storage.local`, `storage.session`, telemetry, production `console`, screenshots, MCP transcripts, fixtures from real captures, git history, PR bodies, etc. Rotate anything pasted by mistake.
 3. **Do not forward raw cookie lines** — Do not paste DevTools **`Set-Cookie`** / network cookie payloads into chats, bots, CI logs, or off-repo HTTP. **Reads** (`cookies.get*` / captures) for automation must **never** emit values off-machine.
 4. **`browser.cookies` today** — **`cookies.getAll`** + **`cookies.remove`** sweeps every cookie on **`SSO_LOGIN_HOST`** during SSO logout (`clearSsoLoginCookies` in `src/background/service-worker.ts`). Brightspace session cleanup uses **`cookies.remove`** only on a **fixed pair of session names** with `url: BRIGHTSPACE_HOME_URL`. There is **no** `cookies.set` and no persistence of cookie **values**. If you add cookie APIs later: **`remove` only** on the **smallest** documented set; never **`cookies.set`** or jar carpet-bombing without explicit human verification. Add **`"cookies"`** permission and matching **`host_permissions`** — lack of permission is **not** an excuse for content-script `document.cookie` writes or remote cookie injection; use **documentation / user steps** instead.

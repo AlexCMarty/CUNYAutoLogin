@@ -25,7 +25,7 @@ Local HTTP server on `FIXTURE_PORT` serving `e2e/fixtures/`. Current routes:
 
 ## Extension loader (`e2e/extension-fixture.ts`)
 
-Extends Playwright `test` with a `context` fixture that launches Chromium via `chromium.launchPersistentContext` with `--load-extension=dist/`. Provides `extensionId` fixture.
+Extends Playwright `test` with a worker-scoped `_persistentContext` fixture (one persistent Chromium per worker) launched via `chromium.launchPersistentContext` with `--disable-extensions-except` + `--load-extension` pointed at `dist/`, plus `--headless=new`. Test-scoped `context` / `page` alias it. Provides an `extensionId` fixture.
 
 ## Sidebar screenshot CLI (`scripts/capture-sidebar.mjs`)
 
@@ -43,13 +43,13 @@ npm run capture-sidebar -- '#qa=KEY_FROM_OTHER_DEVICE&qaVariant=valid' # paste-k
 
 All 24 jumpable onboarding states are valid hash targets in **non-production** bundles (`build:e2e` / `build:dev`). `CREDENTIAL_ERROR` has no screen mount — use the `qaCred` variants above instead. The advanced "use your existing key" branch (`CHOOSE_SETUP_PATH`, `KEY_FROM_OTHER_DEVICE`, `KEY_FROM_AUTH_APP`, `TEST_LOGIN`, `TEST_LOGIN_BAD_CREDENTIALS`, `TEST_LOGIN_BAD_KEY`) is **wired after `PASSWORD_ENTRY`** (`NEXT` → `CHOOSE_SETUP_PATH` in `transitions.ts`); some sub-step events may still be best-effort per transition-table comments. Use `&qaVariant=open|valid` (paste pages) or `&qaVariant=success` (`TEST_LOGIN`) to capture the alternate looks.
 
-Viewport defaults to **380×800**; use `--width` / `--height` to override. Writes under `agent_screenshots/` by default; stdout is one absolute path per PNG. Full state table: `CONTRIBUTING.md` → **Sidebar screenshots (CLI)**.
+Viewport defaults to **380×800**; use `--width` / `--height` to override. Writes under `agent_screenshots/` by default; stdout is one absolute path per PNG. Full state table: `CONTRIBUTING.md` → **Sidebar screenshot CLI**.
 
 ## Test isolation and concurrency
 
 `playwright.config.ts`: `workers: 6`, `fullyParallel: true`. Each worker gets its own browser context + fresh extension instance. Storage is isolated per context.
 
-Many flows use `clearVaultIfPossible` (debug panel `#clear-vault-debug-btn`) — only rendered in dev builds.
+Per-test state is reset by the worker-scoped `page` fixture in `e2e/extension-fixture.ts`, which clears `storage.local` / `storage.session` and calls `__e2eResetSwState()` between tests. A `clearVaultIfPossible(page)` helper also exists (clicks the dev-panel `#clear-vault-debug-btn`, only rendered in dev builds) for tests that need an explicit in-UI vault wipe.
 
 Prefer shared helpers from `e2e/helpers.ts`:
 - `setupVault(page, extensionId)` — programmatically seeds vault + session master via `window.crypto.subtle`, then reloads sidebar to unlocked state

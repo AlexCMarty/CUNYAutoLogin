@@ -5,7 +5,7 @@ nav_order: 5
 description: "How CUNYAutoLogin handles your information: encrypted on-device storage, no cloud sync, no analytics, no credential upload."
 ---
 
-<!-- Canonical source: /PRIVACY.md at the repo root. Keep this page in sync when that file changes. -->
+<!-- Canonical privacy policy. No separate repo-root PRIVACY.md exists; edit this file directly. Keep any store-listing copy in sync with this file. -->
 
 # Privacy Policy — CUNYAutoLogin
 {: .no_toc }

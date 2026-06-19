@@ -76,8 +76,8 @@ src/
   content/content.utils.ts      Pure helpers (TOTP normalization, KO-aware input setter)
   background/service-worker.ts  Opens side panel on toolbar click; handles AUTO_FILL_REQUEST,
                                 STAGE/CLEAR_ONBOARDING_CREDENTIALS, TOTP_SECRET_FROM_PAGE,
-                                ONBOARDING_REOPEN_CUNY_TAB, LOGOUT_CUNY_SESSIONS (OAA logout via tab
-                                navigation + best-effort fetch — see .map/cookies/session-and-logout.md)
+                                ONBOARDING_REOPEN_CUNY_TAB, LOGOUT_CUNY_SESSIONS (deletes
+                                ssologin.cuny.edu + Brightspace session cookies — see .map/cookies/session-and-logout.md)
   manifest.json                 Source manifest (Vite writes dist/manifest.json)
   manifest.e2e.json             E2E variant — adds http://127.0.0.1:4173/* to host_permissions
                                 and content_scripts.matches
@@ -89,6 +89,7 @@ e2e/
   onboarding-completion.spec.ts Extension password, completion, interruptions
   locked.spec.ts                Vault locked behavior
   unlocked.spec.ts              Unlocked vault + autofill
+  narrow-width.spec.ts          Narrow-width / responsive layout regressions
   helpers.ts                    setupVault, clearVaultIfPossible, lockVault, walkToPasswordEntry,
                                 walkToCunyTotp, waitForAutofillWindow, expectInputRemainsEmpty,
                                 onboardingHashWith

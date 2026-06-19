@@ -42,8 +42,8 @@ The bind mount live-reloads page/SCSS edits; build output stays in the container
 
 ## Hard rules — never violate
 
-- **Page copy is sourced from `README.md` / `PRIVACY.md`.** Keep `docs/privacy.md`
-  in sync with the repo-root `PRIVACY.md` — do not let them drift.
+- **Page copy is sourced from `README.md`.** The privacy policy is maintained
+  directly in `docs/privacy.md` (canonical) — there is no separate repo-root `PRIVACY.md`.
 - **Styling mirrors the extension's design tokens** (`src/sidebar/sidebar.css`).
   Theme colors/fonts come through `_sass/color_schemes/cunyautologin.scss`; don't
   hardcode values that duplicate a token.
