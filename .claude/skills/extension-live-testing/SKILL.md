@@ -114,7 +114,7 @@ Open the sidebar with a hash (MCP callers: pass URL `chrome-extension://<id>/sid
 
 | Param | Purpose |
 | --- | --- |
-| `qa` | **Required** for a jump. Value = onboarding screen id (same as `[data-onboarding-screen]`): any state that has a real mount (`src/onboarding/screenMounts.ts`). **Not** supported: `CREDENTIAL_ERROR` (no mounted screen — use `qa=PASSWORD_ENTRY` / `qa=EMAIL_ENTRY` with `qaCred` instead). |
+| `qa` | **Required** for a jump. Value = onboarding screen id (same as `[data-onboarding-screen]`): any of the 24 states — all have a real mount (`src/onboarding/screenMounts.ts`). There is no `CREDENTIAL_ERROR` state; for the credential-error look use `qa=PASSWORD_ENTRY` / `qa=EMAIL_ENTRY` with `qaCred`. |
 | `qaEmail` | Optional seed for onboarding email fields (defaults to `visual-qa@login.cuny.edu`). URL-encoded if needed. |
 | `qaPassword` | Optional seed for password drafts (defaults to a harmless dev placeholder). |
 | `qaCred` | Optional `email` or `password` — sets inline credential-error UI on login screens. |

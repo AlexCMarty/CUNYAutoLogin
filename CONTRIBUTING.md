@@ -136,7 +136,7 @@ Writes under `agent_screenshots/` (gitignored); prints one **absolute PNG path**
 | 30 | `npm run capture-sidebar -- --qa-vault-locked` | vault locked UI |
 | 31 | `npm run capture-sidebar -- --qa-vault-unlocked` | vault unlocked / management UI |
 
-`CREDENTIAL_ERROR` has no screen mount by design; use `qaCred=email` / `qaCred=password` variants (rows 3 and 5) to capture its visual representation. Full list matches `scripts/capture-sidebar.mjs` (`ALL_STATES`); see `node scripts/capture-sidebar.mjs --help` for flags such as `--qa-vault-locked-no-biometric`.
+The credential-error look is not a separate state; use the `qaCred=email` / `qaCred=password` variants (rows 3 and 5) to capture the inline error on `EMAIL_ENTRY` / `PASSWORD_ENTRY`. Full list matches `scripts/capture-sidebar.mjs` (`ALL_STATES`); see `node scripts/capture-sidebar.mjs --help` for flags such as `--qa-vault-locked-no-biometric`.
 
 To capture all 31 states in one command:
 
@@ -216,7 +216,7 @@ Requires **`npm run build:dev`**. With a `ssologin` tab active and the vault unl
 
 ## MFA enrollment “Verify Now” (engineering note)
 
-After **My authentication factors**, the Oracle SPA often keeps the same URL while swapping views. The verify OTP field appears late; the content script polls on the URL matched by **`matchesRuiMfaEnrollVerifyPage`** / **`RUI_MFA_ENROLL_VERIFY_PAGE_URL`** in `ssoSite.ts`. Unlock the vault before the field exists so `AUTO_FILL_REQUEST` can supply a code.
+After **My authentication factors**, the Oracle SPA often keeps the same URL while swapping views. The verify OTP field appears late; the content script starts polling on any RUI enroll page (**`matchesTotpEnrollPage`**) and detects the verify view by the presence of the **`RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID`** field in the DOM (not by URL), per `ssoSite.ts`. Unlock the vault before the field exists so `AUTO_FILL_REQUEST` can supply a code.
 
 ---
 
@@ -225,7 +225,7 @@ After **My authentication factors**, the Oracle SPA often keeps the same URL whi
 | Area | Role |
 |------|--------|
 | `sidebar.html`, `src/sidebar/` | Sidebar shell, vault controller, dev debug panel |
-| `src/onboarding/` | 25-state flow (`state.ts`, `render.ts`, `screens/`, …); 24 with screen mounts (`CREDENTIAL_ERROR` is routing-only) |
+| `src/onboarding/` | 24-state flow (`state.ts`, `render.ts`, `screens/`, …); every state has a screen mount |
 | `src/crypto/vault.ts` | Encrypt/decrypt, `VAULT_STORAGE_KEY` |
 | `src/cuny/ssoSite.ts` | **Single source of truth** for SSO URLs, DOM ids, timing |
 | `src/content/` | Content script (IIFE root `content.ts`, flows, banner) |

@@ -87,7 +87,7 @@ describe("parseDevQaOnboardingJumpFromHash — edge cases", () => {
     warn.mockRestore();
   });
 
-  test("returns null for CREDENTIAL_ERROR (no mounted screen)", () => {
+  test("returns null for the removed CREDENTIAL_ERROR state (no longer a valid onboarding state)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     expect(
       parseDevQaOnboardingJumpFromHash("#qa=CREDENTIAL_ERROR", "development")

@@ -36,7 +36,7 @@ Oracle JET renders inputs after `document_idle` — content script uses `Mutatio
 
 After TOTP factor enrollment, the IdP requires a one-time verification code. Page: `…/oaa/rui/index.html?h_ra=1`.
 
-1. **Content script** (`startMfaEnrollVerifyOtpPolling`): On pages matching `matchesRuiMfaEnrollVerifyPage`, starts a `setInterval` at `RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS`. On each tick, looks for `RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID`.
+1. **Content script** (`startMfaEnrollVerifyOtpPolling`): On any RUI enroll page (`matchesTotpEnrollPage` — URL contains `/oaa/rui/`), starts a `setInterval` at `RUI_MFA_ENROLL_VERIFY_POLL_INTERVAL_MS`. On each tick, looks for `RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID` in the DOM — the SPA injects the verify view late, so the field's presence (not the URL) is what identifies the enroll-verify step.
 2. When the field appears, sends `AUTO_FILL_REQUEST`, generates TOTP from vault secret, fills the field. The interval keeps running after a successful fill to watch for a server-side "Incorrect code" (one auto-retry on the first failure); it clears only on a client-side empty-OTP error or on the second server-side failure.
 
 Polling instead of `MutationObserver` because the Oracle SPA re-renders in ways that made observers flaky.
@@ -83,7 +83,6 @@ The service worker supplies the pasted TOTP secret for the login challenge: when
 
   | Stage | Handler / effect |
   |---|---|
-  | `credential_page` | no-op |
   | `cuny_totp_challenge` | advances `CUNY_TOTP` |
   | `allow_gate` | advances `OPENING_CUNY` (`CREDENTIALS_ACCEPTED`) or `CUNY_TOTP` (`TOTP_DONE`) toward `ALLOW_GATE` — **not** `TEST_LOGIN` (see below) |
   | `allow_button_clicked` | `handleAllowButtonClicked` |
@@ -101,7 +100,7 @@ The service worker supplies the pasted TOTP secret for the login challenge: when
   The `allow_gate` handler is **not** wired to `TEST_LOGIN`: the allow gate is a mid-flow consent page, not login proof, so TEST_LOGIN success comes only from the real Brightspace session cookie (`wireBrightspaceCookieDetection` → `TEST_SUCCEEDED`).
 - `ONBOARDING_REOPEN_CUNY_TAB` → service worker opens an allow-listed URL in a new tab (default `CUNY_LOGIN_ENTRY_URL` when `url` omitted; `COMPLETE_DEMO` sends `BRIGHTSPACE_HOME_URL`).
 - `ONBOARDING_VERIFY_STATUS { status }` → `"success"` advances `VERIFY_LOGIN_CODE` to `VERIFY_SUCCEEDED`; `"second_failure"` advances `TEST_LOGIN` to `TEST_BAD_KEY` (or shows pause banner on `VERIFY_LOGIN_CODE`).
-- `ONBOARDING_OVERLAY_COMMAND` / `ONBOARDING_TAB_REATTACHED` → validated and ack-only via service worker; sidebar handlers wired in `onboarding/render.ts`.
+- `ONBOARDING_OVERLAY_COMMAND` → validated and ack-only via service worker; sidebar handlers wired in `onboarding/render.ts`.
 
 On sidebar unmount, `mountOnboarding` fires `CLEAR_ONBOARDING_CREDENTIALS`.
 

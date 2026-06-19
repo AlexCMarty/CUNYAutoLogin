@@ -80,7 +80,6 @@ function setupSidebarDom(): void {
           <label id="vault-password-label">CUNY password</label>
           <input id="password" type="password" />
           <input id="totpSecret" type="text" />
-          <div id="totp-secret-source-hint" class="hidden"></div>
         </div>
         <div id="master-password-field">
           <label id="master-label">Extension password</label>
@@ -257,7 +256,6 @@ describe("vaultController — missing DOM element → silent bail", () => {
         <input id="email" type="email" />
         <input id="password" type="password" />
         <input id="totpSecret" type="text" />
-        <div id="totp-secret-source-hint"></div>
         <input id="masterPassword" type="password" />
         <div id="master-label"></div>
         <input id="newMasterPassword" type="password" />
