@@ -29,8 +29,6 @@ export const TOTP_FIXTURE_WRONG_CODE_URL =
   `${FIXTURE_ORIGIN}/oaa-totp-factor/?emsg=Entered+TOTP+is+incorrect.`;
 
 export const SELF_SERVICE_FIXTURE_URL = `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_ra=1`;
-export const SELF_SERVICE_INVALID_SECRET_FIXTURE_URL =
-  `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_ra=1&secret=not-a-valid-secret!`;
 
 /** Simulates /cunylogin/pages/mfaConsent.jsp (the OAuth Allow/Deny consent page). */
 export const ALLOW_GATE_FIXTURE_URL =
@@ -44,10 +42,6 @@ export const ALLOW_GATE_NEXT_OAA_HOME_FIXTURE_URL =
   `${FIXTURE_ORIGIN}/cunylogin/pages/mfaConsent.jsp?next=${encodeURIComponent(
     `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_ra=1&view=home`
   )}`;
-
-/** Simulates the oaa-spa-home SPA view (id="categoryActionheader", Manage button). */
-export const OAA_SPA_HOME_FIXTURE_URL =
-  `${FIXTURE_ORIGIN}/oaa/rui/index.html?h_ra=1&view=home`;
 
 /** Simulates the factors-list SPA view with one enrolled factor + Add menu. */
 export const FACTORS_LIST_FIXTURE_URL =

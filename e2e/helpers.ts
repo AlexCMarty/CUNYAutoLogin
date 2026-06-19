@@ -76,20 +76,6 @@ export async function setupVault(page: Page, extensionId: string): Promise<void>
   await expect(page.locator("#mode-hint")).toBeVisible({ timeout: 15_000 });
 }
 
-export async function clearVaultIfPossible(page: Page): Promise<void> {
-  const clearBtn = page.locator("#clear-vault-debug-btn");
-  if (await clearBtn.isVisible()) {
-    page.once("dialog", (dialog) => {
-      dialog.accept();
-    });
-    await clearBtn.click();
-    // After reset the sidebar reloads into onboarding (no vault → WELCOME screen).
-    await expect(page.locator("[data-onboarding-screen='WELCOME']")).toBeVisible({
-      timeout: 15_000,
-    });
-  }
-}
-
 export async function lockVault(page: Page): Promise<void> {
   await page.locator("#lock-btn").click();
   await expect(page.locator("#vault-locked-header")).toBeVisible();
@@ -99,7 +85,7 @@ export async function lockVault(page: Page): Promise<void> {
   );
 }
 
-export async function waitForAutofillWindow(page: Page, waitMs = 1500): Promise<void> {
+async function waitForAutofillWindow(page: Page, waitMs = 1500): Promise<void> {
   // AUTO_FILL_REQUEST and delayed DOM insertion are async; wait a window for negatives.
   await page.waitForTimeout(waitMs);
 }

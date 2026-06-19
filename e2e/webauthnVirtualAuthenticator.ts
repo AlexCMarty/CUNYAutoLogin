@@ -95,21 +95,3 @@ export async function addVirtualPlatformAuthenticator(
     },
   };
 }
-
-/**
- * Convenience scope helper: installs a virtual authenticator, runs `fn`, and
- * always tears down — even on assertion failure. Prefer this when a single
- * test owns the authenticator end-to-end.
- */
-export async function withVirtualPlatformAuthenticator<T>(
-  page: Page,
-  fn: (authenticator: VirtualPlatformAuthenticator) => Promise<T>,
-  options: VirtualAuthenticatorOptions = {}
-): Promise<T> {
-  const authenticator = await addVirtualPlatformAuthenticator(page, options);
-  try {
-    return await fn(authenticator);
-  } finally {
-    await authenticator.remove();
-  }
-}
