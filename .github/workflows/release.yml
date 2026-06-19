@@ -14,6 +14,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # Full history + tags so the version guard can compare against prior releases.
+          fetch-depth: 0
 
       - name: Guard — release workflow must not build e2e artifacts
         run: |
@@ -30,6 +33,55 @@ jobs:
             echo "ERROR: Production manifest must not include the Playwright HTTP fixture host."
             exit 1
           fi
+
+      - name: Guard — tag matches manifest version and is monotonic
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          # Numeric core, ignoring any prerelease suffix (e.g. 0.9.1-beta.1 -> 0.9.1).
+          # Chrome manifests must be plain numeric, so version fields hold the core only.
+          tag_core="${tag%%-*}"
+          echo "Release tag: $tag (core $tag_core)"
+
+          # 1) Every version field must equal the tag core (stores reject mismatched/duplicate versions).
+          check() {
+            local file="$1" found
+            [[ -f "$file" ]] || return 0
+            found=$(node -p "require('./$file').version")
+            if [[ "$found" != "$tag_core" ]]; then
+              echo "ERROR: $file version ($found) does not match tag ($tag_core). Run 'npm run bump'."
+              exit 1
+            fi
+            echo "OK: $file == $tag_core"
+          }
+          check package.json
+          check src/manifest.json
+          check src/manifest.e2e.json
+
+          # 2) Monotonic: a stable tag must be strictly greater than the previous stable release.
+          #    Prerelease tags (beta/rc/-suffix) are exempt — sort -V doesn't order them by semver.
+          case "$tag" in
+            *-*|*beta*|*rc*)
+              echo "Prerelease tag; skipping monotonic check."
+              ;;
+            *)
+              prev=$(git tag --list 'v*' --sort=-v:refname \
+                | grep -vFx "$GITHUB_REF_NAME" \
+                | sed 's/^v//' \
+                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+                | head -n1 || true)
+              if [[ -n "${prev:-}" ]]; then
+                top=$(printf '%s\n%s\n' "$prev" "$tag" | sort -V | tail -n1)
+                if [[ "$top" != "$tag" || "$tag" == "$prev" ]]; then
+                  echo "ERROR: tag v$tag must be strictly greater than previous release v$prev."
+                  exit 1
+                fi
+                echo "OK: v$tag > v$prev"
+              else
+                echo "No prior stable release tag found; skipping monotonic check."
+              fi
+              ;;
+          esac
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -71,9 +123,66 @@ jobs:
       - name: Zip extension (dist contents)
         run: cd dist && zip -r "../CUNYAutoLogin-${{ github.ref_name }}.zip" .
 
+      - name: Create source archive for AMO review
+        # AMO requires reviewable source for bundled/minified add-ons. Clean, tracked files only.
+        run: git archive --format=zip -o source.zip HEAD
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: CUNYAutoLogin-${{ github.ref_name }}.zip
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+
+      - name: Upload store artifacts for the publish job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: store-upload
+          path: |
+            CUNYAutoLogin-${{ github.ref_name }}.zip
+            source.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Submit to stores
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    # The 'production' environment has a required reviewer, so this job pauses for a
+    # one-click "Approve deployment" before anything is sent to either store.
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Download store artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: store-upload
+
+      - name: Submit to Chrome Web Store
+        # Pinned to wdzeng/chrome-extension v1.3.2.
+        # NOTE: upload-only keeps this as a DRAFT for the first rollout — publish once
+        # from the dashboard to confirm wiring, then set this to false (or delete it).
+        uses: wdzeng/chrome-extension@ca3095bc8f067413cc0d06fcb4a5fea87229a787 # v1.3.2
+        with:
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          zip-path: CUNYAutoLogin-${{ github.ref_name }}.zip
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          upload-only: true
+
+      - name: Submit to Mozilla AMO
+        # Pinned to wdzeng/firefox-addon v1.2.1. Submits the listed version for review and
+        # uploads source.zip alongside it (required for bundled add-ons).
+        uses: wdzeng/firefox-addon@3184ee491b500e080885e046051366a4228c6e5d # v1.2.1
+        with:
+          addon-guid: cunyautologin@alexmarty.dev
+          jwt-issuer: ${{ secrets.AMO_JWT_ISSUER }}
+          jwt-secret: ${{ secrets.AMO_JWT_SECRET }}
+          xpi-path: CUNYAutoLogin-${{ github.ref_name }}.zip
+          source-file-path: source.zip
+          approval-notes: |
+            Built with Node 22. Reproduce the contents of the xpi (dist/) with:
+              npm ci && npm run build
+            Source archive is attached. Bundling is via Vite; no analytics or telemetry.
