@@ -25,7 +25,6 @@ function makeSidebarDom(): SidebarDom {
     email: document.createElement("input") as HTMLInputElement,
     password: document.createElement("input") as HTMLInputElement,
     totpSecret: document.createElement("input") as HTMLInputElement,
-    totpSecretSourceHint: document.createElement("div"),
     masterPassword: document.createElement("input") as HTMLInputElement,
     masterLabel: document.createElement("div"),
     newMasterPassword: document.createElement("input") as HTMLInputElement,

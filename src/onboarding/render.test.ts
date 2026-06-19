@@ -855,15 +855,6 @@ describe("mountOnboarding", () => {
     expect(snap.credentialError).toEqual({ culprit: "unknown" });
   });
 
-  test("ONBOARDING_STAGE_DETECTED(credential_page) is a no-op", () => {
-    const controller = createOnboardingController({ initialState: "OPENING_CUNY" });
-    applyOnboardingMessage(controller, {
-      type: "ONBOARDING_STAGE_DETECTED",
-      stage: "credential_page",
-    });
-    expect(controller.getSnapshot().state).toBe("OPENING_CUNY");
-  });
-
   test("ONBOARDING_STAGE_DETECTED(totp_enroll_verify) from CUNY_TOTP fast-forwards to VERIFY_LOGIN_CODE", () => {
     const controller = createOnboardingController({ initialState: "CUNY_TOTP" });
     applyOnboardingMessage(controller, {

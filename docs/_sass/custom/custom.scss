@@ -63,21 +63,6 @@
   max-width: 46ch;
 }
 
-.hero-shot {
-  flex: 0 1 300px;
-  display: flex;
-  justify-content: center;
-}
-
-.hero-shot img {
-  width: 100%;
-  max-width: 300px;
-  height: auto;
-  border-radius: var(--radius);
-  border: 1px solid var(--clr-border);
-  box-shadow: 0 8px 28px rgba(21, 20, 15, 0.08);
-}
-
 // ── Buttons (mirror .primary / .secondary from the extension) ───────────────
 .cta-row {
   display: flex;
@@ -194,45 +179,6 @@
     font-size: 14px;
     color: var(--clr-text-secondary);
   }
-}
-
-// ── Screenshot strip ────────────────────────────────────────────────────────
-.shot-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--space-md);
-  margin: var(--space-lg) 0;
-}
-
-.shot-strip figure {
-  margin: 0;
-  text-align: center;
-}
-
-.shot-strip img {
-  width: 100%;
-  height: auto;
-  border-radius: var(--radius);
-  border: 1px solid var(--clr-border);
-  background: var(--clr-surface);
-}
-
-.shot-strip figcaption {
-  margin-top: var(--space-sm);
-  font-size: 13px;
-  color: var(--clr-text-muted);
-}
-
-// ── Trust callout (mirrors .onboarding-reassurance) ─────────────────────────
-.trust-callout {
-  background: var(--clr-hint-bg);
-  border-left: 3px solid var(--clr-accent);
-  border-radius: var(--radius-sm);
-  padding: var(--space-md);
-  margin: var(--space-lg) 0;
-  color: var(--clr-text-secondary);
-
-  strong { color: var(--clr-text); }
 }
 
 // ── Trust bar (CRO: proof sits directly beside the hero CTA) ─────────────────

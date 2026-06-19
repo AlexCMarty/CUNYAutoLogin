@@ -24,7 +24,7 @@ const QA_CRED_PARAM = "qaCred";
 /** Free-form visual variant token (e.g. `open`, `valid`, `success`) — see `OnboardingScreenContext.qaVariant`. */
 const QA_VARIANT_PARAM = "qaVariant";
 
-/** States that have a real screen mount (excludes CREDENTIAL_ERROR placeholder). */
+/** States that have a real screen mount (machine-only states without a screen are filtered out). */
 const QA_JUMPABLE_STATES = Object.keys(SCREEN_MOUNTS).filter(
   (key): key is OnboardingState =>
     isOnboardingState(key) && SCREEN_MOUNTS[key] !== undefined

@@ -35,7 +35,7 @@ type LoginChecklistBeginOptions = {
   readonly onComplete?: () => void;
 };
 
-export type LoginChecklistController = {
+type LoginChecklistController = {
   /** The `.onboarding-demo-list` element — caller places it in the screen. */
   readonly element: HTMLElement;
   /** Activate the first bead. Beads then advance only on real events. */

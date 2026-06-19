@@ -427,17 +427,15 @@ export const applyOnboardingMessage = (
       return;
     }
     controller.setCredentialError({ culprit: message.culprit });
-    controller.dispatch("CREDENTIAL_ERROR_DETECTED");
     if (message.culprit === "email") {
       controller.dispatch("CREDENTIAL_ERROR_ROUTE_TO_EMAIL");
     } else {
-      controller.dispatch("NEXT");
+      controller.dispatch("CREDENTIAL_ERROR_DETECTED");
     }
     return;
   }
   if (message.type === "ONBOARDING_STAGE_DETECTED") {
     const stageDetectedHandlers = Object.freeze({
-      credential_page: noopHandler,
       cuny_totp_challenge: handleCunyTotpChallenge,
       allow_gate: handleAllowGate,
       allow_button_clicked: handleAllowButtonClicked,
@@ -458,8 +456,8 @@ export const applyOnboardingMessage = (
     stageDetectedHandlers[message.stage](controller);
     return;
   }
-  // ONBOARDING_OVERLAY_COMMAND / VERIFY_STATUS / REOPEN_CUNY_TAB /
-  // TAB_REATTACHED are handled elsewhere; nothing to do here.
+  // ONBOARDING_OVERLAY_COMMAND / VERIFY_STATUS / REOPEN_CUNY_TAB are handled
+  // elsewhere; nothing to do here.
 };
 
 const showFirstVisible = (

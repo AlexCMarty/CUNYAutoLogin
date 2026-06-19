@@ -94,8 +94,8 @@ void requestAndExecuteOverlayCommand();
 installAllowConsentClickReporter();
 
 if (matchesTotpEnrollPage(window.location.href)) {
-  // Enrollment verify OTP can appear on several RUI URL shapes; see
-  // `matchesTotpEnrollPage` / `matchesRuiMfaEnrollVerifyPage` in `ssoSite.ts`.
+  // Enrollment verify OTP can appear on several RUI URL shapes; the SPA view is
+  // detected from the DOM (`RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID`), not the URL.
   startMfaEnrollVerifyOtpPolling();
   startRuiOnboardingObservers();
   void watchTotpSecretOnEnrollPage();

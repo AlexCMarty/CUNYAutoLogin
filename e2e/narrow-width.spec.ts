@@ -13,11 +13,8 @@ import { lockVault, setupVault } from "./helpers";
 
 const NARROW_VIEWPORT = { width: 240, height: 800 } as const;
 
-// CREDENTIAL_ERROR is a placeholder state with no mounted screen, so it is not
-// reachable via the `#qa=` dev jump. Every other onboarding state is.
-const JUMPABLE_ONBOARDING_STATES = ONBOARDING_STATES.filter(
-  (state) => state !== "CREDENTIAL_ERROR"
-);
+// Every onboarding state now has a mounted screen reachable via the `#qa=` dev jump.
+const JUMPABLE_ONBOARDING_STATES = ONBOARDING_STATES;
 
 /** Horizontal overflow of the document root, in CSS px (0 = fits exactly). */
 async function rootHorizontalOverflow(page: Page): Promise<number> {

@@ -11,7 +11,6 @@
 import {
   type OnboardingState,
   ONBOARDING_STATES,
-  TERMINAL_STATE,
 } from "./state";
 
 /**
@@ -37,9 +36,8 @@ export const ONBOARDING_EVENTS = [
   "BIOMETRIC_PREP_DONE",
   "DEMO_REQUESTED",
   "DEMO_FINISHED",
-  // Advanced "use your existing key" branch (advanced-key-flow.md §3). These are
-  // declared so the transition graph is complete; no screen dispatches them yet
-  // (visuals-only pass — wiring is a follow-up).
+  // Advanced "use your existing key" branch (advanced-key-flow.md §3), dispatched
+  // by the chooseSetupPath / keyFrom* / testLogin* screens.
   "CHOOSE_GUIDED",
   "CHOOSE_REUSE_KEY",
   "CHOOSE_IMPORT_KEY",
@@ -114,21 +112,16 @@ export const TRANSITION_TABLE: Readonly<Record<OnboardingState, TransitionEntry>
   }),
   OPENING_CUNY: Object.freeze({
     BACK: "PASSWORD_ENTRY",
-    CREDENTIAL_ERROR_DETECTED: "CREDENTIAL_ERROR",
+    // A failed CUNY login routes straight back to the field the student must fix
+    // (no intermediate state); the renderer picks email vs password by culprit and
+    // sets the inline error via setCredentialError before dispatching.
+    CREDENTIAL_ERROR_DETECTED: "PASSWORD_ENTRY",
+    CREDENTIAL_ERROR_ROUTE_TO_EMAIL: "EMAIL_ENTRY",
     CREDENTIALS_ACCEPTED: "CUNY_TOTP",
   }),
   CUNY_TOTP: Object.freeze({
     BACK: "PASSWORD_ENTRY",
     TOTP_DONE: "ALLOW_GATE",
-  }),
-  CREDENTIAL_ERROR: Object.freeze({
-    // After a failed CUNY login we return to credential entry with fields
-    // pre-filled and no auto-retry so the student can fix the mistake deliberately.
-    // The bridge picks PASSWORD_ENTRY vs EMAIL_ENTRY via NEXT vs
-    // CREDENTIAL_ERROR_ROUTE_TO_EMAIL depending on which field CUNY blamed.
-    NEXT: "PASSWORD_ENTRY",
-    BACK: "PASSWORD_ENTRY",
-    CREDENTIAL_ERROR_ROUTE_TO_EMAIL: "EMAIL_ENTRY",
   }),
   ALLOW_GATE: Object.freeze({
     BACK: "PASSWORD_ENTRY",
@@ -221,13 +214,6 @@ export const forwardTargetsFor = (state: OnboardingState): readonly OnboardingSt
   }
   return out;
 };
-
-/**
- * True when `state` is the terminal completion screen. Kept here (not only in
- * `state.ts`) so callers that already imported the transition module don't
- * have to pull in `TERMINAL_STATE` separately.
- */
-export const isAtTerminal = (state: OnboardingState): boolean => state === TERMINAL_STATE;
 
 /** Same array as `ONBOARDING_STATES`; kept here so exhaustiveness tests can import this module only. */
 export const ALL_STATES_IN_TABLE: readonly OnboardingState[] = ONBOARDING_STATES;

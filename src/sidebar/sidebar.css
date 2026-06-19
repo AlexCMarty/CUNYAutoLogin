@@ -200,8 +200,6 @@ body {
   font-size: 12px;
   color: var(--clr-text-secondary);
   line-height: 1.4;
-
-  &.totp-source-hint { margin: 2px 0 0; }
 }
 
 .vault-change-master-hint {
@@ -1294,11 +1292,6 @@ body[data-vault-ui="sidebar-management"] #totp-secret-field {
   border-radius: 999px;
   line-height: 1.5;
   white-space: nowrap;
-}
-
-.onboarding-pill--muted {
-  color: var(--clr-text-secondary);
-  background: var(--clr-hint-bg);
 }
 
 /* ── Labelled divider ──────────────────────────────────────────────────── */

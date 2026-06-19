@@ -9,7 +9,7 @@ import {
 } from "../../sidebar/sidebar.utils";
 import type { OnboardingScreenContext, ScreenMount } from "./screenContext";
 
-export type PasswordStrength = "Weak" | "Fair" | "Strong";
+type PasswordStrength = "Weak" | "Fair" | "Strong";
 
 /** Passwords up to this length are considered Weak regardless of variety. */
 const WEAK_PASSWORD_MAX_LENGTH = 8;

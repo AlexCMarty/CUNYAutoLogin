@@ -131,16 +131,16 @@ describe("persistOnboardingResumeSnapshot", () => {
     expect(browser.storage.session!.set).not.toHaveBeenCalled();
   });
 
-  test("CREDENTIAL_ERROR maps safe state to PASSWORD_ENTRY before saving", async () => {
+  test("paste-key state maps safe resume state to CHOOSE_SETUP_PATH before saving", async () => {
     vi.mocked(browser.storage.session!.set).mockResolvedValue(undefined);
     await persistOnboardingResumeSnapshot({
-      state: "CREDENTIAL_ERROR",
+      state: "KEY_FROM_OTHER_DEVICE",
       email: "e@login.cuny.edu",
       password: "p",
     });
     expect(browser.storage.session!.set).toHaveBeenCalledWith({
       [ONBOARDING_RESUME_SNAPSHOT_SESSION_KEY]: expect.objectContaining({
-        state: "PASSWORD_ENTRY",
+        state: "CHOOSE_SETUP_PATH",
       }),
     });
   });

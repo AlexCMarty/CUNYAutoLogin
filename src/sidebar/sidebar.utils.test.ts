@@ -5,14 +5,10 @@ import {
   validateEmail,
   decryptStatusMessage,
   setStatus,
-  hideTotpSecretSourceHint,
-  showTotpSecretSourceHint,
-  applyPendingTotpFromPage,
   clearPendingTotpFromSession,
   effectiveTotpSecretForSave,
   groupSecretForDisplay,
   MIN_MASTER_PASSWORD_LENGTH,
-  type SidebarDom,
 } from "./sidebar.utils";
 import { PENDING_TOTP_SECRET_SESSION_KEY } from "../cuny/ssoSite";
 
@@ -32,43 +28,6 @@ vi.mock("webextension-polyfill", () => ({
     },
   },
 }));
-
-function makeHintEl(): HTMLElement {
-  const el = document.createElement("div");
-  el.classList.add("hidden");
-  return el;
-}
-
-function makeTotpInput(value = ""): HTMLInputElement {
-  const el = document.createElement("input");
-  el.value = value;
-  return el;
-}
-
-/** Build a minimal SidebarDom sufficient for hint + totp tests. */
-function makeMinimalEls(totpValue = ""): SidebarDom {
-  const hint = makeHintEl();
-  const totpSecret = makeTotpInput(totpValue);
-  return {
-    totpSecret,
-    totpSecretSourceHint: hint,
-    form: document.createElement("form"),
-    email: document.createElement("input") as HTMLInputElement,
-    password: document.createElement("input") as HTMLInputElement,
-    masterPassword: document.createElement("input") as HTMLInputElement,
-    masterLabel: document.createElement("div"),
-    newMasterPassword: document.createElement("input") as HTMLInputElement,
-    confirmNewMasterPassword: document.createElement("input") as HTMLInputElement,
-    submitBtn: document.createElement("button") as HTMLButtonElement,
-    lockBtn: document.createElement("button") as HTMLButtonElement,
-    modeHint: document.createElement("div"),
-    credentialFields: document.createElement("div"),
-    masterPasswordField: document.createElement("div"),
-    changeMasterSection: document.createElement("div"),
-    emailLabel: null,
-    passwordLabel: null,
-  };
-}
 
 describe("MIN_MASTER_PASSWORD_LENGTH", () => {
   test("is at least 12", () => {
@@ -223,91 +182,6 @@ describe("setStatus", () => {
     const el = document.getElementById("status")!;
     setStatus("");
     expect(el.hidden).toBe(true);
-  });
-});
-
-describe("hideTotpSecretSourceHint", () => {
-  test("clears textContent and adds hidden class", () => {
-    const els = makeMinimalEls();
-    els.totpSecretSourceHint.textContent = "some hint";
-    els.totpSecretSourceHint.classList.remove("hidden");
-
-    hideTotpSecretSourceHint(els);
-
-    expect(els.totpSecretSourceHint.textContent).toBe("");
-    expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(true);
-  });
-});
-
-describe("showTotpSecretSourceHint", () => {
-  test("sets expected message text and removes hidden class", () => {
-    const els = makeMinimalEls();
-    showTotpSecretSourceHint(els);
-    expect(els.totpSecretSourceHint.textContent).toContain("CUNY");
-    expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(false);
-  });
-});
-
-describe("applyPendingTotpFromPage", () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  const mockSessionGet = (returnVal: unknown) =>
-    vi.spyOn(browser.storage.session, "get").mockResolvedValue(
-      { [PENDING_TOTP_SECRET_SESSION_KEY]: returnVal } as Record<string, unknown>
-    );
-
-  const mockSessionRemove = () =>
-    vi.spyOn(browser.storage.session, "remove").mockResolvedValue();
-
-  test("new secret updates totp field and shows hint", async () => {
-    const els = makeMinimalEls("");
-    mockSessionGet("NEWSECRET");
-    const removeSpy = mockSessionRemove();
-
-    await applyPendingTotpFromPage(els);
-
-    expect(els.totpSecret.value).toBe("NEWSECRET");
-    expect(removeSpy).toHaveBeenCalledWith(PENDING_TOTP_SECRET_SESSION_KEY);
-    expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(false);
-  });
-
-  test("no secret in session → totp field unchanged, hint stays hidden", async () => {
-    const els = makeMinimalEls("EXISTINGSECRET");
-    mockSessionGet(undefined);
-    mockSessionRemove();
-
-    await applyPendingTotpFromPage(els);
-
-    expect(els.totpSecret.value).toBe("EXISTINGSECRET");
-    expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(true);
-  });
-
-  test("session secret matches existing field value → clears session but does not show hint", async () => {
-    // Current field value normalised to uppercase, no spaces
-    const els = makeMinimalEls("JBSWY3DPEHPK3PXP");
-    mockSessionGet("JBSWY3DPEHPK3PXP");
-    const removeSpy = mockSessionRemove();
-
-    await applyPendingTotpFromPage(els);
-
-    // Value unchanged, session cleared, hint stays hidden
-    expect(els.totpSecret.value).toBe("JBSWY3DPEHPK3PXP");
-    expect(removeSpy).toHaveBeenCalledWith(PENDING_TOTP_SECRET_SESSION_KEY);
-    expect(els.totpSecretSourceHint.classList.contains("hidden")).toBe(true);
-  });
-
-  test("session.get throws → does not throw and field is unchanged", async () => {
-    const els = makeMinimalEls("SAFESECRET");
-    vi.spyOn(browser.storage.session, "get").mockRejectedValue(new Error("storage unavailable"));
-
-    await expect(applyPendingTotpFromPage(els)).resolves.toBeUndefined();
-    expect(els.totpSecret.value).toBe("SAFESECRET");
   });
 });
 

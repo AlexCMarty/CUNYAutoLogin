@@ -20,12 +20,10 @@ import {
   validateEmail,
   decryptStatusMessage,
   setStatus,
-  hideTotpSecretSourceHint,
   clearPendingTotpFromSession,
   effectiveTotpSecretForSave,
   groupSecretForDisplay,
 } from "./sidebar.utils";
-export type { SidebarDom } from "./sidebar.utils";
 
 const warnSessionStorageError = (context: string, error: unknown): void => {
   if (import.meta.env.MODE !== "production") {
@@ -189,7 +187,6 @@ function getEls(): Result<SidebarDom, "missing_dom"> {
   const email = document.getElementById("email");
   const password = document.getElementById("password");
   const totpSecret = document.getElementById("totpSecret");
-  const totpSecretSourceHint = document.getElementById("totp-secret-source-hint");
   const masterPassword = document.getElementById("masterPassword");
   const masterLabel = document.getElementById("master-label");
   const newMasterPassword = document.getElementById("newMasterPassword");
@@ -210,7 +207,6 @@ function getEls(): Result<SidebarDom, "missing_dom"> {
     !(email instanceof HTMLInputElement) ||
     !(password instanceof HTMLInputElement) ||
     !(totpSecret instanceof HTMLInputElement) ||
-    !(totpSecretSourceHint instanceof HTMLElement) ||
     !(masterPassword instanceof HTMLInputElement) ||
     !(masterLabel instanceof HTMLElement) ||
     !(newMasterPassword instanceof HTMLInputElement) ||
@@ -230,7 +226,6 @@ function getEls(): Result<SidebarDom, "missing_dom"> {
     email,
     password,
     totpSecret,
-    totpSecretSourceHint,
     masterPassword,
     masterLabel,
     newMasterPassword,
@@ -439,7 +434,6 @@ async function handleLock(els: SidebarDom): Promise<void> {
   sessionPayload = null;
   await clearSessionMaster();
   await clearPendingTotpFromSession();
-  hideTotpSecretSourceHint(els);
   resetAdvancedSecretReveal();
   currentMode = "locked";
   setStatus("");
@@ -548,8 +542,6 @@ async function init(): Promise<void> {
   renderMode(els);
   setupPasswordToggles();
   setupAdvancedSecretReveal();
-
-  els.totpSecret.addEventListener("input", () => hideTotpSecretSourceHint(els));
 
   els.form.addEventListener("submit", async (submitEvent: SubmitEvent) => {
     submitEvent.preventDefault();

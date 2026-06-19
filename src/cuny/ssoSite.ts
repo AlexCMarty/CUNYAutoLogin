@@ -11,12 +11,6 @@ export const SSO_LOGIN_HOST = "ssologin.cuny.edu" as const;
 
 export const SSO_LOGIN_ORIGIN = `https://${SSO_LOGIN_HOST}` as const;
 
-/**
- * Match pattern for `browser.tabs.query({ url: [...] })` — every page on the SSO host.
- * Keep in sync with manifest `host_permissions` / `content_scripts.matches`.
- */
-export const SSO_LOGIN_TABS_QUERY_URL_PATTERN = `${SSO_LOGIN_ORIGIN}/*` as const;
-
 /** Saved vault email must use CUNY’s login email domain. */
 export const LOGIN_EMAIL_SUFFIX = "@login.cuny.edu" as const;
 
@@ -162,29 +156,10 @@ export const matchesMfaConsentPage = (url: string): boolean =>
   url.includes(MFA_CONSENT_PAGE_PATH_MARKER);
 
 /**
- * MFA Self-Service “verify new TOTP factor” step: same path as other RUI screens, but `h_ra=1`
- * identifies the post-enrollment verification UI. Match pathname + query so local E2E fixtures
- * (e.g. http://127.0.0.1:4173/…) behave like production.
+ * OTP input on the MFA Self-Service "verify new TOTP factor" step (`id` contains
+ * `|` — use getElementById). The SPA injects it late; presence of this field is
+ * how `ruiSpaView.ts` detects the enroll-verify view (no URL match needed).
  */
-export const RUI_MFA_ENROLL_VERIFY_PAGE_URL =
-  `${SSO_LOGIN_ORIGIN}/oaa/rui/index.html?h_ra=1` as const;
-
-const RUI_MFA_ENROLL_VERIFY_PATH = "/oaa/rui/index.html" as const;
-
-export function matchesRuiMfaEnrollVerifyPage(url: string): boolean {
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(url);
-  } catch {
-    return false;
-  }
-  return (
-    parsedUrl.pathname === RUI_MFA_ENROLL_VERIFY_PATH &&
-    parsedUrl.searchParams.get("h_ra") === "1"
-  );
-}
-
-/** OTP input on that step (`id` contains `|` — use getElementById). */
 export const RUI_MFA_ENROLL_VERIFY_OTP_INPUT_ID = "otp|input" as const;
 
 /** How often the content script looks for the verify OTP field (SPA injects it late). */

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ONBOARDING_STATES, type OnboardingState } from "./state";
+import { ONBOARDING_STATES, isTerminal, type OnboardingState } from "./state";
 import {
   ALL_STATES_IN_TABLE,
   ONBOARDING_EVENTS,
@@ -8,7 +8,6 @@ import {
   backStateFor,
   canTransition,
   forwardTargetsFor,
-  isAtTerminal,
   type OnboardingEvent,
 } from "./transitions";
 
@@ -81,7 +80,7 @@ describe("forward chain", () => {
       state = next as OnboardingState;
     }
     expect(state).toBe("COMPLETE_DONE");
-    expect(isAtTerminal(state)).toBe(true);
+    expect(isTerminal(state)).toBe(true);
   });
 
   test("every non-terminal state has at least one forward target", () => {
@@ -154,13 +153,10 @@ describe("advance + canTransition", () => {
     expect(canTransition("WELCOME", "BACK")).toBe(false);
   });
 
-  test("CREDENTIAL_ERROR routes forward to PASSWORD_ENTRY (no auto-retry)", () => {
-    expect(advance("CREDENTIAL_ERROR", "NEXT")).toBe("PASSWORD_ENTRY");
-    expect(advance("CREDENTIAL_ERROR", "BACK")).toBe("PASSWORD_ENTRY");
-  });
-
   test("OPENING_CUNY splits on credential outcome", () => {
-    expect(advance("OPENING_CUNY", "CREDENTIAL_ERROR_DETECTED")).toBe("CREDENTIAL_ERROR");
+    // Credential rejection routes straight to the field to fix (no intermediate state).
+    expect(advance("OPENING_CUNY", "CREDENTIAL_ERROR_DETECTED")).toBe("PASSWORD_ENTRY");
+    expect(advance("OPENING_CUNY", "CREDENTIAL_ERROR_ROUTE_TO_EMAIL")).toBe("EMAIL_ENTRY");
     expect(advance("OPENING_CUNY", "CREDENTIALS_ACCEPTED")).toBe("CUNY_TOTP");
   });
 
@@ -203,10 +199,10 @@ describe("advance + canTransition", () => {
     }
   });
 
-  test("isAtTerminal returns false for all non-terminal states", () => {
+  test("isTerminal returns false for all non-terminal states", () => {
     for (const state of ONBOARDING_STATES) {
       if (state === "COMPLETE_DONE") continue;
-      expect(isAtTerminal(state)).toBe(false);
+      expect(isTerminal(state)).toBe(false);
     }
   });
 
@@ -226,10 +222,6 @@ describe("advance + canTransition", () => {
   test("BIOMETRIC_PREP BACK returns to BIOMETRIC_OFFER", () => {
     expect(advance("BIOMETRIC_PREP", "BACK")).toBe("BIOMETRIC_OFFER");
     expect(backStateFor("BIOMETRIC_PREP")).toBe("BIOMETRIC_OFFER");
-  });
-
-  test("CREDENTIAL_ERROR CREDENTIAL_ERROR_ROUTE_TO_EMAIL routes to EMAIL_ENTRY", () => {
-    expect(advance("CREDENTIAL_ERROR", "CREDENTIAL_ERROR_ROUTE_TO_EMAIL")).toBe("EMAIL_ENTRY");
   });
 });
 

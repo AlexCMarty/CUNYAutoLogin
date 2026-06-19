@@ -4,10 +4,8 @@ import {
   LOGIN_EMAIL_SUFFIX,
   OAA_RUI_OIDC_ACCESS_DENIED_ERROR,
   OAA_RUI_OIDC_REDIRECT_PATH,
-  RUI_MFA_ENROLL_VERIFY_PAGE_URL,
   SSO_LOGIN_HOST,
   SSO_LOGIN_ORIGIN,
-  SSO_LOGIN_TABS_QUERY_URL_PATTERN,
   WEBAUTHN_RP_ID,
   isAllowedReopenCunyTabUrl,
   isBrightspaceUrl,
@@ -16,7 +14,6 @@ import {
   matchesCredentialPage,
   matchesMfaConsentPage,
   matchesOaaRuiAccessDeniedRedirect,
-  matchesRuiMfaEnrollVerifyPage,
   matchesTotpEnrollPage,
   matchesTotpPage,
   normalizeTotpSecretCandidate,
@@ -87,8 +84,10 @@ describe("matchesTotpEnrollPage", () => {
     expect(matchesTotpEnrollPage("https://ssologin.cuny.edu/oaa/rui/index.html")).toBe(true);
   });
 
-  test("RUI_MFA_ENROLL_VERIFY_PAGE_URL → true", () => {
-    expect(matchesTotpEnrollPage(RUI_MFA_ENROLL_VERIFY_PAGE_URL)).toBe(true);
+  test("RUI MFA enroll-verify URL (h_ra=1) → true", () => {
+    expect(
+      matchesTotpEnrollPage("https://ssologin.cuny.edu/oaa/rui/index.html?h_ra=1")
+    ).toBe(true);
   });
 
   test("credential page URL → false", () => {
@@ -101,44 +100,6 @@ describe("matchesTotpEnrollPage", () => {
 
   test("empty string → false", () => {
     expect(matchesTotpEnrollPage("")).toBe(false);
-  });
-});
-
-describe("matchesRuiMfaEnrollVerifyPage", () => {
-  test("exact production URL → true", () => {
-    expect(matchesRuiMfaEnrollVerifyPage("https://ssologin.cuny.edu/oaa/rui/index.html?h_ra=1")).toBe(true);
-  });
-
-  test("extra query params alongside h_ra=1 → true", () => {
-    expect(matchesRuiMfaEnrollVerifyPage("https://ssologin.cuny.edu/oaa/rui/index.html?h_ra=1&other=2")).toBe(true);
-  });
-
-  test("local fixture URL with same path and h_ra=1 → true", () => {
-    expect(matchesRuiMfaEnrollVerifyPage("http://127.0.0.1:4173/oaa/rui/index.html?h_ra=1")).toBe(true);
-  });
-
-  test("missing h_ra param entirely → false", () => {
-    expect(matchesRuiMfaEnrollVerifyPage("https://ssologin.cuny.edu/oaa/rui/index.html")).toBe(false);
-  });
-
-  test("h_ra=0 → false", () => {
-    expect(matchesRuiMfaEnrollVerifyPage("https://ssologin.cuny.edu/oaa/rui/index.html?h_ra=0")).toBe(false);
-  });
-
-  test("h_ra=2 → false", () => {
-    expect(matchesRuiMfaEnrollVerifyPage("https://ssologin.cuny.edu/oaa/rui/index.html?h_ra=2")).toBe(false);
-  });
-
-  test("wrong pathname with correct h_ra=1 → false", () => {
-    expect(matchesRuiMfaEnrollVerifyPage("https://ssologin.cuny.edu/oaa/rui/other.html?h_ra=1")).toBe(false);
-  });
-
-  test("not a valid URL → false without throwing", () => {
-    expect(matchesRuiMfaEnrollVerifyPage("not a url")).toBe(false);
-  });
-
-  test("empty string → false without throwing", () => {
-    expect(matchesRuiMfaEnrollVerifyPage("")).toBe(false);
   });
 });
 
@@ -169,10 +130,6 @@ describe("matchesOaaRuiAccessDeniedRedirect", () => {
 // coverage: they pin no behavior and break only on an intentional edit). Kept:
 // only constants that encode a genuine cross-file / security contract.
 describe("cross-module constant invariants", () => {
-  test("SSO_LOGIN_TABS_QUERY_URL_PATTERN is the manifest host pattern derived from the origin", () => {
-    expect(SSO_LOGIN_TABS_QUERY_URL_PATTERN).toBe(`${SSO_LOGIN_ORIGIN}/*`);
-  });
-
   test("SSO_LOGIN_ORIGIN matches the host the manifest + content scripts are pinned to", () => {
     expect(SSO_LOGIN_ORIGIN).toBe("https://ssologin.cuny.edu");
   });

@@ -12,13 +12,11 @@ import {
   isLogoutCunySessionsAck,
   isLogoutCunySessionsRequest,
   isOnboardingCredentialError,
-  isOnboardingCunyTabMissing,
   isOnboardingLoginProgress,
   isOnboardingMessage,
   isOnboardingOverlayCommand,
   isOnboardingReopenCunyTab,
   isOnboardingStageDetected,
-  isOnboardingTabReattached,
   isOnboardingVerifyStatus,
   isPersistOnboardingResumeSnapshot,
   isStageOnboardingCredentials,
@@ -29,8 +27,8 @@ import {
 // ──── constants (pinned) ──────────────────────────────────────────────────────
 
 describe("constants", () => {
-  test("exactly 8 onboarding message types are declared", () => {
-    expect(ONBOARDING_MESSAGE_TYPES.length).toBe(8);
+  test("exactly 6 onboarding message types are declared", () => {
+    expect(ONBOARDING_MESSAGE_TYPES.length).toBe(6);
   });
 
   test("every declared message type string is unique", () => {
@@ -41,7 +39,7 @@ describe("constants", () => {
   test("page-stage, culprit, overlay-action, and verify-status enums are non-empty", () => {
     expect(ONBOARDING_PAGE_STAGES.length).toBeGreaterThan(0);
     expect(CREDENTIAL_CULPRITS).toEqual(["email", "password", "unknown"]);
-    expect(OVERLAY_ACTIONS).toEqual(["show", "update", "hide"]);
+    expect(OVERLAY_ACTIONS).toEqual(["show", "hide"]);
     expect(VERIFY_STATUSES).toEqual(["pending", "success", "first_failure", "second_failure"]);
   });
 });
@@ -153,8 +151,8 @@ describe("isOnboardingOverlayCommand", () => {
     expect(
       isOnboardingOverlayCommand({
         type: "ONBOARDING_OVERLAY_COMMAND",
-        action: "update",
-        target: "#allow-btn",
+        action: "show",
+        targetSpec: { type: "css", selector: "#allow-btn" },
         tooltipText: "Click Allow to continue.",
         stepIndex: 2,
         stepTotal: 4,
@@ -168,12 +166,12 @@ describe("isOnboardingOverlayCommand", () => {
     ).toBe(false);
   });
 
-  test("non-string target → false", () => {
+  test("malformed targetSpec (css without selector) → false", () => {
     expect(
       isOnboardingOverlayCommand({
         type: "ONBOARDING_OVERLAY_COMMAND",
         action: "show",
-        target: 42,
+        targetSpec: { type: "css" },
       })
     ).toBe(false);
   });
@@ -249,52 +247,6 @@ describe("isOnboardingReopenCunyTab", () => {
   });
 });
 
-// ──── isOnboardingTabReattached ──────────────────────────────────────────────
-
-describe("isOnboardingTabReattached", () => {
-  test("integer tabId → true", () => {
-    expect(
-      isOnboardingTabReattached({ type: "ONBOARDING_TAB_REATTACHED", tabId: 17 })
-    ).toBe(true);
-  });
-
-  test("missing tabId → false", () => {
-    expect(isOnboardingTabReattached({ type: "ONBOARDING_TAB_REATTACHED" })).toBe(false);
-  });
-
-  test("non-integer tabId → false", () => {
-    expect(
-      isOnboardingTabReattached({ type: "ONBOARDING_TAB_REATTACHED", tabId: 1.5 })
-    ).toBe(false);
-  });
-
-  test("string tabId → false", () => {
-    expect(
-      isOnboardingTabReattached({ type: "ONBOARDING_TAB_REATTACHED", tabId: "17" })
-    ).toBe(false);
-  });
-});
-
-describe("isOnboardingCunyTabMissing", () => {
-  test("missing=true payload is accepted", () => {
-    expect(
-      isOnboardingCunyTabMissing({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: true })
-    ).toBe(true);
-  });
-
-  test("missing=false payload is accepted", () => {
-    expect(
-      isOnboardingCunyTabMissing({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: false })
-    ).toBe(true);
-  });
-
-  test("non-boolean missing is rejected", () => {
-    expect(
-      isOnboardingCunyTabMissing({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: "yes" })
-    ).toBe(false);
-  });
-});
-
 // ──── isOnboardingLoginProgress ──────────────────────────────────────────────
 
 describe("isOnboardingLoginProgress", () => {
@@ -335,7 +287,7 @@ describe("isOnboardingLoginProgress", () => {
 describe("isOnboardingMessage", () => {
   test("valid stage-detected message → true", () => {
     expect(
-      isOnboardingMessage({ type: "ONBOARDING_STAGE_DETECTED", stage: "credential_page" })
+      isOnboardingMessage({ type: "ONBOARDING_STAGE_DETECTED", stage: "cuny_totp_challenge" })
     ).toBe(true);
   });
 
@@ -359,18 +311,6 @@ describe("isOnboardingMessage", () => {
 
   test("valid reopen-cuny-tab message → true", () => {
     expect(isOnboardingMessage({ type: "ONBOARDING_REOPEN_CUNY_TAB" })).toBe(true);
-  });
-
-  test("valid tab-reattached message → true", () => {
-    expect(
-      isOnboardingMessage({ type: "ONBOARDING_TAB_REATTACHED", tabId: 0 })
-    ).toBe(true);
-  });
-
-  test("valid cuny-tab-missing message → true", () => {
-    expect(
-      isOnboardingMessage({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: true })
-    ).toBe(true);
   });
 
   test("valid login-progress message → true", () => {
@@ -400,8 +340,7 @@ describe("isOnboardingMessage", () => {
     expect(
       isOnboardingMessage({
         type: "ONBOARDING_OVERLAY_COMMAND",
-        action: "show",
-        target: 123,
+        action: "not-an-action",
       })
     ).toBe(false);
   });

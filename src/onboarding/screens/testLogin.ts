@@ -146,8 +146,13 @@ export const mountTestLoginScreen: ScreenMount = (
 
   root.appendChild(container);
 
-  const snapshot = getSnapshot();
-  runTestLoginSideEffects(snapshot.email, snapshot.password);
+  // The QA screenshot variant (`qaVariant=success`) renders a finished frame and
+  // must stay visual-only — never fire a real login (logout + credential staging +
+  // opening a CUNY tab) from a dev capture/jump.
+  if (!success) {
+    const snapshot = getSnapshot();
+    runTestLoginSideEffects(snapshot.email, snapshot.password);
+  }
 
   return {
     unmount: () => {

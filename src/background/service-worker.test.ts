@@ -510,7 +510,7 @@ describe("ONBOARDING_* — valid payload acceptance", () => {
       await handler({
         type: "ONBOARDING_OVERLAY_COMMAND",
         action: "show",
-        target: "#allow-btn",
+        targetSpec: { type: "css", selector: "#allow-btn" },
         tooltipText: "Click Allow to continue.",
         stepIndex: 0,
         stepTotal: 4,
@@ -529,18 +529,6 @@ describe("ONBOARDING_* — valid payload acceptance", () => {
       ok: true,
     });
   });
-
-  test("ONBOARDING_TAB_REATTACHED with integer tabId → { ok: true }", async () => {
-    expect(
-      await handler({ type: "ONBOARDING_TAB_REATTACHED", tabId: 7 }, CS_SENDER)
-    ).toEqual({ ok: true });
-  });
-
-  test("ONBOARDING_CUNY_TAB_MISSING with boolean payload → { ok: true }", async () => {
-    expect(
-      await handler({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: true }, CS_SENDER)
-    ).toEqual({ ok: true });
-  });
 });
 
 describe("ONBOARDING_CONTENT_SCRIPT_READY", () => {
@@ -558,7 +546,7 @@ describe("ONBOARDING_CONTENT_SCRIPT_READY", () => {
     await handler({
       type: "ONBOARDING_OVERLAY_COMMAND",
       action: "show",
-      target: "#allow-btn",
+      targetSpec: { type: "css", selector: "#allow-btn" },
       tooltipText: "Click Allow to continue.",
       stepIndex: 1,
       stepTotal: 4,
@@ -567,7 +555,7 @@ describe("ONBOARDING_CONTENT_SCRIPT_READY", () => {
       overlayCommand: {
         type: "ONBOARDING_OVERLAY_COMMAND",
         action: "show",
-        target: "#allow-btn",
+        targetSpec: { type: "css", selector: "#allow-btn" },
         tooltipText: "Click Allow to continue.",
         stepIndex: 1,
         stepTotal: 4,
@@ -604,12 +592,12 @@ describe("ONBOARDING_* — invalid payload rejection", () => {
     ).toEqual({ ok: false, reason: "invalid_payload" });
   });
 
-  test("ONBOARDING_OVERLAY_COMMAND with non-string target → { ok: false, invalid_payload }", async () => {
+  test("ONBOARDING_OVERLAY_COMMAND with malformed targetSpec → { ok: false, invalid_payload }", async () => {
     expect(
       await handler({
         type: "ONBOARDING_OVERLAY_COMMAND",
         action: "show",
-        target: 42,
+        targetSpec: { type: "css", selector: 42 },
       }, EXT_SENDER)
     ).toEqual({ ok: false, reason: "invalid_payload" });
   });
@@ -617,19 +605,6 @@ describe("ONBOARDING_* — invalid payload rejection", () => {
   test("ONBOARDING_VERIFY_STATUS with unknown status → { ok: false, invalid_payload }", async () => {
     expect(
       await handler({ type: "ONBOARDING_VERIFY_STATUS", status: "maybe" }, CS_SENDER)
-    ).toEqual({ ok: false, reason: "invalid_payload" });
-  });
-
-  test("ONBOARDING_TAB_REATTACHED with missing tabId → { ok: false, invalid_payload }", async () => {
-    expect(await handler({ type: "ONBOARDING_TAB_REATTACHED" }, CS_SENDER)).toEqual({
-      ok: false,
-      reason: "invalid_payload",
-    });
-  });
-
-  test("ONBOARDING_CUNY_TAB_MISSING with non-boolean missing → { ok: false, invalid_payload }", async () => {
-    expect(
-      await handler({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: "yes" }, CS_SENDER)
     ).toEqual({ ok: false, reason: "invalid_payload" });
   });
 
@@ -660,12 +635,12 @@ describe("ONBOARDING_OVERLAY_COMMAND staging semantics", () => {
     await handler({
       type: "ONBOARDING_OVERLAY_COMMAND",
       action: "show",
-      target: "#allow-btn",
+      targetSpec: { type: "css", selector: "#allow-btn" },
     }, EXT_SENDER);
     expect(getStagedOverlayCommand()).toEqual({
       type: "ONBOARDING_OVERLAY_COMMAND",
       action: "show",
-      target: "#allow-btn",
+      targetSpec: { type: "css", selector: "#allow-btn" },
     });
   });
 
@@ -673,7 +648,7 @@ describe("ONBOARDING_OVERLAY_COMMAND staging semantics", () => {
     await handler({
       type: "ONBOARDING_OVERLAY_COMMAND",
       action: "show",
-      target: "#allow-btn",
+      targetSpec: { type: "css", selector: "#allow-btn" },
     }, EXT_SENDER);
     await handler({
       type: "ONBOARDING_OVERLAY_COMMAND",
@@ -686,13 +661,13 @@ describe("ONBOARDING_OVERLAY_COMMAND staging semantics", () => {
     await handler({
       type: "ONBOARDING_OVERLAY_COMMAND",
       action: "show",
-      target: "#allow-btn",
+      targetSpec: { type: "css", selector: "#allow-btn" },
     }, EXT_SENDER);
     const before = getStagedOverlayCommand();
     await handler({
       type: "ONBOARDING_OVERLAY_COMMAND",
       action: "show",
-      target: 42,
+      targetSpec: { type: "css", selector: 42 },
     }, EXT_SENDER);
     expect(getStagedOverlayCommand()).toEqual(before);
   });
@@ -1294,7 +1269,7 @@ describe("ONBOARDING_CONTENT_SCRIPT_READY — sender gate (leak prevention)", ()
       {
         type: "ONBOARDING_OVERLAY_COMMAND",
         action: "show",
-        target: "#allow-btn",
+        targetSpec: { type: "css", selector: "#allow-btn" },
         tooltipText: "Click Allow to continue.",
         stepIndex: 0,
         stepTotal: 4,
@@ -1312,7 +1287,7 @@ describe("ONBOARDING_CONTENT_SCRIPT_READY — sender gate (leak prevention)", ()
       {
         type: "ONBOARDING_OVERLAY_COMMAND",
         action: "show",
-        target: "#allow-btn",
+        targetSpec: { type: "css", selector: "#allow-btn" },
         tooltipText: "Click Allow to continue.",
         stepIndex: 0,
         stepTotal: 4,

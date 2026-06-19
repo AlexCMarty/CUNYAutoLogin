@@ -74,7 +74,7 @@ const buildPasswordEntryDom = (
   const input = doc.createElement("input");
   input.type = "password";
   input.dataset.onboardingPasswordInput = "true";
-  input.className = "onboarding-input onboarding-input-pill";
+  input.className = "onboarding-input";
   input.autocomplete = "current-password";
   input.value = initialPassword;
 

@@ -16,7 +16,6 @@ export interface SidebarDom {
   email: HTMLInputElement;
   password: HTMLInputElement;
   totpSecret: HTMLInputElement;
-  totpSecretSourceHint: HTMLElement;
   masterPassword: HTMLInputElement;
   masterLabel: HTMLElement;
   newMasterPassword: HTMLInputElement;
@@ -50,17 +49,6 @@ export function setStatus(message: string, ok = false): void {
   statusEl.classList.toggle("ok", ok);
 }
 
-export function hideTotpSecretSourceHint(els: SidebarDom): void {
-  els.totpSecretSourceHint.textContent = "";
-  els.totpSecretSourceHint.classList.add("hidden");
-}
-
-export function showTotpSecretSourceHint(els: SidebarDom): void {
-  els.totpSecretSourceHint.textContent =
-    "Filled from the open CUNY \"add authentication\" page.";
-  els.totpSecretSourceHint.classList.remove("hidden");
-}
-
 const warnSessionStorageUnavailable = (context: string, error: unknown): void => {
   if (import.meta.env.MODE !== "production") {
     // eslint-disable-next-line no-console
@@ -73,26 +61,6 @@ export async function clearPendingTotpFromSession(): Promise<void> {
     await browser.storage.session?.remove(PENDING_TOTP_SECRET_SESSION_KEY);
   } catch (error) {
     warnSessionStorageUnavailable("clearPendingTotpFromSession failed", error);
-  }
-}
-
-export async function applyPendingTotpFromPage(els: SidebarDom): Promise<void> {
-  try {
-    const result = await browser.storage.session?.get(PENDING_TOTP_SECRET_SESSION_KEY);
-    const secret = result?.[PENDING_TOTP_SECRET_SESSION_KEY];
-    if (typeof secret !== "string" || !secret.length) {
-      return;
-    }
-    const current = els.totpSecret.value.trim().replace(/\s+/g, "").toUpperCase();
-    if (current === secret) {
-      await clearPendingTotpFromSession();
-      return;
-    }
-    els.totpSecret.value = secret;
-    showTotpSecretSourceHint(els);
-    await clearPendingTotpFromSession();
-  } catch (error) {
-    warnSessionStorageUnavailable("applyPendingTotpFromPage failed", error);
   }
 }
 

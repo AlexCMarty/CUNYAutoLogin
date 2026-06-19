@@ -168,6 +168,13 @@ describe("mountTestLoginScreen — success frame", () => {
       document.querySelectorAll(".onboarding-demo-dot[data-done='true']")
     ).toHaveLength(4);
   });
+
+  test("success frame is visual-only: fires no real-login side effects", async () => {
+    mountTestLoginScreen(makeCtx("success"));
+    await flush();
+    expect(sendMessageMock).not.toHaveBeenCalled();
+    expect(tabsCreateMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("mountTestLoginScreen — lifecycle & side effects", () => {

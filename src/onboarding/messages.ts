@@ -185,7 +185,6 @@ export type TargetSpec = CssTarget | A11yTarget;
 
 /** Recognised CUNY-side page stages the content script can announce. */
 export const ONBOARDING_PAGE_STAGES = [
-  "credential_page",
   "cuny_totp_challenge",
   "allow_gate",
   "allow_button_clicked",
@@ -209,7 +208,7 @@ export type OnboardingPageStage = (typeof ONBOARDING_PAGE_STAGES)[number];
 export const CREDENTIAL_CULPRITS = ["email", "password", "unknown"] as const;
 export type CredentialCulprit = (typeof CREDENTIAL_CULPRITS)[number];
 
-export const OVERLAY_ACTIONS = ["show", "update", "hide"] as const;
+export const OVERLAY_ACTIONS = ["show", "hide"] as const;
 type OverlayAction = (typeof OVERLAY_ACTIONS)[number];
 
 export const VERIFY_STATUSES = [
@@ -252,8 +251,6 @@ export type OnboardingCredentialError = {
 export type OnboardingOverlayCommand = {
   readonly type: "ONBOARDING_OVERLAY_COMMAND";
   readonly action: OverlayAction;
-  /** Optional CSS selector hint; prefer `targetSpec` for new overlay commands. */
-  readonly target?: string;
   /** Typed target spec — supports css and a11y click patterns. */
   readonly targetSpec?: TargetSpec;
   readonly tooltipText?: string;
@@ -271,16 +268,6 @@ export type OnboardingReopenCunyTab = {
   readonly url?: string;
 };
 
-export type OnboardingTabReattached = {
-  readonly type: "ONBOARDING_TAB_REATTACHED";
-  readonly tabId: number;
-};
-
-export type OnboardingCunyTabMissing = {
-  readonly type: "ONBOARDING_CUNY_TAB_MISSING";
-  readonly missing: boolean;
-};
-
 export type OnboardingLoginProgress = {
   readonly type: "ONBOARDING_LOGIN_PROGRESS";
   readonly step: LoginProgressStep;
@@ -292,8 +279,6 @@ export type OnboardingMessage =
   | OnboardingOverlayCommand
   | OnboardingVerifyStatus
   | OnboardingReopenCunyTab
-  | OnboardingTabReattached
-  | OnboardingCunyTabMissing
   | OnboardingLoginProgress;
 
 export const ONBOARDING_MESSAGE_TYPES = [
@@ -302,8 +287,6 @@ export const ONBOARDING_MESSAGE_TYPES = [
   "ONBOARDING_OVERLAY_COMMAND",
   "ONBOARDING_VERIFY_STATUS",
   "ONBOARDING_REOPEN_CUNY_TAB",
-  "ONBOARDING_TAB_REATTACHED",
-  "ONBOARDING_CUNY_TAB_MISSING",
   "ONBOARDING_LOGIN_PROGRESS",
 ] as const;
 export type OnboardingMessageType = (typeof ONBOARDING_MESSAGE_TYPES)[number];
@@ -368,7 +351,6 @@ export const isOnboardingOverlayCommand = (
   if (!isRecord(value)) return false;
   if (value.type !== "ONBOARDING_OVERLAY_COMMAND") return false;
   if (!isOneOf(value.action, OVERLAY_ACTIONS)) return false;
-  if (!isOptionalString(value.target)) return false;
   if (value.targetSpec !== undefined && !isTargetSpec(value.targetSpec)) return false;
   if (!isOptionalString(value.tooltipText)) return false;
   if (!isOptionalNonNegativeInt(value.stepIndex)) return false;
@@ -394,22 +376,6 @@ export const isOnboardingReopenCunyTab = (
   return value.url.trim().length > 0;
 };
 
-export const isOnboardingTabReattached = (
-  value: unknown
-): value is OnboardingTabReattached => {
-  if (!isRecord(value)) return false;
-  if (value.type !== "ONBOARDING_TAB_REATTACHED") return false;
-  return typeof value.tabId === "number" && Number.isInteger(value.tabId);
-};
-
-export const isOnboardingCunyTabMissing = (
-  value: unknown
-): value is OnboardingCunyTabMissing => {
-  if (!isRecord(value)) return false;
-  if (value.type !== "ONBOARDING_CUNY_TAB_MISSING") return false;
-  return typeof value.missing === "boolean";
-};
-
 export const isOnboardingLoginProgress = (
   value: unknown
 ): value is OnboardingLoginProgress => {
@@ -432,8 +398,6 @@ const ONBOARDING_MESSAGE_VALIDATORS: Record<
   ONBOARDING_OVERLAY_COMMAND:  isOnboardingOverlayCommand,
   ONBOARDING_VERIFY_STATUS:    isOnboardingVerifyStatus,
   ONBOARDING_REOPEN_CUNY_TAB:  isOnboardingReopenCunyTab,
-  ONBOARDING_TAB_REATTACHED:   isOnboardingTabReattached,
-  ONBOARDING_CUNY_TAB_MISSING: isOnboardingCunyTabMissing,
   ONBOARDING_LOGIN_PROGRESS:   isOnboardingLoginProgress,
 };
 

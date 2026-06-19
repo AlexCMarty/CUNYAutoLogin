@@ -160,7 +160,7 @@ describe("buildLoginChecklist — completion, monotonicity & filtering", () => {
   test("ignores unrelated messages", () => {
     const { element, begin, applyMessage } = buildLoginChecklist(document, STEPS);
     begin();
-    applyMessage({ type: "ONBOARDING_CUNY_TAB_MISSING", missing: true });
+    applyMessage({ type: "ONBOARDING_VERIFY_STATUS", status: "pending" });
     expect(dots(element)[0]?.dataset.active).toBe("true");
     expect(dots(element)[1]?.dataset.active).not.toBe("true");
   });

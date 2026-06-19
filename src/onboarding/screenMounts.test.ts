@@ -43,11 +43,10 @@ describe("SCREEN_MOUNTS", () => {
     }
   });
 
-  test("covers every state except CREDENTIAL_ERROR — set equality, not just a count", () => {
-    // CREDENTIAL_ERROR is a transient routing state with no mount; every other
-    // state must have an entry. Using set equality means adding a state without
-    // a mount will cause a real failure (not just a count mismatch).
-    const expectedStates = new Set(ONBOARDING_STATES.filter((state) => state !== "CREDENTIAL_ERROR"));
+  test("covers every onboarding state — set equality, not just a count", () => {
+    // Every state must have a mount entry. Using set equality means adding a
+    // state without a mount will cause a real failure (not just a count mismatch).
+    const expectedStates = new Set(ONBOARDING_STATES);
     const actualStates = new Set(Object.keys(SCREEN_MOUNTS));
     expect(actualStates).toEqual(expectedStates);
   });
@@ -66,10 +65,6 @@ describe("SCREEN_MOUNTS", () => {
 
   test("BIOMETRIC_PREP state has a mount function", () => {
     expect(typeof SCREEN_MOUNTS.BIOMETRIC_PREP).toBe("function");
-  });
-
-  test("CREDENTIAL_ERROR is explicitly absent from SCREEN_MOUNTS", () => {
-    expect(SCREEN_MOUNTS.CREDENTIAL_ERROR).toBeUndefined();
   });
 
   test("every state with a bead-3 guided screen has a mount function", () => {

@@ -15,9 +15,7 @@ export const executeOverlayCommand = (command: OnboardingOverlayCommand): void =
   if (command.action !== "show") {
     return;
   }
-  const spec =
-    command.targetSpec ??
-    (command.target ? ({ type: "css" as const, selector: command.target } as const) : null);
+  const spec = command.targetSpec ?? null;
   if (!spec) return;
   const stageMessage: OnboardingStageDetected = {
     type: "ONBOARDING_STAGE_DETECTED",

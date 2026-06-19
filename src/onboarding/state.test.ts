@@ -15,8 +15,8 @@ import {
 } from "./state";
 
 describe("constants", () => {
-  test("25 onboarding states declared", () => {
-    expect(ONBOARDING_STATES.length).toBe(25);
+  test("24 onboarding states declared", () => {
+    expect(ONBOARDING_STATES.length).toBe(24);
   });
 
   test("ONBOARDING_STATES values are unique", () => {
@@ -60,9 +60,9 @@ describe("STATE_TO_BEAD", () => {
     expect(beadForState("PASSWORD_ENTRY")).toBe(1);
   });
 
-  test("bead 2 covers first-login transition + allow-gate + credential-error", () => {
+  test("bead 2 covers first-login transition + allow-gate", () => {
     expect(beadForState("OPENING_CUNY")).toBe(2);
-    expect(beadForState("CREDENTIAL_ERROR")).toBe(2);
+    expect(beadForState("CUNY_TOTP")).toBe(2);
     expect(beadForState("ALLOW_GATE")).toBe(2);
   });
 
@@ -134,8 +134,9 @@ describe("resume policy", () => {
     expect(safeResumeStateFor("SET_DEFAULT")).toBe("SET_DEFAULT");
   });
 
-  test("CREDENTIAL_ERROR resumes to PASSWORD_ENTRY safe fallback", () => {
-    expect(safeResumeStateFor("CREDENTIAL_ERROR")).toBe("PASSWORD_ENTRY");
+  test("paste-key states resume to the CHOOSE_SETUP_PATH fork (no mid-paste resume)", () => {
+    expect(safeResumeStateFor("KEY_FROM_OTHER_DEVICE")).toBe("CHOOSE_SETUP_PATH");
+    expect(safeResumeStateFor("KEY_FROM_AUTH_APP")).toBe("CHOOSE_SETUP_PATH");
   });
 
   test("extension password setup and terminal done are non-resumable", () => {

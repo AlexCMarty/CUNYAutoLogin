@@ -96,8 +96,8 @@ describe("beadViewModelForState — extended state coverage", () => {
     }
   });
 
-  test("CUNY_TOTP and CREDENTIAL_ERROR map to bead 2 (active)", () => {
-    for (const state of ["CUNY_TOTP", "CREDENTIAL_ERROR"] as const) {
+  test("CUNY_TOTP and ALLOW_GATE map to bead 2 (active)", () => {
+    for (const state of ["CUNY_TOTP", "ALLOW_GATE"] as const) {
       const models = beadViewModelForState(state);
       const active = models.find((bead) => bead.status === "active");
       expect(active?.stage, `${state} should have bead 2 active`).toBe(2);

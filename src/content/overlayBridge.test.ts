@@ -18,7 +18,6 @@ import browser from "webextension-polyfill";
 import { hideOverlay, showOverlay } from "./overlay";
 import { executeOverlayCommand, requestAndExecuteOverlayCommand } from "./overlayBridge";
 
-// eslint-disable-next-line max-lines-per-function
 describe("overlayBridge", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -34,7 +33,7 @@ describe("overlayBridge", () => {
       overlayCommand: {
         type: "ONBOARDING_OVERLAY_COMMAND",
         action: "show",
-        target: "#allow-btn",
+        targetSpec: { type: "css", selector: "#allow-btn" },
       },
     });
     await requestAndExecuteOverlayCommand();
@@ -60,34 +59,10 @@ describe("overlayBridge", () => {
     );
   });
 
-  test("show command with legacy target string wraps it in a CssTarget spec", () => {
-    executeOverlayCommand({
-      type: "ONBOARDING_OVERLAY_COMMAND",
-      action: "show",
-      target: "#legacy-btn",
-    });
-    expect(vi.mocked(showOverlay)).toHaveBeenCalledWith(
-      { type: "css", selector: "#legacy-btn" },
-      "",
-      1,
-      1,
-      expect.any(Function)
-    );
-  });
-
   test("show command with neither target nor targetSpec is a no-op", () => {
     executeOverlayCommand({
       type: "ONBOARDING_OVERLAY_COMMAND",
       action: "show",
-    });
-    expect(vi.mocked(showOverlay)).not.toHaveBeenCalled();
-    expect(vi.mocked(hideOverlay)).not.toHaveBeenCalled();
-  });
-
-  test("unknown action is silently ignored", () => {
-    executeOverlayCommand({
-      type: "ONBOARDING_OVERLAY_COMMAND",
-      action: "update",
     });
     expect(vi.mocked(showOverlay)).not.toHaveBeenCalled();
     expect(vi.mocked(hideOverlay)).not.toHaveBeenCalled();
@@ -116,7 +91,7 @@ describe("overlayBridge", () => {
     executeOverlayCommand({
       type: "ONBOARDING_OVERLAY_COMMAND",
       action: "show",
-      target: "#some-btn",
+      targetSpec: { type: "css", selector: "#some-btn" },
     });
     // Extract the onNotFound callback passed to showOverlay and call it
     const onNotFound = vi.mocked(showOverlay).mock.calls[0]?.[4];
