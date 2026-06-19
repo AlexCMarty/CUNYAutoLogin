@@ -74,21 +74,28 @@ The logout URL is also advertised by the authenticated API: `GET /oaa/rui/user/v
 returns a `{"key":"logout_location","val":"/oaa/rui/user/v1/logout"}` entry.
 
 > The endpoint **redirect behavior** above is carried over from May 2026 and was **not**
-> re-verified on 2026-06-10; the cookie-deletion results in this file were. Treat the
-> endpoint as a belt-and-suspenders supplement to the cookie sweep, not the sole logout.
+> re-verified on 2026-06-10; the cookie-deletion results in this file were. **The extension
+> no longer touches this endpoint** — the tab-nav + `fetch` path was removed in commit
+> `94f96b8` after a live probe showed it does not terminate at the pre-consent Allow gate,
+> leaving the cookie sweep as the sole logout (see "Extension logout procedure (current
+> code)" below). It is documented here only as live-site behavior.
 
 ## Extension logout procedure (current code)
 
-`terminateOaaRuiSessions` (`src/background/service-worker.ts`) does three things:
+Logout is **cookie-deletion only** — there is no logout-URL navigation and no `fetch`. On
+`LOGOUT_CUNY_SESSIONS` (and before reopening a CUNY tab), `src/background/service-worker.ts`
+calls two helpers directly:
 
-1. `logOutOaaRuiInTabs()` — navigates open SSO tabs to `OAA_RUI_LOGOUT_URL`.
-2. `fetchLogOutOaaRui()` — `fetch(OAA_RUI_LOGOUT_URL, { credentials: "include" })`.
-3. `clearSsoLoginCookies()` — `browser.cookies.getAll({ domain: SSO_LOGIN_HOST })`, then
-   `cookies.remove` for each.
-
-Brightspace is handled separately by `clearBrightspaceSessionCookies()` (removes
-`d2lSessionVal` + `d2lSecureSessionVal` at `BRIGHTSPACE_HOME_URL`; names in
-`BRIGHTSPACE_SESSION_COOKIE_NAMES`), called alongside `terminateOaaRuiSessions`.
+1. `clearSsoLoginCookies()` — `browser.cookies.getAll({ domain: SSO_LOGIN_HOST })`, then
+   `cookies.remove` for **every** returned cookie. The full-jar sweep removes the OAM SSO
+   cookies (`OAM_ID`, `OAMAuthnCookie_*`), the OAA OIDC app session (`JSESSIONID`), and the
+   SAML federation session (`ORA_OSFS_SESSION`) that would otherwise silently re-federate
+   Brightspace. This is the **load-bearing logout mechanism** (see the comment on
+   `clearSsoLoginCookies`); sweeping the whole jar rather than a hardcoded subset stays
+   correct even when Oracle renames or adds cookies.
+2. `clearBrightspaceSessionCookies()` — `cookies.remove` on the fixed pair `d2lSessionVal`
+   / `d2lSecureSessionVal` with `url: BRIGHTSPACE_HOME_URL` (the reopen-tab path runs this
+   only when the destination is Brightspace).
 
 **Scope limits of the `chrome.cookies` sweep (vs. the Playwright-layer `manage_cookies`
 tool used to gather this doc):**
