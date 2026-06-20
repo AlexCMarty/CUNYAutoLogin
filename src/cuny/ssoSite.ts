@@ -308,5 +308,7 @@ export const SET_DEFAULT_CONFIRM_TIMEOUT_MS = 2_000;
 /** Display name used as the TOTP factor alias, banner label, and WebAuthn RP name. */
 export const EXTENSION_NAME = "CUNYAutoLogin" as const;
 
-/** RP ID for extension-initiated WebAuthn ceremonies (must remain in host_permissions). */
+/** RP ID for extension-initiated WebAuthn ceremonies (must remain in host_permissions).
+ *  Kept as its own literal (not an alias of `SSO_LOGIN_HOST`) so the two stay
+ *  semantically distinct; `ssoSite.test.ts` pins them equal to catch drift. */
 export const WEBAUTHN_RP_ID = "ssologin.cuny.edu" as const;

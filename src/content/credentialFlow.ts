@@ -83,8 +83,8 @@ export const fillCredentials = async (
     waitForInputById(CREDENTIAL_INPUT_IDS.username),
     waitForInputById(CREDENTIAL_INPUT_IDS.password),
     waitForElement(() => {
-      const el = document.getElementById(CREDENTIAL_INPUT_IDS.submitButton);
-      return el instanceof HTMLButtonElement ? el : null;
+      const submitBtnCandidate = document.getElementById(CREDENTIAL_INPUT_IDS.submitButton);
+      return submitBtnCandidate instanceof HTMLButtonElement ? submitBtnCandidate : null;
     }),
   ]);
 

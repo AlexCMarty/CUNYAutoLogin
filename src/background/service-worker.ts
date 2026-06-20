@@ -173,11 +173,6 @@ const clearSsoLoginCookies = async (): Promise<void> => {
 export const __test_getStagedOverlayCommand = (): OnboardingOverlayCommand | null =>
   stagedOverlayCommand;
 
-/** Exported only for tests; not part of any wire contract. */
-export const __test_getStagedOnboardingCredentials = ():
-  | StagedOnboardingCredentials
-  | null => stagedOnboardingCredentials;
-
 /**
  * Frame URL for the message sender: extension pages set `sender.url` to a
  * `chrome-extension:` (or `moz-extension:`) URL; content scripts set it to the

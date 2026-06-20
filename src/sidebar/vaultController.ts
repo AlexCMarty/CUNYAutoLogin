@@ -280,7 +280,8 @@ const renderUnlockedMode = (
 
 function renderMode(els: SidebarDom): void {
   const { credentialFields, masterPasswordField, changeMasterSection } = els;
-  const bioBtn = document.getElementById("biometric-unlock-btn") as HTMLButtonElement | null;
+  const bioBtnCandidate = document.getElementById("biometric-unlock-btn");
+  const bioBtn = bioBtnCandidate instanceof HTMLButtonElement ? bioBtnCandidate : null;
 
   updateVaultHeaders(currentMode);
 
@@ -454,7 +455,8 @@ async function resetToFreshInstall(): Promise<void> {
 }
 
 async function maybeWireBiometricUnlock(els: SidebarDom): Promise<void> {
-  const bioBtn = document.getElementById("biometric-unlock-btn") as HTMLButtonElement | null;
+  const bioBtnCandidate = document.getElementById("biometric-unlock-btn");
+  const bioBtn = bioBtnCandidate instanceof HTMLButtonElement ? bioBtnCandidate : null;
   if (!bioBtn) return;
 
   const { isBiometricEnrolled, unlockWithBiometric } = await import("../crypto/biometric");
@@ -470,11 +472,11 @@ async function maybeWireBiometricUnlock(els: SidebarDom): Promise<void> {
 
     const masterResult = await unlockWithBiometric();
     if (masterResult.isErr()) {
-      const msg =
+      const statusMessage =
         masterResult.error === "user_cancelled"
           ? "Cancelled — enter your extension password."
           : "Biometric failed — enter your extension password.";
-      setStatus(msg);
+      setStatus(statusMessage);
       bioBtn.disabled = false;
       return;
     }

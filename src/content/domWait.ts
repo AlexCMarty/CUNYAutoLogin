@@ -30,11 +30,11 @@ export const waitForElement = <T extends HTMLElement>(
     }, timeoutMs);
 
     const observer = new MutationObserver(() => {
-      const el = find();
-      if (el) {
+      const found = find();
+      if (found) {
         clearTimeout(timer);
         observer.disconnect();
-        resolve(el);
+        resolve(found);
       }
     });
 
@@ -52,8 +52,8 @@ export const waitForInputById = (
   timeoutMs = WAIT_FOR_ELEMENT_TIMEOUT_MS
 ): Promise<HTMLInputElement | null> =>
   waitForElement(() => {
-    const el = document.getElementById(id);
-    return el instanceof HTMLInputElement ? el : null;
+    const inputCandidate = document.getElementById(id);
+    return inputCandidate instanceof HTMLInputElement ? inputCandidate : null;
   }, timeoutMs);
 
 /** Waits until the enroll page injects a plausible Base32 secret into the labelled node. */

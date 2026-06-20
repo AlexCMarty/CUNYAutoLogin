@@ -343,9 +343,14 @@ describe("vaultController — locked mode form validation", () => {
   });
 });
 
-async function setupUnlockedController(): Promise<void> {
+async function setupUnlockedController(
+  options: { readonly managementMode?: boolean } = {}
+): Promise<void> {
   vi.resetModules();
   setupSidebarDom();
+  if (options.managementMode) {
+    document.body.dataset.vaultUi = "sidebar-management";
+  }
   const snap = await makeUnlockedSnapshot();
   await configureSnapshot(snap);
   const browser = (await import("webextension-polyfill")).default;
@@ -494,16 +499,7 @@ describe("vaultController — unlocked mode: happy path save", () => {
 });
 
 describe("vaultController — unlocked mode with changed master password", () => {
-  beforeEach(async () => {
-    vi.resetModules();
-    setupSidebarDom();
-    const snap = await makeUnlockedSnapshot();
-    await configureSnapshot(snap);
-    const browser = (await import("webextension-polyfill")).default;
-    vi.mocked(browser.storage.local.set).mockResolvedValue();
-    vi.mocked(browser.storage.session.set).mockResolvedValue();
-    await loadController();
-  });
+  beforeEach(() => setupUnlockedController());
 
   test("changed master → clearBiometricCredential is called", async () => {
     const { clearBiometricCredential } = await import("../crypto/biometric");
@@ -523,17 +519,7 @@ describe("vaultController — unlocked mode with changed master password", () =>
 });
 
 describe("vaultController — management mode TOTP handling", () => {
-  beforeEach(async () => {
-    vi.resetModules();
-    setupSidebarDom();
-    document.body.dataset.vaultUi = "sidebar-management";
-    const snap = await makeUnlockedSnapshot();
-    await configureSnapshot(snap);
-    const browser = (await import("webextension-polyfill")).default;
-    vi.mocked(browser.storage.local.set).mockResolvedValue();
-    vi.mocked(browser.storage.session.set).mockResolvedValue();
-    await loadController();
-  });
+  beforeEach(() => setupUnlockedController({ managementMode: true }));
 
   test("empty totpSecret in management mode → management-specific error when session totp also missing", async () => {
     // This tests the case where management mode has no session totp payload and field is empty.
