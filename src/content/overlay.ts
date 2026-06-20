@@ -19,6 +19,7 @@ import type { TargetSpec } from "../onboarding/messages";
 import {
   CUNY_ALLOW_GATE_BTN_SELECTOR,
   OVERLAY_TARGET_TIMEOUT_MS,
+  RUI_FACTOR_PANEL_SELECTOR,
 } from "../cuny/ssoSite";
 
 export type { TargetSpec };
@@ -70,32 +71,33 @@ export const hideOverlay = (): void => {
   }
 };
 
-const isDisabledOverlayTarget = (el: Element): boolean =>
-  el.classList.contains("oj-disabled") || el.closest(".oj-disabled") !== null;
+const isDisabledOverlayTarget = (candidateEl: Element): boolean =>
+  candidateEl.classList.contains("oj-disabled") ||
+  candidateEl.closest(".oj-disabled") !== null;
 
 const resolveTarget = (spec: TargetSpec): Element | null => {
   if (spec.type === "css") {
-    const el = document.querySelector(spec.selector);
-    if (!el) return null;
-    if (isDisabledOverlayTarget(el)) return null;
-    return el;
+    const cssTarget = document.querySelector(spec.selector);
+    if (!cssTarget) return null;
+    if (isDisabledOverlayTarget(cssTarget)) return null;
+    return cssTarget;
   }
   // Oracle JET hides some menu nodes in the live DOM; menuitem-first scan then
   // button fallback finds controls like oj-option and label-only JET buttons.
   const textLower = spec.text.toLowerCase();
   const menuItems = document.querySelectorAll('[role="menuitem"]');
-  for (const el of menuItems) {
-    if (el.textContent?.trim().toLowerCase() !== textLower) continue;
-    if (isDisabledOverlayTarget(el)) return null;
+  for (const menuItem of menuItems) {
+    if (menuItem.textContent?.trim().toLowerCase() !== textLower) continue;
+    if (isDisabledOverlayTarget(menuItem)) return null;
     // Prefer the oj-option host so e2e can assert on #ChallengeOMATOTP.
-    const host = el.closest("oj-option");
-    return host ?? el;
+    const host = menuItem.closest("oj-option");
+    return host ?? menuItem;
   }
   const buttons = document.querySelectorAll("button");
-  for (const el of buttons) {
-    if (el.textContent?.trim().toLowerCase() !== textLower) continue;
-    if (isDisabledOverlayTarget(el)) return null;
-    return el;
+  for (const button of buttons) {
+    if (button.textContent?.trim().toLowerCase() !== textLower) continue;
+    if (isDisabledOverlayTarget(button)) return null;
+    return button;
   }
   return null;
 };
@@ -108,7 +110,7 @@ const positionTooltip = (anchor: Element): void => {
 };
 
 const renderOverlay = (
-  el: Element,
+  targetEl: Element,
   tooltipText: string,
   stepIndex: number,
   stepTotal: number
@@ -120,12 +122,12 @@ const renderOverlay = (
   dimEl.style.pointerEvents = "none";
   document.body.appendChild(dimEl);
 
-  el.setAttribute(HIGHLIGHT_ATTR, "true");
-  highlightedEl = el;
+  targetEl.setAttribute(HIGHLIGHT_ATTR, "true");
+  highlightedEl = targetEl;
 
   // Remove the chrome once the student acts so the page is usable again.
   clickHandler = (): void => hideOverlay();
-  el.addEventListener("click", clickHandler, { once: true });
+  targetEl.addEventListener("click", clickHandler, { once: true });
 
   tooltipEl = document.createElement("div");
   tooltipEl.setAttribute(TOOLTIP_ATTR, "true");
@@ -134,7 +136,7 @@ const renderOverlay = (
     `position:fixed;z-index:${OVERLAY_TOOLTIP_Z_INDEX};background:#1a1a2e;color:#fff;` +
     "padding:8px 12px;border-radius:6px;font-size:14px;pointer-events:none";
   document.body.appendChild(tooltipEl);
-  positionTooltip(el);
+  positionTooltip(targetEl);
 
   // Only show the chip when there are multiple steps — "Step 1 of 1" is noise.
   if (stepTotal > 1) {
@@ -170,15 +172,15 @@ export const showOverlay = (
     spec.type === "css" &&
     spec.selector === CUNY_ALLOW_GATE_BTN_SELECTOR &&
     !document.querySelector(CUNY_ALLOW_GATE_BTN_SELECTOR) &&
-    document.querySelector("factor-panel")
+    document.querySelector(RUI_FACTOR_PANEL_SELECTOR)
   ) {
     queueMicrotask(() => onNotFound());
     return;
   }
 
-  const el = resolveTarget(spec);
-  if (el) {
-    renderOverlay(el, tooltipText, stepIndex, stepTotal);
+  const targetEl = resolveTarget(spec);
+  if (targetEl) {
+    renderOverlay(targetEl, tooltipText, stepIndex, stepTotal);
     return;
   }
 

@@ -121,11 +121,13 @@ const buildPasswordEntryDom = (
 };
 
 const attachPasswordEntryHandlers = (
-  dispatch: OnboardingScreenContext["dispatch"],
-  setPassword: OnboardingScreenContext["setPassword"],
-  setCredentialError: OnboardingScreenContext["setCredentialError"],
+  ctx: Pick<
+    OnboardingScreenContext,
+    "dispatch" | "setPassword" | "setCredentialError"
+  >,
   dom: PasswordEntryDom
 ): (() => void) => {
+  const { dispatch, setPassword, setCredentialError } = ctx;
   const { input, forward, back, toggle, credentialError } = dom;
 
   const refreshForwardDisabled = (): void => {
@@ -181,7 +183,7 @@ const attachPasswordEntryHandlers = (
 };
 
 export const mountPasswordEntryScreen: ScreenMount = (ctx: OnboardingScreenContext) => {
-  const { doc, root, dispatch, setPassword, setCredentialError, getSnapshot } = ctx;
+  const { doc, root, getSnapshot } = ctx;
   const snap = getSnapshot();
   const dom = buildPasswordEntryDom(
     doc,
@@ -190,7 +192,7 @@ export const mountPasswordEntryScreen: ScreenMount = (ctx: OnboardingScreenConte
   );
   root.appendChild(dom.container);
   dom.input.focus();
-  const detach = attachPasswordEntryHandlers(dispatch, setPassword, setCredentialError, dom);
+  const detach = attachPasswordEntryHandlers(ctx, dom);
   return {
     unmount: () => {
       detach();

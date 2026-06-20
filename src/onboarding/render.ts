@@ -128,10 +128,10 @@ const mountPlaceholderScreen = (ctx: OnboardingScreenContext): ScreenHandle => {
   const container = ctx.doc.createElement("section");
   container.dataset.onboardingPlaceholder = "true";
   container.className = "onboarding-screen onboarding-screen-placeholder";
-  const msg = ctx.doc.createElement("p");
-  msg.className = "onboarding-placeholder-copy";
-  msg.textContent = `Screen ${ctx.getSnapshot().state} lands in a later plan.`;
-  container.appendChild(msg);
+  const messageEl = ctx.doc.createElement("p");
+  messageEl.className = "onboarding-placeholder-copy";
+  messageEl.textContent = `Screen ${ctx.getSnapshot().state} lands in a later plan.`;
+  container.appendChild(messageEl);
   ctx.root.appendChild(container);
   return {
     unmount: () => {
@@ -373,8 +373,8 @@ const handleFactorsListAfterEnroll = (controller: OnboardingController): void =>
     let hasSecret = true; // safe default if storage is unavailable
     try {
       const got = await browser.storage.session?.get(PENDING_TOTP_SECRET_SESSION_KEY);
-      const val = got?.[PENDING_TOTP_SECRET_SESSION_KEY];
-      hasSecret = typeof val === "string" && val.length > 0;
+      const pendingSecret = got?.[PENDING_TOTP_SECRET_SESSION_KEY];
+      hasSecret = typeof pendingSecret === "string" && pendingSecret.length > 0;
     } catch {
       /* storage.session threw — keep hasSecret = true to avoid blocking the flow */
     }
@@ -464,8 +464,8 @@ const showFirstVisible = (
   screenHost: HTMLElement,
   selector: string
 ): void => {
-  const el = screenHost.querySelector<HTMLElement>(selector);
-  if (el) el.hidden = false;
+  const firstVisibleEl = screenHost.querySelector<HTMLElement>(selector);
+  if (firstVisibleEl) firstVisibleEl.hidden = false;
 };
 
 const handleVerifyStatusMessage = (
@@ -536,14 +536,14 @@ const installRuntimeMessageBridge = (
           void (async () => {
             try {
               const got = await browser.storage.session?.get(PENDING_TOTP_SECRET_SESSION_KEY);
-              const val = got?.[PENDING_TOTP_SECRET_SESSION_KEY];
-              if (!(typeof val === "string" && val.length > 0)) {
-                const el = screenHost.querySelector<HTMLElement>(
+              const pendingSecret = got?.[PENDING_TOTP_SECRET_SESSION_KEY];
+              if (!(typeof pendingSecret === "string" && pendingSecret.length > 0)) {
+                const recoveryMessageEl = screenHost.querySelector<HTMLElement>(
                   "[data-onboarding-recovery-message='true']"
                 );
-                if (el) {
-                  el.textContent = NO_SECRET_RECOVERY_TEXT;
-                  el.hidden = false;
+                if (recoveryMessageEl) {
+                  recoveryMessageEl.textContent = NO_SECRET_RECOVERY_TEXT;
+                  recoveryMessageEl.hidden = false;
                 }
               }
             } catch {
