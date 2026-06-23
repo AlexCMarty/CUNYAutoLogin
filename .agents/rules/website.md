@@ -40,6 +40,36 @@ The bind mount live-reloads page/SCSS edits; build output stays in the container
 (`/tmp/_site`) so it never litters the worktree. Native Ruby alternative:
 `cd docs && bundle install && bundle exec jekyll serve` (http://127.0.0.1:4000).
 
+## Regenerating assets
+
+**Social-share card** (`assets/img/og-card.png`) — edit the SVG source
+(`assets/img/og-card.svg`), then:
+
+```bash
+npm run og   # headless Chromium → og-card.png (1200×630), Geist font baked in
+```
+
+Scrapers ignore an SVG `og:image`, so the served asset must be the PNG. It is
+wired through `jekyll-seo-tag` via the `image:` key in `_config.yml` — no template
+edits needed.
+
+**Promo poster** (`assets/video/promo-poster.jpg`) — the frame shown before the
+demo video loads, pulled straight from the clip. Re-extract whenever you replace
+the video:
+
+```bash
+ffmpeg -y -ss 3 -i docs/assets/video/promo.mp4 -frames:v 1 \
+  -vf scale=1440:-1 -q:v 3 docs/assets/video/promo-poster.jpg
+```
+
+## How Github pages was setup
+
+1. **DNS** at the `alexmarty.dev` provider: a `CNAME` record `cunyautologin`
+   → `alexmarty.github.io`. The apex `alexmarty.dev` is served by a separate repo
+   and is unaffected — a project repo may claim a subdomain.
+2. **Repo → Settings → Pages:** Source = **GitHub Actions**, Custom domain =
+   `cunyautologin.alexmarty.dev`, and **Enforce HTTPS** is enabled. The committed `docs/CNAME` keeps the domain sticky across deploys.
+
 ## Hard rules — never violate
 
 - **Page copy is sourced from `README.md`.** The privacy policy is maintained
@@ -51,4 +81,4 @@ The bind mount live-reloads page/SCSS edits; build output stays in the container
 - Browser minimums and feature claims on the site must match `src/manifest.json`
   (Firefox **140+**, Chromium **141+**).
 
-Full human-facing version: `CONTRIBUTING.md` § "Website (`docs/`)".
+Contributor quick-start (local preview only) lives in `CONTRIBUTING.md` § "Working on the docs site"; this file is the full reference.

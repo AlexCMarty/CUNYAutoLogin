@@ -99,7 +99,7 @@ Is it secure? How does it fill your 2FA code? Does it work on mobile? What if yo
 
 ## For developers
 
-Build instructions, release process, and project layout are in [CONTRIBUTING.md](CONTRIBUTING.md).
+Build, test, and project layout are in [CONTRIBUTING.md](CONTRIBUTING.md); the release process is in [RELEASING.md](RELEASING.md).
 
 ---
 
