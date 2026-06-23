@@ -1,7 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img">
 <title>CUNYAutoLogin — Log in to CUNY once. Ever.</title>
 <desc>Social-share card: the CUNYAutoLogin logo and name, a headline reading "Log in to CUNY once. Ever.", a supporting line, a trust line, the site URL, and a small browser card showing three auto-filled login fields with a green checkmark.</desc>
-<style>@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap');text{font-family:'Geist','Helvetica Neue',Arial,sans-serif}</style>
+<style><![CDATA[
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap');
+text{font-family:'Geist','Helvetica Neue',Arial,sans-serif}
+]]></style>
 <rect x="0" y="0" width="1200" height="630" fill="#f6f3ec"/>
 <image href="icon.svg" x="72" y="62" width="64" height="64"/>
 <text x="156" y="104" font-size="30" font-weight="600" fill="#15140f">CUNYAutoLogin</text>

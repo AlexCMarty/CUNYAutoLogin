@@ -33,4 +33,4 @@
 - [ ] No commented-out code?
 - [ ] Every new CUNY page constant in `ssoSite.ts`?
 - [ ] Could a sleep-deprived on-call developer understand this at 3am?
-- [ ] **No silent breaking changes for installed users?** We are live on the Chrome Web Store and Firefox Add-ons. Changes to `StoredVault` shape, `cunyBiometricCredential` shape, crypto parameters (PBKDF2 iterations, salt/IV lengths, AES-GCM mode), `storage.local` keys, or the sidebar ↔ service-worker ↔ content-script message protocol need a forward migration or a version bump with the old reader retained for one release. See `CONTRIBUTING.md` § "Backward compatibility" and `.agents/rules/security.md`.
+- [ ] **No silent breaking changes for installed users?** We are live on the Chrome Web Store and Firefox Add-ons. Changes to `StoredVault` shape, `cunyBiometricCredential` shape, crypto parameters (PBKDF2 iterations, salt/IV lengths, AES-GCM mode), `storage.local` keys, or the sidebar ↔ service-worker ↔ content-script message protocol need a forward migration or a version bump with the old reader retained for one release. See `CONTRIBUTING.md` § "Don't break live users" and `.agents/rules/security.md`.

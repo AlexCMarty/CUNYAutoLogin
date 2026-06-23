@@ -89,8 +89,8 @@ const findCunyAutologinPanel = (doc: Document): {
 };
 
 const totpOptionIsDisabled = (doc: Document): boolean => {
-  const opt = doc.querySelector(RUI_TOTP_OPTION_SELECTOR);
-  return opt?.classList.contains("oj-disabled") ?? false;
+  const totpOptionEl = doc.querySelector(RUI_TOTP_OPTION_SELECTOR);
+  return totpOptionEl?.classList.contains("oj-disabled") ?? false;
 };
 
 let pollId: number | null = null;
@@ -126,8 +126,8 @@ const isCunyAutologinKebabClick = (target: Element): boolean => {
 const installMenuProgressClickReporters = (): void => {
   document.addEventListener(
     "click",
-    (ev) => {
-      const clickTarget = ev.target;
+    (clickEvent) => {
+      const clickTarget = clickEvent.target;
       if (!(clickTarget instanceof Element)) return;
       if (clickTarget.closest(RUI_KEBAB_MENU_BTN_SELECTOR)) {
         void browser.runtime

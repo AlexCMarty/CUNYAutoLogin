@@ -1,8 +1,22 @@
 # CUNYAutoLogin
 
+<p align="center">
+  <a href="https://cunyautologin.alexmarty.dev/">
+    <img src="docs/assets/img/og-card.png" alt="CUNYAutoLogin — log in to CUNY once. Encrypted on-device. No cloud sync, no analytics, open source." width="680">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/cunyautologin/nkkoameonkenaahfjkkicaphfncjikin"><img src="https://img.shields.io/chrome-web-store/v/nkkoameonkenaahfjkkicaphfncjikin?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white" alt="Chrome Web Store version"></a>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/cunyautologin/"><img src="https://img.shields.io/amo/v/cunyautologin?label=Firefox%20Add-ons&logo=firefoxbrowser&logoColor=white" alt="Firefox Add-ons version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT License"></a>
+</p>
+
 How many times a day do you log into CUNYFirst? Probably more than once. CUNY signs you out often. This browser extension fills in your CUNY login and authenticator code on the official sign-in page so you spend less time typing and more time studying.
 
-**Privacy:** Your email, password, and authenticator secret are **encrypted** on your computer. You choose an **extension password** that unlocks the vault.
+*An independent, open-source project — not affiliated with or endorsed by CUNY.*
+
+**Privacy:** Your email, password, and authenticator secret are **encrypted** on your computer. You choose an **extension password** that unlocks the vault. Nothing syncs to a server. [See exactly how your credentials are handled →](https://cunyautologin.alexmarty.dev/security/) · [Privacy policy](https://cunyautologin.alexmarty.dev/privacy/)
 
 If something breaks or feels confusing, please [open an issue](https://github.com/AlexCMarty/CUNYAutoLogin/issues).
 
@@ -52,7 +66,7 @@ The first time you use the extension, the **sidebar** walks you through setup in
 1. **Open the extension** (puzzle piece → pin CUNYAutoLogin if you want it visible)
 2. **Your CUNY email** must end with `@login.cuny.edu` (your CUNY Login address — not a campus @stu-mail.school.cuny.edu). Enter the password for this email too.
 3. **Autofill (partially)** — then the extension opens **CUNY Login** in a new tab and can fill your email and password for that first sign-in. You need to type a six digit code, but this is the **last time** you'll have to do that.
-4. **Set up login codes** — the flow guides you through **CUNY MFA Self-Service** so you can add a **Mobile Authenticator (TOTP)**. **Do not share the secret** with anyone; it is equivalent to your authenticator for sign-in.
+4. **Set up login codes** — the flow guides you through **CUNY MFA Self-Service** so you can add a **Mobile Authenticator (TOTP)**. **Do not share the secret** with anyone; it is equivalent to your authenticator for sign-in. **Keep your existing login method too** — don't delete it; you may still need it to sign in on another device.
 5. **Extension password** — this is your **vault master password**. It encrypts everything stored locally. It is kept in the browser session while unlocked, not shipped to a server.
 6. **Biometrics (optional)** — you may be offered **Face ID, Touch ID, or Windows Hello** so you can unlock the vault without typing the extension password each time. You can skip this and use your password only; both paths keep secrets on your device.
 7. **Log in!** You will be redirected to Brightspace to watch the automatic login. **It fills the six digit code for you**.
@@ -79,27 +93,13 @@ If you close the sidebar mid-setup, **open it again in the same browser session*
 
 ## FAQ
 
-### How does it fill the **six digit code**?
-
-It walks you through adding a new 2FA factor to log in. Through this process it gets the key (think of that QR code you usually scan) and saves it locally to log you in.
-
-### Is this **synced** to the cloud?
-
-No. If you uninstall the extension or switch browsers, the data will not be synced.
-
-### Can I delete my existing login method?
-
-**Absolutely not.** Keep your existing method tied to your account. You might need this in the future to log in.
-
-### Is this created by CUNY?
-
-**No.** This is an independent open source project.
+Is it secure? How does it fill your 2FA code? Does it work on mobile? What if you forget your extension password? These and more are answered in the **[FAQ on the project site](https://cunyautologin.alexmarty.dev/faq/)**, which is kept current.
 
 ---
 
 ## For developers
 
-Build instructions, release process, and project layout are in [CONTRIBUTING.md](CONTRIBUTING.md).
+Build, test, and project layout are in [CONTRIBUTING.md](CONTRIBUTING.md); the release process is in [RELEASING.md](RELEASING.md).
 
 ---
 

@@ -1,6 +1,21 @@
 ---
 name: code-quality
-description: Spawn parallel subagents that aggressively audit the codebase for spaghetti code, code quality issues, and non-senior-dev patterns. Produces a severity-ranked findings report with exact file/line citations.
+description: >
+  Use when the user wants a senior-level code-quality review of the CUNYAutoLogin
+  source — "audit the code", "find code smells", "review code quality", "what would a
+  senior flag", "find tech debt". Covers type-safety, complexity, naming, error
+  handling, coupling, async, test quality, dead code, magic values, and non-crypto
+  security smells in the TypeScript/MV3 source. Reports only — it does not modify
+  code. For credential/crypto depth use `security-audit`; for the test suite use
+  `test-coverage-audit`.
+triggers:
+  - review code quality
+  - audit the code
+  - find code smells
+  - find spaghetti code
+  - what would a senior engineer flag
+  - find tech debt
+  - clean up this codebase
 disable-model-invocation: false
 ---
 
@@ -8,15 +23,18 @@ disable-model-invocation: false
 
 ## Purpose
 
-Hunt ruthlessly for code that a senior engineer would flag in review. Treat the bar as high: code that merely works is not enough — it must be readable, typed, single-responsibility, and defensively correct. File a finding for everything that falls short, no matter how small.
+Hunt for code a senior engineer would flag in review — code that works but isn't readable, typed, single-responsibility, or defensively correct. The bar is high, but a review is only useful if its signal survives: **rank by real-world impact, and be honest about what is actually fine.** A report that flags everything "no matter how small" is noise, and noise wastes the reader's time exactly like a false alarm does.
+
+This skill **reads and judges; it does not modify code.** It returns a severity-ranked findings report to the user (offer to also write `code-quality-report.md` if they want an artifact to act on later).
 
 ## Core Rules
 
-1. **Code is guilty until proven innocent.** Every issue gets a finding unless there is a documented reason for the pattern.
-2. **Cite exactly.** Every finding includes file path, line number(s), and the offending code snippet.
-3. **No false passes.** If a pattern *looks* like an issue but is actually fine, explain why in a "Not a finding" note — do not silently skip it.
-4. **Severity is not optional.** Every finding is rated `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW`.
-5. **Fix, don't just flag.** Every finding includes a concrete corrective action (rename, split, add type, etc.).
+1. **High bar, ranked by impact.** Hold code to a senior-review standard, but rank every finding by real-world impact (see Severity Scale) and lead with what matters. A correctness bug in a credential path outranks a naming nit — let severity, not volume, carry the report.
+2. **Cite exactly.** Every finding includes file path, line number(s), and the offending code snippet. A finding you cannot cite is a guess — drop it.
+3. **Be honest about false positives.** If a pattern *looks* wrong but is actually fine (documented deviation, deliberate exception, framework requirement), put it under "Not findings" and do **not** flag it. Padding the list with non-issues destroys the report's credibility — this discipline is as important as the findings themselves.
+4. **Severity is not optional.** Every finding is rated `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW` — by impact, not by how easy it was to spot.
+5. **Recommend a fix, don't apply it.** Every finding includes a concrete corrective action (rename, split, add type, extract constant). This skill reports; it does not edit source — leave the change to the user.
+6. **The repo rules are the authority.** Ground findings in `.agents/rules/code-quality.md`, `.agents/rules/typescript.md`, and `.agents/rules/unit-testing.md`. Where the taxonomy below names a specific number or ban (the 80-line cap, the `.then()` ban), those files win if they have since drifted — verify against them, don't assume the taxonomy is current.
 
 ## Severity Scale
 
@@ -120,24 +138,50 @@ find src e2e -name "*.ts" | sort
 rg --files src -g "*.ts" | xargs wc -l | sort -rn | head -20
 ```
 
-### Step 2 — Spawn parallel subagents
+### Step 2 — Spawn the four audit subagents (all in the same turn)
 
-Divide the taxonomy into **four parallel subagent bundles**. Each agent receives:
-- Its assigned issue categories (from the taxonomy above)
-- The full `src/` and `e2e/` trees to read
-- The severity scale
-- The "cite exactly" rule
-- Instructions to return a structured findings list
+Divide the taxonomy into **four read-only subagents**, dispatched **in a single turn** so they run in parallel. Each owns one bundle (all 10 categories are covered, none twice):
 
 **Bundle A — Types & Errors** (categories 1, 4)
 **Bundle B — Shape & Complexity** (categories 2, 3, 5)
-**Bundle C — Async & Dead Code** (categories 6, 8, 9)
+**Bundle C — Async, Dead Code & Magic Values** (categories 6, 8, 9)
 **Bundle D — Tests & Security Issues** (categories 7, 10)
 
-Each subagent must:
-1. `grep` / `rg` the codebase for canonical patterns before reading full files
-2. Read the files most likely to have findings (largest files, files with multiple grep hits)
-3. Return findings as a structured list: `[SEVERITY] file:line — issue description — fix`
+Paste this template to each, filling the bracketed parts:
+
+```
+You are auditing the **[BUNDLE NAME]** of the CUNYAutoLogin MV3 browser extension
+(TypeScript). You write ZERO code — you read, judge, and return findings only. Do not
+edit, create, or delete any file.
+
+## Your categories
+[paste the relevant taxonomy categories from the skill, verbatim]
+
+## The bar
+Senior-reviewer standard, but rank by real-world impact and be honest about false
+positives — a finding you cannot cite or defend is noise, so drop it. The authority on
+conventions is `.agents/rules/code-quality.md`, `.agents/rules/typescript.md`, and
+`.agents/rules/unit-testing.md`; if a specific number here (e.g. the 80-line cap) has
+drifted from those files, the files win.
+
+## Severity — rank by impact, not by how easy it was to spot
+[paste the Severity Scale table from the skill]
+
+## Method
+1. `rg` the canonical patterns for your categories before opening files.
+2. Read the files most likely to have findings (largest files; multiple rg hits).
+3. Return findings ONLY in this block format:
+
+   ### [SEVERITY] <category> — <one-line title>
+   - **Location:** <file:line>
+   - **Code:** <the offending snippet>
+   - **Why:** <one sentence: the real problem>
+   - **Fix:** <concrete corrective action — to recommend, not to apply>
+
+4. End with `BUNDLE SUMMARY: <n> findings (C<n> H<n> M<n> L<n>)`. If a category is
+   genuinely clean, say so in one line — do not manufacture findings. List anything that
+   looked suspicious but is fine under `Not findings: <location> — <why it's fine>`.
+```
 
 ### Step 3 — Synthesize
 
@@ -181,6 +225,8 @@ Fix: <concrete corrective action>
 ### Not findings (looked suspicious, actually fine)
 - <pattern> in <file> — fine because <reason>
 ```
+
+Report inline to the user by default: the summary line first, then CRITICAL/HIGH findings, then the rest. Write `code-quality-report.md` only if the user wants an artifact. Either way the skill stops here — it never edits source.
 
 ---
 
