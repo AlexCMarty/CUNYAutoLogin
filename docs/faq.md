@@ -21,6 +21,10 @@ description: "Common questions about CUNYAutoLogin: whether it's secure, how it 
 
 CUNYAutoLogin is a free, open-source browser extension for Chrome, Edge, and Firefox that automatically fills and submits your CUNY Login — email, password, and six-digit 2FA code — on CUNY's official sign-in page. Your credentials are encrypted on your device; there is no account, no cloud sync, and no analytics.
 
+### Why does CUNY log me out so much?
+
+Because CUNY Login puts one short-lived single sign-on session in front of every CUNY site. So a session times out — or you move between services — and you're sent back to sign in with your password and a fresh 2FA code. [Here's the full explanation of why CUNY logs you out, and how to stop re-typing the login →](/why-does-cuny-log-you-out/)
+
 ## Security & privacy
 
 ### Is this secure?
@@ -95,6 +99,14 @@ Unlock the extension first. Then try refreshing the CUNY page after unlocking.
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "CUNYAutoLogin is a free, open-source browser extension for Chrome, Edge, and Firefox that automatically fills and submits your CUNY Login — email, password, and six-digit 2FA code — on CUNY's official sign-in page. Your credentials are encrypted on your device; there is no account, no cloud sync, and no analytics."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does CUNY log me out so much?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because CUNY Login puts one short-lived single sign-on session in front of every CUNY site, and services like Brightspace and CUNYfirst each keep their own session on top of that. So a session times out — or you move between services — and you're sent back to sign in with your password and a fresh 2FA code. A full explanation, and how to stop re-typing the login, is at https://cunyautologin.alexmarty.dev/why-does-cuny-log-you-out/."
       }
     },
     {

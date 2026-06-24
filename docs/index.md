@@ -18,6 +18,8 @@ Here's the problem us CUNY students all face:
 {: .central-point bold }
 That's hours of your degree spent on a login form.
 
+Wondering *why* CUNY does this to you? [Here's the actual reason CUNY logs you out so often →](/why-does-cuny-log-you-out/)
+
 ## How it works
 
 <div class="feature-grid" markdown="0">

@@ -5,6 +5,7 @@
 ## Pages
 
 - [Home](https://cunyautologin.alexmarty.dev/): What it does, how it works, and why it's safe
+- [Why CUNY logs you out](https://cunyautologin.alexmarty.dev/why-does-cuny-log-you-out/): Why CUNY's single sign-on signs you out so often (short-lived SSO session, per-service sessions, repeated 2FA), and how to stop re-typing your password and authenticator code
 - [Install](https://cunyautologin.alexmarty.dev/install/): Install on Chrome, Edge, or Firefox from the official stores
 - [Security](https://cunyautologin.alexmarty.dev/security/): How credentials are encrypted and stored, verified claim by claim against the source
 - [FAQ](https://cunyautologin.alexmarty.dev/faq/): Security, 2FA, mobile support, cloud sync, and troubleshooting
