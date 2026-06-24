@@ -26,11 +26,14 @@ The master password is **never written to `storage.local` or disk**. It lives on
 | Parameter | Value |
 |---|---|
 | KDF | PBKDF2-SHA-256 |
-| Iterations | 310 000 |
+| Iterations | 600 000 (v2; legacy v1 vaults are 310 000) |
 | Salt | 32 bytes (random per save) |
 | IV | 12 bytes (random per save) |
 | Cipher | AES-GCM-256 |
-| Storage format | `{ version: 1, saltB64, ivB64, ciphertextB64 }` |
+| Storage format (v2) | `{ version: 2, iterations, saltB64, ivB64, ciphertextB64 }` |
+| Storage format (v1, legacy) | `{ version: 1, saltB64, ivB64, ciphertextB64 }` — decrypt-only at 310 000 |
+
+**Vault migration (v1 → v2):** `encryptVault` always writes v2 at `PBKDF2_ITERATIONS` (600 000, current OWASP / Bitwarden floor). `decryptVault` reads both — v2 uses its stored `iterations`, v1 implicitly uses `LEGACY_PBKDF2_ITERATIONS_V1` (310 000). On the first password or biometric unlock of a legacy v1 vault, `src/sidebar/vaultController.ts` re-encrypts it to v2 in place (best-effort — a re-encrypt/persist failure never blocks unlock; it retries next unlock). The v1 decrypt path and `LEGACY_PBKDF2_ITERATIONS_V1` must remain until migration is proven across the installed base — **never delete them in the same release that ships v2** (a manual downgrade would otherwise hide a v2 blob from old code). Biometric (`cunyBiometricCredential`) is unaffected: its PRF output is the AES key, independent of PBKDF2.
 
 ## SSO session termination (OAM / `ssologin.cuny.edu`)
 

@@ -301,6 +301,57 @@ function renderMode(els: SidebarDom): void {
   }
 }
 
+const warnVaultMigrationError = (context: string, error: unknown): void => {
+  if (import.meta.env.MODE !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(`[CUNYAutoLogin] sidebar: vault migration ${context}`, error);
+  }
+};
+
+/**
+ * One-time forward migration: re-encrypt a legacy v1 vault to the current v2
+ * format (higher PBKDF2 work factor) with the same master password the user just
+ * unlocked with. Best-effort — returns the original v1 blob on any failure so the
+ * caller stays unlocked and migration retries on the next unlock. Order is
+ * encrypt → storage.set → return, mirroring the save path in handleUnlocked.
+ */
+async function migrateVaultToLatest(
+  stored: StoredVault,
+  masterPassword: string,
+  payload: VaultPayload
+): Promise<StoredVault> {
+  if (stored.version === 2) return stored;
+  const encResult = await encryptVault(payload, masterPassword);
+  if (encResult.isErr()) {
+    warnVaultMigrationError("re-encrypt failed", encResult.error);
+    return stored;
+  }
+  const upgraded = encResult.value;
+  try {
+    await browser.storage.local.set({ [VAULT_STORAGE_KEY]: upgraded });
+  } catch (error) {
+    warnVaultMigrationError("persist failed", error);
+    return stored;
+  }
+  return upgraded;
+}
+
+/**
+ * Reads module `storedVault`, migrates it forward if legacy, and updates the ref.
+ * Kept as a top-level function (not inlined into the nested biometric click
+ * handler) so the `storedVault` assignment does not reset its non-null narrowing
+ * elsewhere in this module.
+ */
+async function applyVaultMigration(
+  masterPassword: string,
+  payload: VaultPayload
+): Promise<void> {
+  const current = storedVault;
+  if (!current || current.version === 2) return;
+  setStatus("Securing your vault…");
+  storedVault = await migrateVaultToLatest(current, masterPassword, payload);
+}
+
 async function handleLocked(els: SidebarDom): Promise<void> {
   if (!storedVault) return;
 
@@ -321,6 +372,7 @@ async function handleLocked(els: SidebarDom): Promise<void> {
   sessionPayload = payload;
   sessionMasterPassword = masterPassword;
   await saveSessionMaster(masterPassword);
+  await applyVaultMigration(masterPassword, payload);
   els.masterPassword.value = "";
   currentMode = "unlocked";
   setStatus("");
@@ -491,6 +543,7 @@ async function maybeWireBiometricUnlock(els: SidebarDom): Promise<void> {
     sessionPayload = decResult.value;
     sessionMasterPassword = masterResult.value;
     await saveSessionMaster(masterResult.value);
+    await applyVaultMigration(masterResult.value, decResult.value);
     currentMode = "unlocked";
     setStatus("");
     renderMode(els);

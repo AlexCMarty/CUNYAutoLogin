@@ -65,7 +65,7 @@ Check:
 
 ### 5. Crypto strength
 
-- **`src/crypto/vault.ts`**: PBKDF2 iterations (≥ 310,000 for SHA-256 per project baseline / OWASP), salt length (≥ 32 bytes), IV length (12 bytes for AES-GCM), key size (256 bits).
+- **`src/crypto/vault.ts`**: PBKDF2 iterations (≥ 600,000 for SHA-256 per current OWASP / Bitwarden; legacy v1 vaults stay 310,000 via `LEGACY_PBKDF2_ITERATIONS_V1` and migrate to v2/600k on first unlock), salt length (≥ 32 bytes), IV length (12 bytes for AES-GCM), key size (256 bits).
 - **Master password minimum length** in `sidebar/sidebar.utils.ts` (`MIN_MASTER_PASSWORD_LENGTH`): should be ≥ 12.
 
 ### 6. Git history

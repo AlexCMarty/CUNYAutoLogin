@@ -28,7 +28,7 @@ There is no CUNYAutoLogin server. No account, no sync, no analytics, no telemetr
 
 ## The vault is real cryptography, not obfuscation
 
-Your master password is run through PBKDF2-SHA256 with 310,000 iterations and a random 32-byte salt — the iteration count OWASP recommends — to derive an AES-256-GCM key. A fresh random IV is generated on every save. What hits disk is salt, IV, and ciphertext. Nothing readable, nothing recoverable without your master password. (See [`src/crypto/vault.ts`](https://github.com/AlexCMarty/CUNYAutoLogin/blob/main/src/crypto/vault.ts) — it's 167 lines, you can read the whole thing with your coffee.)
+Your master password is run through PBKDF2-SHA256 with 600,000 iterations and a random 32-byte salt — the iteration count OWASP recommends — to derive an AES-256-GCM key. A fresh random IV is generated on every save. What hits disk is salt, IV, and ciphertext. Nothing readable, nothing recoverable without your master password. (See [`src/crypto/vault.ts`](https://github.com/AlexCMarty/CUNYAutoLogin/blob/main/src/crypto/vault.ts) — it's under 200 lines, you can read the whole thing with your coffee.)
 
 ## Fingerprint unlock isn't a backdoor
 

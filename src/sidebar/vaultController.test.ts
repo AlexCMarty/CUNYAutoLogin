@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, test, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
-import { encryptVault, decryptVault } from "../crypto/vault";
+import { encryptVault, decryptVault, LEGACY_PBKDF2_ITERATIONS_V1 } from "../crypto/vault";
 import type { StoredVault, VaultPayload } from "../crypto/vault";
 import { unwrap } from "../testUtils/resultUnwrap";
 import { VAULT_STORAGE_KEY } from "../crypto/vault";
@@ -103,6 +103,44 @@ async function makeLockedSnapshot(master = MASTER): Promise<VaultSessionSnapshot
   return {
     mode: "locked",
     storedVault: vault,
+    sessionMasterPassword: null,
+    sessionPayload: null,
+  };
+}
+
+/**
+ * Build a legacy v1 vault (PBKDF2 @ LEGACY_PBKDF2_ITERATIONS_V1, no `iterations`
+ * field) — the on-disk shape of a real pre-upgrade user, used to drive the
+ * migrate-on-unlock path. encryptVault now emits v2, so this fabricates v1 directly.
+ */
+async function makeLegacyV1Vault(master = MASTER): Promise<StoredVault> {
+  const plaintext = JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD, totpSecret: TEST_TOTP });
+  const salt = crypto.getRandomValues(new Uint8Array(32));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(master), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: LEGACY_PBKDF2_ITERATIONS_V1, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt"]
+  );
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
+  const toB64 = (bytes: Uint8Array): string => btoa(String.fromCharCode(...bytes));
+  return {
+    version: 1,
+    saltB64: toB64(salt),
+    ivB64: toB64(iv),
+    ciphertextB64: toB64(new Uint8Array(ciphertext)),
+  };
+}
+
+/** Locked snapshot whose stored vault is a legacy v1 blob. */
+async function makeLegacyLockedSnapshot(master = MASTER): Promise<VaultSessionSnapshot> {
+  return {
+    mode: "locked",
+    storedVault: await makeLegacyV1Vault(master),
     sessionMasterPassword: null,
     sessionPayload: null,
   };
@@ -1066,5 +1104,88 @@ describe("vaultController — Advanced secret-key reveal", () => {
     });
     expect(advBody().hidden).toBe(true);
     expect(secretBlock().hidden).toBe(true);
+  });
+});
+
+// ── sidebar/vault-kdf-migration — v1 → v2 re-encrypt on unlock ────────────────
+describe("vaultController — KDF migration on unlock (v1 → v2)", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupSidebarDom();
+  });
+
+  /** Init the controller from the configured snapshot, then submit the unlock form. */
+  async function unlockWith(master: string): Promise<void> {
+    await loadController();
+    (document.getElementById("masterPassword") as HTMLInputElement).value = master;
+    submitForm();
+  }
+
+  /** Vault writes since `since` whose blob decrypts with `master` (robust to the
+   *  shared cross-file mock — different-master writes are filtered out). */
+  async function vaultWritesForMaster(
+    localSet: Mock,
+    master: string,
+    since: number
+  ): Promise<StoredVault[]> {
+    const matches: StoredVault[] = [];
+    for (const call of localSet.mock.calls.slice(since)) {
+      const record = call[0] as Record<string, unknown>;
+      if (!(VAULT_STORAGE_KEY in record)) continue;
+      const candidate = record[VAULT_STORAGE_KEY] as StoredVault;
+      if ((await decryptVault(candidate, master)).isOk()) matches.push(candidate);
+    }
+    return matches;
+  }
+
+  test("a legacy v1 vault is re-encrypted to v2 (600k) on first unlock", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    const localSet = vi.mocked(browser.storage.local.set);
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    localSet.mockResolvedValue();
+
+    await configureSnapshot(await makeLegacyLockedSnapshot());
+    const before = localSet.mock.calls.length;
+    await unlockWith(MASTER);
+
+    const written = await waitForVaultWrittenWithMaster(localSet, MASTER, before);
+    expect(written.version).toBe(2);
+    if (written.version === 2) expect(written.iterations).toBe(600_000);
+    // The migrated blob still yields the original credentials.
+    expect(unwrap(await decryptVault(written, MASTER))).toEqual({
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
+      totpSecret: TEST_TOTP,
+    });
+  });
+
+  test("an already-v2 vault is not re-written on unlock", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    const localSet = vi.mocked(browser.storage.local.set);
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    localSet.mockResolvedValue();
+
+    await configureSnapshot(await makeLockedSnapshot()); // encryptVault → v2
+    const before = localSet.mock.calls.length;
+    await unlockWith(MASTER);
+
+    // Unlock completes (submit flips to "Save changes") — migration runs synchronously
+    // before that point, so any re-write would already be visible.
+    await vi.waitFor(() => expect(getSubmitBtnText()).toBe("Save changes"));
+    expect(await vaultWritesForMaster(localSet, MASTER, before)).toHaveLength(0);
+  });
+
+  test("a v1 unlock with the wrong master neither unlocks nor migrates", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    const localSet = vi.mocked(browser.storage.local.set);
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    localSet.mockResolvedValue();
+
+    await configureSnapshot(await makeLegacyLockedSnapshot());
+    const before = localSet.mock.calls.length;
+    await unlockWith("wrong-password");
+
+    await vi.waitFor(() => expect(getStatusText().length).toBeGreaterThan(0));
+    expect(await vaultWritesForMaster(localSet, MASTER, before)).toHaveLength(0);
   });
 });

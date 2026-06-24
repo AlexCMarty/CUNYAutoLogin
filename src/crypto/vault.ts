@@ -4,7 +4,9 @@ import { Result, ResultAsync, err, ok } from "neverthrow";
 
 export const VAULT_STORAGE_KEY = "cunyVault" as const;
 
-export const PBKDF2_ITERATIONS = 310_000;
+export const PBKDF2_ITERATIONS = 600_000;
+/** Legacy v1 vaults were encrypted at this work factor; retained for the v1 decrypt path and one-time migration to v2. */
+export const LEGACY_PBKDF2_ITERATIONS_V1 = 310_000;
 const SALT_LENGTH = 32;
 const IV_LENGTH = 12;
 const AES_KEY_BITS = 256;
@@ -17,13 +19,31 @@ export interface VaultPayload {
   totpSecret: string;
 }
 
-/** Wire format persisted to storage (no plaintext secrets). */
-export interface StoredVault {
+/**
+ * Wire format persisted to storage (no plaintext secrets).
+ *
+ * v1 (legacy) has no `iterations` field and is implicitly PBKDF2 at
+ * `LEGACY_PBKDF2_ITERATIONS_V1`. v2 is self-describing — it stores its own
+ * iteration count so the work factor can be raised again (or swapped for a
+ * different KDF's params) without another format break. `decryptVault` reads
+ * both; `encryptVault` always writes v2.
+ */
+interface StoredVaultV1 {
   version: 1;
   saltB64: string;
   ivB64: string;
   ciphertextB64: string;
 }
+
+interface StoredVaultV2 {
+  version: 2;
+  iterations: number;
+  saltB64: string;
+  ivB64: string;
+  ciphertextB64: string;
+}
+
+export type StoredVault = StoredVaultV1 | StoredVaultV2;
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -44,7 +64,8 @@ function base64ToBytes(b64: string): Uint8Array {
 
 async function deriveAesKey(
   masterPassword: string,
-  salt: Uint8Array
+  salt: Uint8Array,
+  iterations: number
 ): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
@@ -58,7 +79,7 @@ async function deriveAesKey(
     {
       name: "PBKDF2",
       salt: salt as BufferSource,
-      iterations: PBKDF2_ITERATIONS,
+      iterations,
       hash: "SHA-256",
     },
     keyMaterial,
@@ -106,7 +127,7 @@ export const encryptVault = (
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
   const plaintext = new TextEncoder().encode(JSON.stringify(payload));
-  return ResultAsync.fromPromise(deriveAesKey(masterPassword, salt), () => "crypto_failed" as const).andThen(
+  return ResultAsync.fromPromise(deriveAesKey(masterPassword, salt, PBKDF2_ITERATIONS), () => "crypto_failed" as const).andThen(
     (key) =>
       ResultAsync.fromPromise(
         crypto.subtle.encrypt(
@@ -117,7 +138,8 @@ export const encryptVault = (
         () => "crypto_failed" as const
       )
   ).map((ciphertext) => ({
-    version: 1 as const,
+    version: 2 as const,
+    iterations: PBKDF2_ITERATIONS,
     saltB64: bytesToBase64(salt),
     ivB64: bytesToBase64(iv),
     ciphertextB64: bytesToBase64(new Uint8Array(ciphertext)),
@@ -128,6 +150,10 @@ export const decryptVault = (
   stored: StoredVault,
   masterPassword: string
 ): ResultAsync<VaultPayload, VaultError> => {
+  // v1 vaults predate the self-describing format and were encrypted at the
+  // legacy work factor; v2 carries its own iteration count.
+  const iterations =
+    stored.version === 2 ? stored.iterations : LEGACY_PBKDF2_ITERATIONS_V1;
   // Decode the stored base64 fields up front. `atob` throws synchronously on
   // non-base64 input (corrupt/tampered storage), so guard it as a Result rather
   // than letting the exception escape the ResultAsync contract.
@@ -140,7 +166,7 @@ export const decryptVault = (
     () => "invalid_payload" as const
   );
   return decodeStoredBytes().asyncAndThen(({ salt, iv, ciphertext }) =>
-    ResultAsync.fromPromise(deriveAesKey(masterPassword, salt), () => "crypto_failed" as const)
+    ResultAsync.fromPromise(deriveAesKey(masterPassword, salt, iterations), () => "crypto_failed" as const)
       .andThen((key) =>
         ResultAsync.fromPromise(
           crypto.subtle.decrypt(
@@ -157,11 +183,14 @@ export const decryptVault = (
 
 export const isStoredVault = (value: unknown): value is StoredVault => {
   if (typeof value !== "object" || value === null) return false;
-  const storedVaultCandidate = value as Record<string, unknown>;
-  return (
-    storedVaultCandidate.version === 1 &&
-    typeof storedVaultCandidate.saltB64 === "string" &&
-    typeof storedVaultCandidate.ivB64 === "string" &&
-    typeof storedVaultCandidate.ciphertextB64 === "string"
-  );
+  const candidate = value as Record<string, unknown>;
+  const hasBlobFields =
+    typeof candidate.saltB64 === "string" &&
+    typeof candidate.ivB64 === "string" &&
+    typeof candidate.ciphertextB64 === "string";
+  if (!hasBlobFields) return false;
+  // v1 is implicitly the legacy work factor; v2 must carry a numeric iteration count.
+  if (candidate.version === 1) return true;
+  if (candidate.version === 2) return typeof candidate.iterations === "number";
+  return false;
 };

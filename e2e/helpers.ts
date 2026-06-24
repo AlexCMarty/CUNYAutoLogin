@@ -10,10 +10,16 @@ import {
 } from "./test-credentials";
 
 // Storage key literals — source of truth: src/crypto/vault.ts (VAULT_STORAGE_KEY),
-// src/cuny/ssoSite.ts (SESSION_MASTER_KEY, PBKDF2_ITERATIONS).
+// src/cuny/ssoSite.ts (SESSION_MASTER_KEY).
 const VAULT_STORAGE_KEY = "cunyVault";
 const SESSION_MASTER_KEY = "cunySessionMaster";
-const PBKDF2_ITERATIONS = 310_000;
+// Deliberately the LEGACY v1 work factor: this fixture provisions a pre-upgrade
+// (version: 1) vault — the on-disk shape real students have today. Do NOT sync
+// this to vault.ts's current PBKDF2_ITERATIONS (600k); 310k must stay paired with
+// `version: 1`, or decryptVault (which derives v1 at LEGACY_PBKDF2_ITERATIONS_V1)
+// cannot open the fixture. encryptVault now emits v2; a password unlock migrates
+// this blob forward to v2/600k.
+const LEGACY_PBKDF2_ITERATIONS_V1 = 310_000;
 
 type SerializedVault = {
   readonly version: 1;
@@ -31,7 +37,7 @@ const CACHED_VAULT: SerializedVault = (() => {
   const key = pbkdf2Sync(
     Buffer.from(E2E_MASTER_PASSWORD, "utf8"),
     salt,
-    PBKDF2_ITERATIONS,
+    LEGACY_PBKDF2_ITERATIONS_V1,
     32,
     "sha256"
   );

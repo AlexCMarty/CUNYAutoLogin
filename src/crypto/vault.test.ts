@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
+  LEGACY_PBKDF2_ITERATIONS_V1,
   PBKDF2_ITERATIONS,
   VAULT_STORAGE_KEY,
   decryptVault,
@@ -33,18 +34,20 @@ function tamperB64(b64: string): string {
 }
 
 /**
- * Encrypt an arbitrary plaintext string using the same crypto params as vault.ts.
- * Bypasses encryptVault's JSON serialisation so tests can control the raw plaintext
- * and exercise decryptVault's payload-parsing branches independently.
+ * Core PBKDF2 + AES-GCM derivation shared by the raw fabricators below. Lets tests
+ * control the raw plaintext (bypassing encryptVault's JSON serialisation) and the
+ * iteration count, to exercise decryptVault's payload-parsing branches and the
+ * v1→v2 migration path independently.
  *
- * The three sizes below are intentionally duplicated from vault.ts's private constants
- * (SALT_LENGTH = 32, IV_LENGTH = 12, AES_KEY_BITS = 256). They cannot be imported,
- * so if vault.ts ever changes them this helper must be updated to match.
+ * The sizes below are intentionally duplicated from vault.ts's private constants
+ * (SALT_LENGTH = 32, IV_LENGTH = 12, AES_KEY_BITS = 256); the drift guard at the
+ * bottom of this file fails loudly if vault.ts ever changes them.
  */
-async function encryptRaw(
+async function deriveAndEncrypt(
   plaintext: string,
-  masterPassword: string
-): Promise<StoredVault> {
+  masterPassword: string,
+  iterations: number
+): Promise<{ salt: Uint8Array; iv: Uint8Array; ciphertext: ArrayBuffer }> {
   const salt = crypto.getRandomValues(new Uint8Array(32));  // must match SALT_LENGTH
   const iv = crypto.getRandomValues(new Uint8Array(12));    // must match IV_LENGTH
   const enc = new TextEncoder();
@@ -56,7 +59,7 @@ async function encryptRaw(
     ["deriveBits", "deriveKey"]
   );
   const key = await crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
     keyMaterial,
     { name: "AES-GCM", length: 256 },  // must match AES_KEY_BITS
     false,
@@ -66,6 +69,42 @@ async function encryptRaw(
     { name: "AES-GCM", iv },
     key,
     enc.encode(plaintext)
+  );
+  return { salt, iv, ciphertext };
+}
+
+/** Fabricate a current-format v2 blob (PBKDF2_ITERATIONS) for an arbitrary plaintext. */
+async function encryptRaw(
+  plaintext: string,
+  masterPassword: string
+): Promise<StoredVault> {
+  const { salt, iv, ciphertext } = await deriveAndEncrypt(
+    plaintext,
+    masterPassword,
+    PBKDF2_ITERATIONS
+  );
+  return {
+    version: 2,
+    iterations: PBKDF2_ITERATIONS,
+    saltB64: bytesToB64(salt),
+    ivB64: bytesToB64(iv),
+    ciphertextB64: bytesToB64(new Uint8Array(ciphertext)),
+  };
+}
+
+/**
+ * Fabricate a legacy v1 blob (LEGACY_PBKDF2_ITERATIONS_V1, no `iterations` field)
+ * — the on-disk shape of a real pre-upgrade user. Proves backward-compatible
+ * decrypt and the one-time migration to v2.
+ */
+async function encryptRawLegacyV1(
+  plaintext: string,
+  masterPassword: string
+): Promise<StoredVault> {
+  const { salt, iv, ciphertext } = await deriveAndEncrypt(
+    plaintext,
+    masterPassword,
+    LEGACY_PBKDF2_ITERATIONS_V1
   );
   return {
     version: 1,
@@ -269,6 +308,31 @@ describe("encryptVault + decryptVault", () => {
   });
 });
 
+describe("backward compatibility — legacy v1 vaults still decrypt", () => {
+  test("v1 blob (310k, no iterations field) decrypts with the right master password", async () => {
+    const legacy = await encryptRawLegacyV1(JSON.stringify(PAYLOAD), MASTER);
+    expect(legacy.version).toBe(1);
+    expect(unwrap(await decryptVault(legacy, MASTER))).toEqual(PAYLOAD);
+  });
+
+  test("wrong master password against a legacy v1 blob → decrypt_failed", async () => {
+    const legacy = await encryptRawLegacyV1(JSON.stringify(PAYLOAD), MASTER);
+    expect(unwrapErr(await decryptVault(legacy, "wrong-password"))).toBe("decrypt_failed");
+  });
+});
+
+describe("encryptVault writes the current v2 format", () => {
+  test("output is version 2 and records the 600k iteration count", async () => {
+    const stored = unwrap(await encryptVault(PAYLOAD, MASTER));
+    expect(stored.version).toBe(2);
+    if (stored.version === 2) {
+      expect(stored.iterations).toBe(PBKDF2_ITERATIONS);
+      expect(stored.iterations).toBe(600_000);
+    }
+    expect(unwrap(await decryptVault(stored, MASTER))).toEqual(PAYLOAD);
+  });
+});
+
 describe("isStoredVault", () => {
   const valid: StoredVault = {
     version: 1,
@@ -305,8 +369,16 @@ describe("isStoredVault", () => {
     expect(isStoredVault({})).toBe(false);
   });
 
-  test("version: 2 → false", () => {
+  test("version: 2 without an iterations field → false", () => {
     expect(isStoredVault({ ...valid, version: 2 })).toBe(false);
+  });
+
+  test("valid version: 2 with a numeric iterations field → true", () => {
+    expect(isStoredVault({ ...valid, version: 2, iterations: 600_000 })).toBe(true);
+  });
+
+  test("version: 2 with a non-numeric iterations field → false", () => {
+    expect(isStoredVault({ ...valid, version: 2, iterations: "600000" })).toBe(false);
   });
 
   test('version: "1" (string instead of number) → false', () => {
@@ -338,12 +410,16 @@ describe("isStoredVault", () => {
 });
 
 describe("constants", () => {
-  test("PBKDF2_ITERATIONS meets the 310 000 security floor", () => {
-    expect(PBKDF2_ITERATIONS).toBeGreaterThanOrEqual(310_000);
+  test("PBKDF2_ITERATIONS meets the current 600 000 OWASP floor", () => {
+    expect(PBKDF2_ITERATIONS).toBeGreaterThanOrEqual(600_000);
   });
 
-  test("PBKDF2_ITERATIONS is exactly 310 000", () => {
-    expect(PBKDF2_ITERATIONS).toBe(310_000);
+  test("PBKDF2_ITERATIONS is exactly 600 000", () => {
+    expect(PBKDF2_ITERATIONS).toBe(600_000);
+  });
+
+  test("LEGACY_PBKDF2_ITERATIONS_V1 stays 310 000 so existing v1 vaults keep decrypting", () => {
+    expect(LEGACY_PBKDF2_ITERATIONS_V1).toBe(310_000);
   });
 
   test('VAULT_STORAGE_KEY is "cunyVault"', () => {
@@ -454,7 +530,7 @@ describe("decryptVault — error-code distinction: crypto_failed vs decrypt_fail
 });
 
 // ── crypto/vault-encryptraw-drift [LOW] ──────────────────────────────────────
-// The encryptRaw helper hardcodes SALT_LENGTH (32) and IV_LENGTH (12) from
+// The deriveAndEncrypt helper hardcodes SALT_LENGTH (32) and IV_LENGTH (12) from
 // vault.ts's private constants. This guard derives the real lengths from a live
 // encryptVault output so changing those constants fails here loudly instead of
 // letting the helper silently encrypt with stale sizes (masking genuine drift).
