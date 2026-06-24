@@ -161,8 +161,7 @@ jobs:
 
       - name: Submit to Chrome Web Store
         # Pinned to wdzeng/chrome-extension v1.3.2.
-        # NOTE: upload-only keeps this as a DRAFT for the first rollout — publish once
-        # from the dashboard to confirm wiring, then set this to false (or delete it).
+        # Uploads the zip and submits it for review
         uses: wdzeng/chrome-extension@ca3095bc8f067413cc0d06fcb4a5fea87229a787 # v1.3.2
         with:
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
@@ -170,7 +169,6 @@ jobs:
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
-          upload-only: true
 
       - name: Submit to Mozilla AMO
         # Pinned to wdzeng/firefox-addon v1.2.1. Submits the listed version for review and

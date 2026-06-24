@@ -34,14 +34,14 @@ Tags containing `beta` or `rc` are published as **prereleases**.
 
 **Job 2 — `publish`** (gated): blocks on the **`production`** environment, which has a **required reviewer** — the run pauses for a one-click **Approve** in the Actions UI before anything reaches a store. On approval it submits the built zip to:
 
-- **Chrome Web Store** via `wdzeng/chrome-extension` — currently **`upload-only`** (uploads as a draft, does not auto-publish).
+- **Chrome Web Store** via `wdzeng/chrome-extension` — uploads the zip and **submits it for review** (auto-publishes on approval).
 - **Mozilla AMO** via `wdzeng/firefox-addon` — submits for review with `source.zip` attached (GUID `cunyautologin@alexmarty.dev`).
 
 ---
 
 ## One-time / first-rollout wiring
 
-- **Chrome is `upload-only`.** It uploads a **draft** to the CWS dashboard; **publish it once by hand** from the dashboard to confirm the wiring, then flip `upload-only` to `false` (or remove it) in `release.yml` so future tags publish automatically.
+- **Chrome auto-publishes.** `release.yml` submits the zip to CWS for review (no `upload-only`), so an approved tag goes live without a manual dashboard step.
 - **Required secrets** — Chrome: `CHROME_EXTENSION_ID`, `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, `CHROME_REFRESH_TOKEN`. AMO: `AMO_JWT_ISSUER`, `AMO_JWT_SECRET`. The `publish` job also needs the `production` environment to exist with a required reviewer.
 
 ---
