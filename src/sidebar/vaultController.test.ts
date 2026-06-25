@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, test, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
+import { okAsync } from "neverthrow";
 import { encryptVault, decryptVault, LEGACY_PBKDF2_ITERATIONS_V1 } from "../crypto/vault";
 import type { StoredVault, VaultPayload } from "../crypto/vault";
 import { unwrap } from "../testUtils/resultUnwrap";
@@ -1108,6 +1109,7 @@ describe("vaultController — Advanced secret-key reveal", () => {
 });
 
 // ── sidebar/vault-kdf-migration — v1 → v2 re-encrypt on unlock ────────────────
+// eslint-disable-next-line max-lines-per-function
 describe("vaultController — KDF migration on unlock (v1 → v2)", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -1187,5 +1189,101 @@ describe("vaultController — KDF migration on unlock (v1 → v2)", () => {
 
     await vi.waitFor(() => expect(getStatusText().length).toBeGreaterThan(0));
     expect(await vaultWritesForMaster(localSet, MASTER, before)).toHaveLength(0);
+  });
+
+  test("a persist failure during migration leaves the user unlocked (best-effort, never blocks unlock)", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    const localSet = vi.mocked(browser.storage.local.set);
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    // The only storage.local.set in the unlock path is the migration re-encrypt;
+    // make it reject to simulate a persist failure mid-migration.
+    localSet.mockRejectedValue(new Error("quota exceeded"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await configureSnapshot(await makeLegacyLockedSnapshot());
+    await unlockWith(MASTER);
+
+    // The user authenticated correctly; a failed re-encrypt must degrade to "still
+    // unlocked", not a lockout. Unlock completing flips submit to "Save changes",
+    // and the status is cleared (no error, no stuck "Securing your vault…").
+    await vi.waitFor(() => expect(getSubmitBtnText()).toBe("Save changes"));
+    expect(getStatusText()).toBe("");
+    warn.mockRestore();
+  });
+
+  test("a re-encrypt failure during migration leaves the user unlocked (no blob written)", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    const localSet = vi.mocked(browser.storage.local.set);
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    localSet.mockResolvedValue();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    // Build the v1 fixture FIRST (it uses crypto.subtle.encrypt), then fail only
+    // the NEXT encrypt — the migration re-encrypt. The unlock's own step is a
+    // decrypt, so this targets the migration precisely without breaking the unlock.
+    await configureSnapshot(await makeLegacyLockedSnapshot());
+    const before = localSet.mock.calls.length;
+    const encryptSpy = vi
+      .spyOn(crypto.subtle, "encrypt")
+      .mockRejectedValueOnce(new Error("WebCrypto encrypt failure"));
+
+    await unlockWith(MASTER);
+
+    await vi.waitFor(() => expect(getSubmitBtnText()).toBe("Save changes"));
+    expect(getStatusText()).toBe("");
+    // Re-encrypt failed before any persist, so nothing was written to storage.
+    expect(await vaultWritesForMaster(localSet, MASTER, before)).toHaveLength(0);
+    encryptSpy.mockRestore();
+    warn.mockRestore();
+  });
+});
+
+// ── sidebar/vault-kdf-migration-biometric — v1 → v2 on biometric unlock ───────
+// The commit wires migration into BOTH the password and biometric unlock paths;
+// only the password half was covered. Biometric is a primary unlock method for the
+// target users, so a regression that dropped applyVaultMigration from the biometric
+// handler would silently strand those users on v1/310k forever.
+describe("vaultController — KDF migration on biometric unlock (v1 → v2)", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupSidebarDom();
+  });
+
+  afterEach(async () => {
+    // Restore the biometric mocks to their file-wide defaults so enrolled=true does
+    // not leak into other tests.
+    const { isBiometricEnrolled, unlockWithBiometric } = await import("../crypto/biometric");
+    vi.mocked(isBiometricEnrolled).mockResolvedValue(false);
+    vi.mocked(unlockWithBiometric).mockReset();
+  });
+
+  test("a biometric unlock also re-encrypts a legacy v1 vault to v2 (600k)", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    const localSet = vi.mocked(browser.storage.local.set);
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    localSet.mockResolvedValue();
+
+    // Enrolled authenticator that returns the master, plus the unlock button the
+    // shared DOM omits (it sits outside the vault form).
+    const { isBiometricEnrolled, unlockWithBiometric } = await import("../crypto/biometric");
+    vi.mocked(isBiometricEnrolled).mockResolvedValue(true);
+    vi.mocked(unlockWithBiometric).mockReturnValue(okAsync(MASTER));
+    const bioBtn = document.createElement("button");
+    bioBtn.id = "biometric-unlock-btn";
+    document.body.appendChild(bioBtn);
+
+    await configureSnapshot(await makeLegacyLockedSnapshot());
+    const before = localSet.mock.calls.length;
+    await loadController();
+    bioBtn.click();
+
+    const written = await waitForVaultWrittenWithMaster(localSet, MASTER, before);
+    expect(written.version).toBe(2);
+    if (written.version === 2) expect(written.iterations).toBe(600_000);
+    expect(unwrap(await decryptVault(written, MASTER))).toEqual({
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
+      totpSecret: TEST_TOTP,
+    });
   });
 });

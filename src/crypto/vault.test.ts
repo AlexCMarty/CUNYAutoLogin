@@ -333,6 +333,54 @@ describe("encryptVault writes the current v2 format", () => {
   });
 });
 
+// ── crypto/vault-v2-self-describing-iterations ───────────────────────────────
+// v2's whole reason to exist over v1 is the self-describing `iterations` field:
+// decrypt must derive at the count the BLOB carries, not at the PBKDF2_ITERATIONS
+// constant. Every other v2 test happens to use 600k, so a bug that read the
+// constant instead of the field would pass silently — and break the future
+// work-factor bump / Argon2 (vault v3) migration this format was designed for.
+describe("decryptVault — v2 is self-describing (derives at stored.iterations, not the constant)", () => {
+  // A non-600k work factor: the assertions below only prove anything because it
+  // differs from PBKDF2_ITERATIONS. Kept small so the derivations stay fast.
+  const ALT_ITERATIONS = 200_000;
+
+  test("a v2 blob at a non-600k iteration count decrypts at that count", async () => {
+    expect(ALT_ITERATIONS).not.toBe(PBKDF2_ITERATIONS);
+    const { salt, iv, ciphertext } = await deriveAndEncrypt(
+      JSON.stringify(PAYLOAD),
+      MASTER,
+      ALT_ITERATIONS
+    );
+    const stored: StoredVault = {
+      version: 2,
+      iterations: ALT_ITERATIONS,
+      saltB64: bytesToB64(salt),
+      ivB64: bytesToB64(iv),
+      ciphertextB64: bytesToB64(new Uint8Array(ciphertext)),
+    };
+    expect(unwrap(await decryptVault(stored, MASTER))).toEqual(PAYLOAD);
+  });
+
+  test("a v2 blob whose iterations field is wrong fails — decrypt derives at the stated count", async () => {
+    // Encrypted at ALT_ITERATIONS but mislabelled PBKDF2_ITERATIONS. decryptVault
+    // derives at the stated (wrong) count → key mismatch → decrypt_failed. If it
+    // ignored the field and used the real count, this would wrongly succeed.
+    const { salt, iv, ciphertext } = await deriveAndEncrypt(
+      JSON.stringify(PAYLOAD),
+      MASTER,
+      ALT_ITERATIONS
+    );
+    const mislabelled: StoredVault = {
+      version: 2,
+      iterations: PBKDF2_ITERATIONS,
+      saltB64: bytesToB64(salt),
+      ivB64: bytesToB64(iv),
+      ciphertextB64: bytesToB64(new Uint8Array(ciphertext)),
+    };
+    expect(unwrapErr(await decryptVault(mislabelled, MASTER))).toBe("decrypt_failed");
+  });
+});
+
 describe("isStoredVault", () => {
   const valid: StoredVault = {
     version: 1,
