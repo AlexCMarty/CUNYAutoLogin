@@ -14,11 +14,11 @@ import {
 const VAULT_STORAGE_KEY = "cunyVault";
 const SESSION_MASTER_KEY = "cunySessionMaster";
 // Deliberately the LEGACY v1 work factor: this fixture provisions a pre-upgrade
-// (version: 1) vault — the on-disk shape real students have today. Do NOT sync
-// this to vault.ts's current PBKDF2_ITERATIONS (600k); 310k must stay paired with
+// (version: 1) vault — the on-disk shape of the oldest installed users. Do NOT
+// sync this to vault.ts's current Argon2id params; 310k must stay paired with
 // `version: 1`, or decryptVault (which derives v1 at LEGACY_PBKDF2_ITERATIONS_V1)
-// cannot open the fixture. encryptVault now emits v2; a password unlock migrates
-// this blob forward to v2/600k.
+// cannot open the fixture. encryptVault now emits v3; a password unlock migrates
+// this blob forward to v3/Argon2id.
 const LEGACY_PBKDF2_ITERATIONS_V1 = 310_000;
 
 type SerializedVault = {

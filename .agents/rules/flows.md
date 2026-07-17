@@ -4,7 +4,7 @@
 
 ## Session unlock (`sidebar/vaultController.ts`)
 
-Three modes: `setup`, `locked`, `unlocked`. On every side panel open, `init()` calls `loadVaultSessionSnapshot()` (`src/vaultSession/snapshot.ts`), which reads `storage.local` + `storage.session`, attempts PBKDF2 + AES-GCM decrypt, and returns the mode. If decryption fails the session master is purged and sidebar falls back to `locked`.
+Three modes: `setup`, `locked`, `unlocked`. On every side panel open, `init()` calls `loadVaultSessionSnapshot()` (`src/vaultSession/snapshot.ts`), which reads `storage.local` + `storage.session`, attempts Argon2id/PBKDF2 + AES-GCM decrypt, and returns the mode. If decryption fails the session master is purged and sidebar falls back to `locked`.
 
 `sidebar/sidebar.ts` loads `onboarding/render.ts` when:
 - A `#qa=<STATE>` dev-jump hash is present (dev/e2e only) — this branch also clears the resume snapshot (`clearResumeSnapshotSession`) and mounts with `{ qaJump }`

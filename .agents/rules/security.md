@@ -25,15 +25,17 @@ The master password is **never written to `storage.local` or disk**. It lives on
 
 | Parameter | Value |
 |---|---|
-| KDF | PBKDF2-SHA-256 |
-| Iterations | 600 000 (v2; legacy v1 vaults are 310 000) |
+| KDF (current) | Argon2id (via `argon2id` WASM) |
+| Argon2id params (v3) | memory = 19 MiB (19456 KiB), passes = 2, parallelism = 1 (OWASP minimum) |
+| Legacy KDF (v1/v2) | PBKDF2-SHA-256 — v1 at 310 000, v2 at 600 000 (decrypt-only) |
 | Salt | 32 bytes (random per save) |
 | IV | 12 bytes (random per save) |
 | Cipher | AES-GCM-256 |
-| Storage format (v2) | `{ version: 2, iterations, saltB64, ivB64, ciphertextB64 }` |
-| Storage format (v1, legacy) | `{ version: 1, saltB64, ivB64, ciphertextB64 }` — decrypt-only at 310 000 |
+| Storage format (v3) | `{ version: 3, memorySize, passes, parallelism, saltB64, ivB64, ciphertextB64 }` |
+| Storage format (v2, legacy) | `{ version: 2, iterations, saltB64, ivB64, ciphertextB64 }` — decrypt-only PBKDF2 |
+| Storage format (v1, legacy) | `{ version: 1, saltB64, ivB64, ciphertextB64 }` — decrypt-only PBKDF2 at 310 000 |
 
-**Vault migration (v1 → v2):** `encryptVault` always writes v2 at `PBKDF2_ITERATIONS` (600 000, current OWASP / Bitwarden floor). `decryptVault` reads both — v2 uses its stored `iterations`, v1 implicitly uses `LEGACY_PBKDF2_ITERATIONS_V1` (310 000). On the first password or biometric unlock of a legacy v1 vault, `src/sidebar/vaultController.ts` re-encrypts it to v2 in place (best-effort — a re-encrypt/persist failure never blocks unlock; it retries next unlock). The v1 decrypt path and `LEGACY_PBKDF2_ITERATIONS_V1` must remain until migration is proven across the installed base — **never delete them in the same release that ships v2** (a manual downgrade would otherwise hide a v2 blob from old code). Biometric (`cunyBiometricCredential`) is unaffected: its PRF output is the AES key, independent of PBKDF2.
+**Vault migration (v1/v2 → v3):** `encryptVault` always writes v3 at the OWASP Argon2id minimum. `decryptVault` reads all three — v3 uses its stored Argon2id cost params, v2 uses its stored `iterations`, v1 implicitly uses `LEGACY_PBKDF2_ITERATIONS_V1` (310 000). On the first password or biometric unlock of a legacy vault, `src/sidebar/vaultController.ts` re-encrypts it to v3 in place (best-effort — a re-encrypt/persist failure never blocks unlock; it retries next unlock). The v1/v2 decrypt paths and PBKDF2 constants must remain until migration is proven across the installed base — **never delete them in the same release that ships v3**. Manifest CSP includes `'wasm-unsafe-eval'` so Argon2id WASM can instantiate on extension pages (not the content script). Biometric (`cunyBiometricCredential`) is unaffected: its PRF output is the AES key, independent of the vault KDF.
 
 ## SSO session termination (OAM / `ssologin.cuny.edu`)
 

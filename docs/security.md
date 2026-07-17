@@ -2,13 +2,13 @@
 title: Security
 layout: default
 nav_order: 3
-description: "How CUNYAutoLogin protects your CUNY credentials: an on-device AES-256-GCM vault, PBKDF2 key derivation, WebAuthn biometric unlock, no server, and open MIT source you can verify."
+description: "How CUNYAutoLogin protects your CUNY credentials: an on-device AES-256-GCM vault, Argon2id key derivation, WebAuthn biometric unlock, no server, and open MIT source you can verify."
 ---
 
 # Is CUNYAutoLogin secure?
 {: .no_toc }
 
-**Last updated:** June 18, 2026
+**Last updated:** July 17, 2026
 
 You're trusting it with your CUNY password *and* your authenticator secret. That's exactly the right thing to be suspicious about — and you shouldn't take anyone's word for the answer, including ours. Here's precisely what happens to your credentials, and where you can verify every claim in the source code.
 {: .fs-5 }
@@ -28,7 +28,7 @@ There is no CUNYAutoLogin server. No account, no sync, no analytics, no telemetr
 
 ## The vault is real cryptography, not obfuscation
 
-Your master password is run through PBKDF2-SHA256 with 600,000 iterations and a random 32-byte salt — the iteration count OWASP recommends — to derive an AES-256-GCM key. A fresh random IV is generated on every save. What hits disk is salt, IV, and ciphertext. Nothing readable, nothing recoverable without your master password. (See [`src/crypto/vault.ts`](https://github.com/AlexCMarty/CUNYAutoLogin/blob/main/src/crypto/vault.ts) — it's under 200 lines, you can read the whole thing with your coffee.)
+Your master password is run through **Argon2id** (OWASP's preferred password KDF: 19 MiB memory, 2 passes, parallelism 1) with a random 32-byte salt to derive an AES-256-GCM key. A fresh random IV is generated on every save. What hits disk is the Argon2id cost parameters, salt, IV, and ciphertext. Nothing readable, nothing recoverable without your master password. Older vaults encrypted with PBKDF2 are still readable and upgrade to Argon2id on the next unlock. (See [`src/crypto/vault.ts`](https://github.com/AlexCMarty/CUNYAutoLogin/blob/main/src/crypto/vault.ts).)
 
 ## Fingerprint unlock isn't a backdoor
 

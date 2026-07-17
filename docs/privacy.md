@@ -39,7 +39,7 @@ This policy describes how the **CUNYAutoLogin** browser extension ("the extensio
 
 | Category | What | Where / how |
 | --- | --- | --- |
-| **Vault (encrypted)** | CUNY Login email (`@login.cuny.edu`), password, TOTP secret material needed to generate one-time codes, and related vault metadata | `browser.storage.local` as a single encrypted blob (PBKDF2 + AES-GCM). Readable only with your vault password. |
+| **Vault (encrypted)** | CUNY Login email (`@login.cuny.edu`), password, TOTP secret material needed to generate one-time codes, and related vault metadata | `browser.storage.local` as a single encrypted blob (Argon2id + AES-GCM). Readable only with your vault password. |
 | **Biometric unlock (optional)** | WebAuthn credential identifiers, authenticator metadata the browser needs for later prompts, and your vault password **re-encrypted** with a key derived inside the platform authenticator (not stored in plaintext) | `browser.storage.local` as a separate small record **only if you enroll**. Skipping onboarding biometrics leaves this empty. |
 | **Session-only data** | Vault unlock key derived from your vault password; optional **setup drafts** during onboarding; **pending TOTP secret** scraped during MFA enrollment | `browser.storage.session` (not persisted like normal disk storage; cleared when the session ends). |
 | **In-memory staging** | Email and password during a narrow onboarding window before the vault exists | Held only in the extension **service worker** memory until cleared or the worker terminates. |
@@ -89,7 +89,7 @@ The manifest requests **storage**, **sidePanel** (and Firefox **sidebar** equiva
 
 ## Security practices (high level)
 
-- Vault data at rest uses **PBKDF2** (SHA-256) with a high iteration count and **AES-GCM** with per-save random salt and IV.
+- Vault data at rest uses **Argon2id** (OWASP preferred KDF) and **AES-GCM** with per-save random salt and IV. Older PBKDF2 vaults still decrypt and upgrade on unlock.
 - The **vault password** is not stored in `storage.local` in plaintext. If you use biometric unlock, an additional **AES-GCM**-wrapped copy of the vault password is stored tied to a **WebAuthn** credential; unlocking re-derives the wrapping key through a **platform-only** prompt (your OS / authenticator), not over the network to this project.
 - Production builds avoid logging secrets; development logging is gated behind development flags.
 

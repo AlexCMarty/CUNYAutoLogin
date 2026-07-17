@@ -29,7 +29,7 @@ Because CUNY Login puts one short-lived single sign-on session in front of every
 
 ### Is this secure?
 
-Your credentials never leave your device. Your CUNY email, password, and 2FA secret are sealed in an encrypted vault (PBKDF2 + AES-256-GCM) in your browser's extension storage — there is no server, no account, and no analytics. The extension can only access the CUNY sign-in pages, and the code is open source, so every claim is verifiable. The [Security page](/security/) walks through the cryptography claim by claim, and the [Privacy Policy](/privacy/) covers everything else.
+Your credentials never leave your device. Your CUNY email, password, and 2FA secret are sealed in an encrypted vault (Argon2id + AES-256-GCM) in your browser's extension storage — there is no server, no account, and no analytics. The extension can only access the CUNY sign-in pages, and the code is open source, so every claim is verifiable. The [Security page](/security/) walks through the cryptography claim by claim, and the [Privacy Policy](/privacy/) covers everything else.
 
 ### Where is my data stored?
 
@@ -114,7 +114,7 @@ Unlock the extension first. Then try refreshing the CUNY page after unlocking.
       "name": "Is this secure?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Your credentials never leave your device. Your CUNY email, password, and 2FA secret are sealed in an encrypted vault (PBKDF2 + AES-256-GCM) in your browser's extension storage — there is no server, no account, and no analytics. The extension can only access the CUNY sign-in pages, and the code is open source, so every claim is verifiable."
+        "text": "Your credentials never leave your device. Your CUNY email, password, and 2FA secret are sealed in an encrypted vault (Argon2id + AES-256-GCM) in your browser's extension storage — there is no server, no account, and no analytics. The extension can only access the CUNY sign-in pages, and the code is open source, so every claim is verifiable."
       }
     },
     {

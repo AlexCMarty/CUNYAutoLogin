@@ -1,6 +1,6 @@
 # Contributing to CUNYAutoLogin
 
-Manifest V3 extension for **Chromium 141+** and **Firefox 140+** (see `src/manifest.json`). The sidebar stores an encrypted vault (**PBKDF2 + AES-GCM**), keeps the session master in **`browser.storage.session`**, and ships a content script on the CUNY SSO host that auto-fills login and TOTP when the vault is unlocked.
+Manifest V3 extension for **Chromium 141+** and **Firefox 140+** (see `src/manifest.json`). The sidebar stores an encrypted vault (**Argon2id + AES-GCM**; legacy PBKDF2 vaults migrate on unlock), keeps the session master in **`browser.storage.session`**, and ships a content script on the CUNY SSO host that auto-fills login and TOTP when the vault is unlocked.
 
 For product copy and install steps, see **[README.md](README.md)**. For cutting a release, see **[RELEASING.md](RELEASING.md)**. This file is for **contributors**: build, test, and where things live.
 
@@ -122,7 +122,7 @@ Both require a **dev build** (`npm run build:dev` / `build:e2e`) and are tree-sh
 The extension ships to installed users via store auto-update, so each of these is a breaking change:
 
 - **`StoredVault` schema** — bump `StoredVault.version`, write a forward migration in `src/crypto/vault.ts`, and keep the previous decrypt path readable until the migration is proven. A vault you can read but can't re-encrypt is a lockout.
-- **Crypto params** (PBKDF2 iterations, salt/IV lengths, KDF, cipher mode) are part of the on-disk format — changing them without a migration locks every existing user out. Key-stretch lazily on next unlock and re-write.
+- **Crypto params** (KDF algorithm and cost params, salt/IV lengths, cipher mode) are part of the on-disk format — changing them without a migration locks every existing user out. Key-stretch lazily on next unlock and re-write.
 - **`cunyBiometricCredential` shape** must stay readable in its old form (`src/crypto/biometric.ts`); a silent fallback to password is acceptable, throwing on parse is not.
 - **Message protocol** (`STAGE_ONBOARDING_CREDENTIALS`, `AUTO_FILL_REQUEST`, `ONBOARDING_*`, …) must stay backward compatible for one auto-update window — old content scripts talk to a freshly-updated service worker (and vice versa) for a few minutes after rollout.
 - **Onboarding state / resume-snapshot changes** need a graceful path for snapshots written by the previous version — clear and route to a safe screen, don't hard-throw.

@@ -12,7 +12,7 @@
 
 A Manifest V3 browser extension (Firefox + Chromium) that:
 
-1. Stores CUNY credentials (email, password, TOTP secret) encrypted in `browser.storage.local` via PBKDF2 + AES-GCM.
+1. Stores CUNY credentials (email, password, TOTP secret) encrypted in `browser.storage.local` via Argon2id + AES-GCM (legacy PBKDF2 vaults migrate on unlock).
 2. Keeps the vault unlocked across side panel opens for the browser session via `browser.storage.session`.
 3. Injects a content script on `https://ssologin.cuny.edu/*` that auto-fills the Oracle SSO login and TOTP pages when the vault session is valid.
 4. Guides first-time students through a multi-screen onboarding flow.
@@ -58,7 +58,8 @@ src/
                                 lives in emailEntry.ts / passwordEntry.ts.
                                 guidedCommon.ts — shared guided-flow helpers
                                 screenContext.ts — shared mount context
-  crypto/vault.ts               PBKDF2 + AES-GCM encrypt/decrypt; VAULT_STORAGE_KEY
+  crypto/vault.ts               Argon2id + AES-GCM encrypt/decrypt; VAULT_STORAGE_KEY
+  crypto/argon2idLoader.ts      OpenPGP.js Argon2id WASM loader (cached)
   cuny/ssoSite.ts               Single source of truth for SSO URL markers, DOM IDs, TOTP constants
   runtime/messageRouter.ts      routeByType, guardedRoute shared helpers
   content/content.ts            IIFE composition root — startup wiring + URL routing

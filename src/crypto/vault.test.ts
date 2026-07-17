@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
+  ARGON2ID_MEMORY_KIB,
+  ARGON2ID_PARALLELISM,
+  ARGON2ID_PASSES,
   LEGACY_PBKDF2_ITERATIONS_V1,
   PBKDF2_ITERATIONS,
   VAULT_STORAGE_KEY,
@@ -73,7 +76,7 @@ async function deriveAndEncrypt(
   return { salt, iv, ciphertext };
 }
 
-/** Fabricate a current-format v2 blob (PBKDF2_ITERATIONS) for an arbitrary plaintext. */
+/** Fabricate a legacy v2 blob (PBKDF2_ITERATIONS) for an arbitrary plaintext. */
 async function encryptRaw(
   plaintext: string,
   masterPassword: string
@@ -138,9 +141,10 @@ describe("encryptVault + decryptVault", () => {
       expect(unwrap(await decryptVault(stored, MASTER))).toEqual(payload);
     });
 
-    test("empty-string master password", async () => {
-      const stored = unwrap(await encryptVault(PAYLOAD, ""));
-      expect(unwrap(await decryptVault(stored, ""))).toEqual(PAYLOAD);
+    test("empty-string master password is rejected by Argon2id (min 8 bytes)", async () => {
+      // Production UI enforces MIN_MASTER_PASSWORD_LENGTH (12); the WASM lib's
+      // own floor is 8 bytes — empty input must surface as crypto_failed, not hang.
+      expect(unwrapErr(await encryptVault(PAYLOAD, ""))).toBe("crypto_failed");
     });
 
     test("256-character master password", async () => {
@@ -156,14 +160,14 @@ describe("encryptVault + decryptVault", () => {
       expect(unwrapErr(await decryptVault(stored, "wrong-password"))).toBe("decrypt_failed");
     });
 
-    test("correct password used to encrypt, empty string used to decrypt", async () => {
+    test("correct password used to encrypt, empty string used to decrypt → crypto_failed", async () => {
       const stored = unwrap(await encryptVault(PAYLOAD, MASTER));
-      expect(unwrapErr(await decryptVault(stored, ""))).toBe("decrypt_failed");
+      // Empty password fails Argon2id's ≥8-byte check before AES-GCM runs.
+      expect(unwrapErr(await decryptVault(stored, ""))).toBe("crypto_failed");
     });
 
-    test("empty string used to encrypt, correct password used to decrypt", async () => {
-      const stored = unwrap(await encryptVault(PAYLOAD, ""));
-      expect(unwrapErr(await decryptVault(stored, MASTER))).toBe("decrypt_failed");
+    test("empty string used to encrypt is rejected before a blob is written", async () => {
+      expect(unwrapErr(await encryptVault(PAYLOAD, ""))).toBe("crypto_failed");
     });
   });
 
@@ -291,19 +295,27 @@ describe("encryptVault + decryptVault", () => {
       vi.restoreAllMocks();
     });
 
-    test("encryptVault returns crypto_failed when key derivation throws", async () => {
-      vi.spyOn(globalThis.crypto.subtle, "deriveKey").mockRejectedValueOnce(
+    test("encryptVault returns crypto_failed when AES key import throws", async () => {
+      vi.spyOn(globalThis.crypto.subtle, "importKey").mockRejectedValueOnce(
         new Error("simulated WebCrypto failure")
       );
       expect(unwrapErr(await encryptVault(PAYLOAD, MASTER))).toBe("crypto_failed");
     });
 
-    test("decryptVault returns crypto_failed when key derivation throws", async () => {
+    test("decryptVault returns crypto_failed when AES key import throws (Argon2id path)", async () => {
       const stored = unwrap(await encryptVault(PAYLOAD, MASTER));
-      vi.spyOn(globalThis.crypto.subtle, "deriveKey").mockRejectedValueOnce(
+      vi.spyOn(globalThis.crypto.subtle, "importKey").mockRejectedValueOnce(
         new Error("simulated WebCrypto failure")
       );
       expect(unwrapErr(await decryptVault(stored, MASTER))).toBe("crypto_failed");
+    });
+
+    test("decryptVault returns crypto_failed when PBKDF2 deriveKey throws (legacy v2 path)", async () => {
+      const legacyV2 = await encryptRaw(JSON.stringify(PAYLOAD), MASTER);
+      vi.spyOn(globalThis.crypto.subtle, "deriveKey").mockRejectedValueOnce(
+        new Error("simulated WebCrypto failure")
+      );
+      expect(unwrapErr(await decryptVault(legacyV2, MASTER))).toBe("crypto_failed");
     });
   });
 });
@@ -321,13 +333,27 @@ describe("backward compatibility — legacy v1 vaults still decrypt", () => {
   });
 });
 
-describe("encryptVault writes the current v2 format", () => {
-  test("output is version 2 and records the 600k iteration count", async () => {
+describe("backward compatibility — legacy v2 (PBKDF2 600k) vaults still decrypt", () => {
+  test("v2 blob decrypts with the right master password", async () => {
+    const legacyV2 = await encryptRaw(JSON.stringify(PAYLOAD), MASTER);
+    expect(legacyV2.version).toBe(2);
+    expect(unwrap(await decryptVault(legacyV2, MASTER))).toEqual(PAYLOAD);
+  });
+
+  test("wrong master password against a legacy v2 blob → decrypt_failed", async () => {
+    const legacyV2 = await encryptRaw(JSON.stringify(PAYLOAD), MASTER);
+    expect(unwrapErr(await decryptVault(legacyV2, "wrong-password"))).toBe("decrypt_failed");
+  });
+});
+
+describe("encryptVault writes the current v3 (Argon2id) format", () => {
+  test("output is version 3 and records OWASP Argon2id cost params", async () => {
     const stored = unwrap(await encryptVault(PAYLOAD, MASTER));
-    expect(stored.version).toBe(2);
-    if (stored.version === 2) {
-      expect(stored.iterations).toBe(PBKDF2_ITERATIONS);
-      expect(stored.iterations).toBe(600_000);
+    expect(stored.version).toBe(3);
+    if (stored.version === 3) {
+      expect(stored.memorySize).toBe(ARGON2ID_MEMORY_KIB);
+      expect(stored.passes).toBe(ARGON2ID_PASSES);
+      expect(stored.parallelism).toBe(ARGON2ID_PARALLELISM);
     }
     expect(unwrap(await decryptVault(stored, MASTER))).toEqual(PAYLOAD);
   });
@@ -457,17 +483,56 @@ describe("isStoredVault", () => {
   });
 });
 
-describe("constants", () => {
-  test("PBKDF2_ITERATIONS meets the current 600 000 OWASP floor", () => {
-    expect(PBKDF2_ITERATIONS).toBeGreaterThanOrEqual(600_000);
+describe("isStoredVault — v3 Argon2id shape", () => {
+  const validV1: StoredVault = {
+    version: 1,
+    saltB64: "abc",
+    ivB64: "def",
+    ciphertextB64: "ghi",
+  };
+
+  test("version: 3 without Argon2id cost fields → false", () => {
+    expect(isStoredVault({ ...validV1, version: 3 })).toBe(false);
   });
 
-  test("PBKDF2_ITERATIONS is exactly 600 000", () => {
+  test("valid version: 3 with numeric Argon2id cost fields → true", () => {
+    expect(
+      isStoredVault({
+        ...validV1,
+        version: 3,
+        memorySize: ARGON2ID_MEMORY_KIB,
+        passes: ARGON2ID_PASSES,
+        parallelism: ARGON2ID_PARALLELISM,
+      })
+    ).toBe(true);
+  });
+
+  test("version: 3 with a non-numeric cost field → false", () => {
+    expect(
+      isStoredVault({
+        ...validV1,
+        version: 3,
+        memorySize: "19456",
+        passes: ARGON2ID_PASSES,
+        parallelism: ARGON2ID_PARALLELISM,
+      })
+    ).toBe(false);
+  });
+});
+
+describe("constants", () => {
+  test("PBKDF2_ITERATIONS stays 600 000 for the legacy v2 decrypt path", () => {
     expect(PBKDF2_ITERATIONS).toBe(600_000);
   });
 
   test("LEGACY_PBKDF2_ITERATIONS_V1 stays 310 000 so existing v1 vaults keep decrypting", () => {
     expect(LEGACY_PBKDF2_ITERATIONS_V1).toBe(310_000);
+  });
+
+  test("Argon2id params match the OWASP minimum (19 MiB / t=2 / p=1)", () => {
+    expect(ARGON2ID_MEMORY_KIB).toBe(19 * 1024);
+    expect(ARGON2ID_PASSES).toBe(2);
+    expect(ARGON2ID_PARALLELISM).toBe(1);
   });
 
   test('VAULT_STORAGE_KEY is "cunyVault"', () => {
