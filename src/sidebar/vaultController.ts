@@ -309,18 +309,18 @@ const warnVaultMigrationError = (context: string, error: unknown): void => {
 };
 
 /**
- * One-time forward migration: re-encrypt a legacy v1 vault to the current v2
- * format (higher PBKDF2 work factor) with the same master password the user just
- * unlocked with. Best-effort — returns the original v1 blob on any failure so the
- * caller stays unlocked and migration retries on the next unlock. Order is
- * encrypt → storage.set → return, mirroring the save path in handleUnlocked.
+ * One-time forward migration: re-encrypt a legacy v1/v2 vault to the current v3
+ * format (Argon2id) with the same master password the user just unlocked with.
+ * Best-effort — returns the original blob on any failure so the caller stays
+ * unlocked and migration retries on the next unlock. Order is encrypt →
+ * storage.set → return, mirroring the save path in handleUnlocked.
  */
 async function migrateVaultToLatest(
   stored: StoredVault,
   masterPassword: string,
   payload: VaultPayload
 ): Promise<StoredVault> {
-  if (stored.version === 2) return stored;
+  if (stored.version === 3) return stored;
   const encResult = await encryptVault(payload, masterPassword);
   if (encResult.isErr()) {
     warnVaultMigrationError("re-encrypt failed", encResult.error);
@@ -347,7 +347,7 @@ async function applyVaultMigration(
   payload: VaultPayload
 ): Promise<void> {
   const current = storedVault;
-  if (!current || current.version === 2) return;
+  if (!current || current.version === 3) return;
   setStatus("Securing your vault…");
   storedVault = await migrateVaultToLatest(current, masterPassword, payload);
 }

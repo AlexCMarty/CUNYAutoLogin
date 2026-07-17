@@ -1,12 +1,24 @@
-/** PBKDF2 + AES-GCM vault crypto and `StoredVault` wire shape; persistence uses `VAULT_STORAGE_KEY` in `browser.storage.local`. */
+/** Vault crypto and `StoredVault` wire shape; persistence uses `VAULT_STORAGE_KEY` in `browser.storage.local`. */
 
 import { Result, ResultAsync, err, ok } from "neverthrow";
+import { getArgon2id } from "./argon2idLoader";
 
 export const VAULT_STORAGE_KEY = "cunyVault" as const;
 
+/** Legacy v2 PBKDF2 work factor; retained for the v2 decrypt path. */
 export const PBKDF2_ITERATIONS = 600_000;
-/** Legacy v1 vaults were encrypted at this work factor; retained for the v1 decrypt path and one-time migration to v2. */
+/** Legacy v1 vaults were encrypted at this work factor; retained for the v1 decrypt path. */
 export const LEGACY_PBKDF2_ITERATIONS_V1 = 310_000;
+
+/** OWASP Argon2id minimum memory cost (KiB) — 19 MiB. */
+export const ARGON2ID_MEMORY_KIB = 19 * 1024;
+/** OWASP Argon2id minimum time cost (passes / iterations). */
+export const ARGON2ID_PASSES = 2;
+/** Single-threaded — browser WASM Argon2 without SharedArrayBuffer. */
+export const ARGON2ID_PARALLELISM = 1;
+/** 32-byte output → AES-256 key material. */
+const ARGON2ID_TAG_LENGTH = 32;
+
 const SALT_LENGTH = 32;
 const IV_LENGTH = 12;
 const AES_KEY_BITS = 256;
@@ -22,11 +34,10 @@ export interface VaultPayload {
 /**
  * Wire format persisted to storage (no plaintext secrets).
  *
- * v1 (legacy) has no `iterations` field and is implicitly PBKDF2 at
- * `LEGACY_PBKDF2_ITERATIONS_V1`. v2 is self-describing — it stores its own
- * iteration count so the work factor can be raised again (or swapped for a
- * different KDF's params) without another format break. `decryptVault` reads
- * both; `encryptVault` always writes v2.
+ * - v1: implicit PBKDF2 at `LEGACY_PBKDF2_ITERATIONS_V1` (decrypt-only).
+ * - v2: self-describing PBKDF2 via `iterations` (decrypt-only).
+ * - v3: Argon2id with self-describing `{ memorySize, passes, parallelism }`.
+ *   `encryptVault` always writes v3.
  */
 interface StoredVaultV1 {
   version: 1;
@@ -43,7 +54,17 @@ interface StoredVaultV2 {
   ciphertextB64: string;
 }
 
-export type StoredVault = StoredVaultV1 | StoredVaultV2;
+interface StoredVaultV3 {
+  version: 3;
+  memorySize: number;
+  passes: number;
+  parallelism: number;
+  saltB64: string;
+  ivB64: string;
+  ciphertextB64: string;
+}
+
+export type StoredVault = StoredVaultV1 | StoredVaultV2 | StoredVaultV3;
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -62,7 +83,7 @@ function base64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
-async function deriveAesKey(
+async function deriveAesKeyPbkdf2(
   masterPassword: string,
   salt: Uint8Array,
   iterations: number
@@ -83,6 +104,36 @@ async function deriveAesKey(
       hash: "SHA-256",
     },
     keyMaterial,
+    { name: "AES-GCM", length: AES_KEY_BITS },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function deriveAesKeyArgon2id(
+  masterPassword: string,
+  salt: Uint8Array,
+  params: { memorySize: number; passes: number; parallelism: number }
+): Promise<CryptoKey> {
+  const argon2id = await getArgon2id();
+  // Copy into a same-realm Uint8Array: jsdom / cross-realm typed arrays fail
+  // argon2id's `instanceof Uint8Array` checks otherwise.
+  const passwordBytes = new Uint8Array(new TextEncoder().encode(masterPassword));
+  const saltBytes = new Uint8Array(salt);
+  // Argon2id runs synchronously on this thread (WASM, no SharedArrayBuffer). At
+  // OWASP-minimum params (~50–250 ms) that is acceptable; raising memory/passes
+  // later would block the sidebar / service worker for longer.
+  const rawKey = argon2id({
+    password: passwordBytes,
+    salt: saltBytes,
+    parallelism: params.parallelism,
+    passes: params.passes,
+    memorySize: params.memorySize,
+    tagLength: ARGON2ID_TAG_LENGTH,
+  });
+  return crypto.subtle.importKey(
+    "raw",
+    rawKey as BufferSource,
     { name: "AES-GCM", length: AES_KEY_BITS },
     false,
     ["encrypt", "decrypt"]
@@ -120,6 +171,20 @@ function parseDecryptedPayload(plaintext: ArrayBuffer): Result<VaultPayload, Vau
   return ok({ email, password, totpSecret });
 }
 
+const aesGcmDecrypt = (
+  key: CryptoKey,
+  iv: Uint8Array,
+  ciphertext: Uint8Array
+): ResultAsync<VaultPayload, VaultError> =>
+  ResultAsync.fromPromise(
+    crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv as BufferSource },
+      key,
+      ciphertext as BufferSource
+    ),
+    () => "decrypt_failed" as const
+  ).andThen((plain) => parseDecryptedPayload(plain));
+
 export const encryptVault = (
   payload: VaultPayload,
   masterPassword: string
@@ -127,8 +192,16 @@ export const encryptVault = (
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
   const plaintext = new TextEncoder().encode(JSON.stringify(payload));
-  return ResultAsync.fromPromise(deriveAesKey(masterPassword, salt, PBKDF2_ITERATIONS), () => "crypto_failed" as const).andThen(
-    (key) =>
+  const argonParams = {
+    memorySize: ARGON2ID_MEMORY_KIB,
+    passes: ARGON2ID_PASSES,
+    parallelism: ARGON2ID_PARALLELISM,
+  };
+  return ResultAsync.fromPromise(
+    deriveAesKeyArgon2id(masterPassword, salt, argonParams),
+    () => "crypto_failed" as const
+  )
+    .andThen((key) =>
       ResultAsync.fromPromise(
         crypto.subtle.encrypt(
           { name: "AES-GCM", iv: iv as BufferSource },
@@ -137,26 +210,22 @@ export const encryptVault = (
         ),
         () => "crypto_failed" as const
       )
-  ).map((ciphertext) => ({
-    version: 2 as const,
-    iterations: PBKDF2_ITERATIONS,
-    saltB64: bytesToBase64(salt),
-    ivB64: bytesToBase64(iv),
-    ciphertextB64: bytesToBase64(new Uint8Array(ciphertext)),
-  }));
+    )
+    .map((ciphertext) => ({
+      version: 3 as const,
+      memorySize: ARGON2ID_MEMORY_KIB,
+      passes: ARGON2ID_PASSES,
+      parallelism: ARGON2ID_PARALLELISM,
+      saltB64: bytesToBase64(salt),
+      ivB64: bytesToBase64(iv),
+      ciphertextB64: bytesToBase64(new Uint8Array(ciphertext)),
+    }));
 };
 
 export const decryptVault = (
   stored: StoredVault,
   masterPassword: string
 ): ResultAsync<VaultPayload, VaultError> => {
-  // v1 vaults predate the self-describing format and were encrypted at the
-  // legacy work factor; v2 carries its own iteration count.
-  const iterations =
-    stored.version === 2 ? stored.iterations : LEGACY_PBKDF2_ITERATIONS_V1;
-  // Decode the stored base64 fields up front. `atob` throws synchronously on
-  // non-base64 input (corrupt/tampered storage), so guard it as a Result rather
-  // than letting the exception escape the ResultAsync contract.
   const decodeStoredBytes = Result.fromThrowable(
     () => ({
       salt: base64ToBytes(stored.saltB64),
@@ -165,20 +234,24 @@ export const decryptVault = (
     }),
     () => "invalid_payload" as const
   );
-  return decodeStoredBytes().asyncAndThen(({ salt, iv, ciphertext }) =>
-    ResultAsync.fromPromise(deriveAesKey(masterPassword, salt, iterations), () => "crypto_failed" as const)
-      .andThen((key) =>
-        ResultAsync.fromPromise(
-          crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: iv as BufferSource },
-            key,
-            ciphertext as BufferSource
-          ),
-          () => "decrypt_failed" as const
-        )
-      )
-      .andThen((plain) => parseDecryptedPayload(plain))
-  );
+  return decodeStoredBytes().asyncAndThen(({ salt, iv, ciphertext }) => {
+    if (stored.version === 3) {
+      return ResultAsync.fromPromise(
+        deriveAesKeyArgon2id(masterPassword, salt, {
+          memorySize: stored.memorySize,
+          passes: stored.passes,
+          parallelism: stored.parallelism,
+        }),
+        () => "crypto_failed" as const
+      ).andThen((key) => aesGcmDecrypt(key, iv, ciphertext));
+    }
+    const iterations =
+      stored.version === 2 ? stored.iterations : LEGACY_PBKDF2_ITERATIONS_V1;
+    return ResultAsync.fromPromise(
+      deriveAesKeyPbkdf2(masterPassword, salt, iterations),
+      () => "crypto_failed" as const
+    ).andThen((key) => aesGcmDecrypt(key, iv, ciphertext));
+  });
 };
 
 export const isStoredVault = (value: unknown): value is StoredVault => {
@@ -189,8 +262,14 @@ export const isStoredVault = (value: unknown): value is StoredVault => {
     typeof candidate.ivB64 === "string" &&
     typeof candidate.ciphertextB64 === "string";
   if (!hasBlobFields) return false;
-  // v1 is implicitly the legacy work factor; v2 must carry a numeric iteration count.
   if (candidate.version === 1) return true;
   if (candidate.version === 2) return typeof candidate.iterations === "number";
+  if (candidate.version === 3) {
+    return (
+      typeof candidate.memorySize === "number" &&
+      typeof candidate.passes === "number" &&
+      typeof candidate.parallelism === "number"
+    );
+  }
   return false;
 };

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, test, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import { okAsync } from "neverthrow";
-import { encryptVault, decryptVault, LEGACY_PBKDF2_ITERATIONS_V1 } from "../crypto/vault";
+import { encryptVault, decryptVault, LEGACY_PBKDF2_ITERATIONS_V1, PBKDF2_ITERATIONS } from "../crypto/vault";
 import type { StoredVault, VaultPayload } from "../crypto/vault";
 import { unwrap } from "../testUtils/resultUnwrap";
 import { VAULT_STORAGE_KEY } from "../crypto/vault";
@@ -111,8 +111,8 @@ async function makeLockedSnapshot(master = MASTER): Promise<VaultSessionSnapshot
 
 /**
  * Build a legacy v1 vault (PBKDF2 @ LEGACY_PBKDF2_ITERATIONS_V1, no `iterations`
- * field) — the on-disk shape of a real pre-upgrade user, used to drive the
- * migrate-on-unlock path. encryptVault now emits v2, so this fabricates v1 directly.
+ * field) — the on-disk shape of a real pre-v2 user, used to drive the
+ * migrate-on-unlock path. encryptVault now emits v3, so this fabricates v1 directly.
  */
 async function makeLegacyV1Vault(master = MASTER): Promise<StoredVault> {
   const plaintext = JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD, totpSecret: TEST_TOTP });
@@ -137,11 +137,49 @@ async function makeLegacyV1Vault(master = MASTER): Promise<StoredVault> {
   };
 }
 
+/**
+ * Build a legacy v2 vault (PBKDF2 @ PBKDF2_ITERATIONS) — the on-disk shape of a
+ * v0.10.x user before Argon2id. encryptVault now emits v3.
+ */
+async function makeLegacyV2Vault(master = MASTER): Promise<StoredVault> {
+  const plaintext = JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD, totpSecret: TEST_TOTP });
+  const salt = crypto.getRandomValues(new Uint8Array(32));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(master), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt"]
+  );
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
+  const toB64 = (bytes: Uint8Array): string => btoa(String.fromCharCode(...bytes));
+  return {
+    version: 2,
+    iterations: PBKDF2_ITERATIONS,
+    saltB64: toB64(salt),
+    ivB64: toB64(iv),
+    ciphertextB64: toB64(new Uint8Array(ciphertext)),
+  };
+}
+
 /** Locked snapshot whose stored vault is a legacy v1 blob. */
 async function makeLegacyLockedSnapshot(master = MASTER): Promise<VaultSessionSnapshot> {
   return {
     mode: "locked",
     storedVault: await makeLegacyV1Vault(master),
+    sessionMasterPassword: null,
+    sessionPayload: null,
+  };
+}
+
+/** Locked snapshot whose stored vault is a legacy v2 blob. */
+async function makeLegacyV2LockedSnapshot(master = MASTER): Promise<VaultSessionSnapshot> {
+  return {
+    mode: "locked",
+    storedVault: await makeLegacyV2Vault(master),
     sessionMasterPassword: null,
     sessionPayload: null,
   };
@@ -1108,9 +1146,9 @@ describe("vaultController — Advanced secret-key reveal", () => {
   });
 });
 
-// ── sidebar/vault-kdf-migration — v1 → v2 re-encrypt on unlock ────────────────
+// ── sidebar/vault-kdf-migration — v1/v2 → v3 re-encrypt on unlock ─────────────
 // eslint-disable-next-line max-lines-per-function
-describe("vaultController — KDF migration on unlock (v1 → v2)", () => {
+describe("vaultController — KDF migration on unlock (v1/v2 → v3)", () => {
   beforeEach(() => {
     vi.resetModules();
     setupSidebarDom();
@@ -1140,7 +1178,7 @@ describe("vaultController — KDF migration on unlock (v1 → v2)", () => {
     return matches;
   }
 
-  test("a legacy v1 vault is re-encrypted to v2 (600k) on first unlock", async () => {
+  test("a legacy v1 vault is re-encrypted to v3 (Argon2id) on first unlock", async () => {
     const browser = (await import("webextension-polyfill")).default;
     const localSet = vi.mocked(browser.storage.local.set);
     vi.mocked(browser.storage.session.set).mockResolvedValue();
@@ -1151,8 +1189,12 @@ describe("vaultController — KDF migration on unlock (v1 → v2)", () => {
     await unlockWith(MASTER);
 
     const written = await waitForVaultWrittenWithMaster(localSet, MASTER, before);
-    expect(written.version).toBe(2);
-    if (written.version === 2) expect(written.iterations).toBe(600_000);
+    expect(written.version).toBe(3);
+    if (written.version === 3) {
+      expect(written.memorySize).toBe(19 * 1024);
+      expect(written.passes).toBe(2);
+      expect(written.parallelism).toBe(1);
+    }
     // The migrated blob still yields the original credentials.
     expect(unwrap(await decryptVault(written, MASTER))).toEqual({
       email: TEST_EMAIL,
@@ -1161,13 +1203,32 @@ describe("vaultController — KDF migration on unlock (v1 → v2)", () => {
     });
   });
 
-  test("an already-v2 vault is not re-written on unlock", async () => {
+  test("a legacy v2 vault is re-encrypted to v3 (Argon2id) on first unlock", async () => {
     const browser = (await import("webextension-polyfill")).default;
     const localSet = vi.mocked(browser.storage.local.set);
     vi.mocked(browser.storage.session.set).mockResolvedValue();
     localSet.mockResolvedValue();
 
-    await configureSnapshot(await makeLockedSnapshot()); // encryptVault → v2
+    await configureSnapshot(await makeLegacyV2LockedSnapshot());
+    const before = localSet.mock.calls.length;
+    await unlockWith(MASTER);
+
+    const written = await waitForVaultWrittenWithMaster(localSet, MASTER, before);
+    expect(written.version).toBe(3);
+    expect(unwrap(await decryptVault(written, MASTER))).toEqual({
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
+      totpSecret: TEST_TOTP,
+    });
+  });
+
+  test("an already-v3 vault is not re-written on unlock", async () => {
+    const browser = (await import("webextension-polyfill")).default;
+    const localSet = vi.mocked(browser.storage.local.set);
+    vi.mocked(browser.storage.session.set).mockResolvedValue();
+    localSet.mockResolvedValue();
+
+    await configureSnapshot(await makeLockedSnapshot()); // encryptVault → v3
     const before = localSet.mock.calls.length;
     await unlockWith(MASTER);
 
@@ -1238,12 +1299,12 @@ describe("vaultController — KDF migration on unlock (v1 → v2)", () => {
   });
 });
 
-// ── sidebar/vault-kdf-migration-biometric — v1 → v2 on biometric unlock ───────
+// ── sidebar/vault-kdf-migration-biometric — v1 → v3 on biometric unlock ───────
 // The commit wires migration into BOTH the password and biometric unlock paths;
 // only the password half was covered. Biometric is a primary unlock method for the
 // target users, so a regression that dropped applyVaultMigration from the biometric
-// handler would silently strand those users on v1/310k forever.
-describe("vaultController — KDF migration on biometric unlock (v1 → v2)", () => {
+// handler would silently strand those users on a legacy KDF forever.
+describe("vaultController — KDF migration on biometric unlock (v1 → v3)", () => {
   beforeEach(() => {
     vi.resetModules();
     setupSidebarDom();
@@ -1257,7 +1318,7 @@ describe("vaultController — KDF migration on biometric unlock (v1 → v2)", ()
     vi.mocked(unlockWithBiometric).mockReset();
   });
 
-  test("a biometric unlock also re-encrypts a legacy v1 vault to v2 (600k)", async () => {
+  test("a biometric unlock also re-encrypts a legacy v1 vault to v3 (Argon2id)", async () => {
     const browser = (await import("webextension-polyfill")).default;
     const localSet = vi.mocked(browser.storage.local.set);
     vi.mocked(browser.storage.session.set).mockResolvedValue();
@@ -1278,8 +1339,12 @@ describe("vaultController — KDF migration on biometric unlock (v1 → v2)", ()
     bioBtn.click();
 
     const written = await waitForVaultWrittenWithMaster(localSet, MASTER, before);
-    expect(written.version).toBe(2);
-    if (written.version === 2) expect(written.iterations).toBe(600_000);
+    expect(written.version).toBe(3);
+    if (written.version === 3) {
+      expect(written.memorySize).toBe(19 * 1024);
+      expect(written.passes).toBe(2);
+      expect(written.parallelism).toBe(1);
+    }
     expect(unwrap(await decryptVault(written, MASTER))).toEqual({
       email: TEST_EMAIL,
       password: TEST_PASSWORD,

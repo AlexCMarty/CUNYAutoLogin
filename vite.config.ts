@@ -30,6 +30,9 @@ export default defineConfig(({ mode }) => {
       outDir: "dist",
       emptyOutDir: true,
       minify: isDev ? false : "esbuild",
+      // Both argon2id WASM binaries are <5 KB; inline them as data: URLs so the
+      // SIMD and non-SIMD loaders share one fetch path (no orphan .wasm asset).
+      assetsInlineLimit: 8192,
       rollupOptions: {
         input: {
           sidebar: resolve(__dirname, "sidebar.html"),

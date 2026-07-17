@@ -39,6 +39,7 @@
     "vitest": "^4.1.2"
   },
   "dependencies": {
+    "argon2id": "^1.0.1",
     "neverthrow": "^8.2.0",
     "totp-generator": "^2.0.1",
     "webextension-polyfill": "^0.12.0"
