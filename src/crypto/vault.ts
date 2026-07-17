@@ -120,6 +120,9 @@ async function deriveAesKeyArgon2id(
   // argon2id's `instanceof Uint8Array` checks otherwise.
   const passwordBytes = new Uint8Array(new TextEncoder().encode(masterPassword));
   const saltBytes = new Uint8Array(salt);
+  // Argon2id runs synchronously on this thread (WASM, no SharedArrayBuffer). At
+  // OWASP-minimum params (~50–250 ms) that is acceptable; raising memory/passes
+  // later would block the sidebar / service worker for longer.
   const rawKey = argon2id({
     password: passwordBytes,
     salt: saltBytes,
